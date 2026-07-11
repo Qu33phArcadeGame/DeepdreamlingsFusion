@@ -436,7 +436,7 @@
   </style>
 </head>
 <body>
-<div id="verBadge" style="position:fixed;bottom:6px;right:8px;font-family:Helvetica,Arial,sans-serif;font-size:10px;color:#444;z-index:99999;letter-spacing:1px;pointer-events:none;">dl-v4</div>
+<div id="verBadge" style="position:fixed;bottom:6px;right:8px;font-family:Helvetica,Arial,sans-serif;font-size:10px;color:#444;z-index:99999;letter-spacing:1px;pointer-events:none;">dl-v5</div>
 
 <canvas id="game"></canvas>
 
@@ -519,7 +519,7 @@
     <button onclick="returnToArcade()" class="mk-btn flip">RETURN TO ARCADE</button>
     <button onclick="arcadeToMenu()" class="mk-btn">MAIN MENU</button>
   </div>
-  <img id="platformerBg" src="dreamlingsoverlay.png" draggable="false" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;" onerror="this.style.opacity=0.15">
+  <img id="platformerBg" src="dreamlingoverlay.png" draggable="false" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;" onerror="this.style.opacity=0.15">
   <canvas id="platformerCanvas" style="position:absolute;background:#0a0f1e;border-radius:2px;"></canvas>
   <div id="pfLeftBtn" style="position:absolute;border-radius:50%;z-index:4;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;touch-action:none;"></div>
   <div id="pfRightBtn" style="position:absolute;border-radius:50%;z-index:4;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;touch-action:none;"></div>
@@ -555,7 +555,7 @@
     <div class="home-title">DEEPDREAMLINGS</div>
     <div class="home-cab" onclick="launchDeep()">
       <div class="home-cab-glow"></div>
-      <img src="dreamlingsoverlay.png" alt="Deepdreamlings cabinet" onerror="this.style.opacity=0.25">
+      <img src="dreamlingoverlay.png" alt="Deepdreamlings cabinet" onerror="this.style.opacity=0.25">
       <div class="home-cab-tap">TAP TO PLAY</div>
     </div>
     <div class="home-hint">COLLECT &middot; FUSE &middot; COMPLETE THE DREAM UNIVERSE</div>
@@ -1302,7 +1302,7 @@ function showPlatformer(game){
   arcadeGame = game||"jump";
   if(arcadeGame!=="jump") pfMusicStop();
   var nav = (arcadeGame==="levelselect"||arcadeGame==="binder"||arcadeGame==="fusepick");
-  var _bg=document.getElementById("platformerBg"); if(_bg) _bg.src = (arcadeGame==="dream"||nav)?"dreamlingsoverlay.png":"qu33phjump.png";
+  var _bg=document.getElementById("platformerBg"); if(_bg) _bg.src = (arcadeGame==="dream"||nav)?"dreamlingoverlay.png":"qu33phjump.png";
   var _am2=document.getElementById("arcadeMenu"); if(_am2) _am2.style.display="none";
   document.getElementById("titleScreen").style.display="none";
   var tc=document.getElementById("titleCoins"); if(tc) tc.style.display="none";
@@ -2468,7 +2468,7 @@ function returnToCabBinder(){
 }
 function openBinderCab(){
   arcadeGame="binder"; bcTab="dex"; bcView="grid"; bcSel=0; bcScroll=0; bcGridScroll=0;
-  var _bg=document.getElementById("platformerBg"); if(_bg) _bg.src="dreamlingsoverlay.png";
+  var _bg=document.getElementById("platformerBg"); if(_bg) _bg.src="dreamlingoverlay.png";
   var mb=document.getElementById("pfMapBackBtn"); if(mb) mb.style.display="block";
 }
 // canvas taps: tap a tab to switch, tap a card to open it full-screen
@@ -2525,7 +2525,7 @@ function openFusePickCab(free){
   var bd=document.getElementById("dlBinder"); if(bd) bd.style.display="none";
   dmPaused=true;
   arcadeGame="fusepick";
-  var _bg=document.getElementById("platformerBg"); if(_bg) _bg.src="dreamlingsoverlay.png";
+  var _bg=document.getElementById("platformerBg"); if(_bg) _bg.src="dreamlingoverlay.png";
   document.getElementById("platformerScreen").style.display="block";
   pfCanvas=document.getElementById("platformerCanvas"); layoutPlatformer();
   var mb=document.getElementById("pfMapBackBtn"); if(mb) mb.style.display="block";
@@ -2552,7 +2552,7 @@ function fpCancel(){
   if(fpReturn==="binder"){ dmFreeFuse=false; if(bcFromCab){ returnToCabBinder(); return; } }
   // back to the dream ride
   dmFreeFuse=false; arcadeGame="dream"; dmPaused=false;
-  var _bg=document.getElementById("platformerBg"); if(_bg) _bg.src="dreamlingsoverlay.png";
+  var _bg=document.getElementById("platformerBg"); if(_bg) _bg.src="dreamlingoverlay.png";
   var mb=document.getElementById("pfMapBackBtn"); if(mb) mb.style.display="none";
   var pb=document.getElementById("arcadePauseBtn"); if(pb) pb.style.display="block";
   var bb=document.getElementById("dlBinderBtn"); if(bb) bb.style.display="block";
