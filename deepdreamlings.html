@@ -2001,13 +2001,23 @@ let dmRare = (function(){ try{ return JSON.parse(localStorage.getItem("qu33phDLR
 function dlSave(){ try{ localStorage.setItem("qu33phDLDex",JSON.stringify(dmDex)); localStorage.setItem("qu33phDLHeld",JSON.stringify(dmHeld)); localStorage.setItem("qu33phDLFusions",JSON.stringify(dmFusions)); localStorage.setItem("qu33phDLEscaped",JSON.stringify(dmEscaped)); localStorage.setItem("qu33phDLRare",JSON.stringify(dmRare)); }catch(e){} }
 function drawDreamlingImg(x,y,size,num,t,rare){ drawDreamCreature(pfctx,x,y,size,num,t,rare); }
 function gateMsg(txt){ try{haptic([30,40,30]);}catch(e){} }
-function resetDeep(){ dmCreatures=[]; dmPan=0; dmView=0; dmBoss=null; dmState="ride"; dmMsg="RIDE THE DREAM \u00b7 COLLECT DREAMLINGS"; dmMsgT=130; dmSpawnT=10; dmT=0; dmCaptures=0; dmFuseSel=[]; }
+function resetDeep(){ dmCreatures=[]; dmPan=0; dmView=0; dmBoss=null; dmState="ride"; dmMsg="RIDE THE DREAM \u00b7 COLLECT DREAMLINGS"; dmMsgT=130; dmSpawnT=10; dmT=0; dmCaptures=0; dmFuseSel=[];
+  if(window.__fromTown){ window.__townCaught=0; var A=DL_AREAS[dmArea], roamDone=true; for(var i=A.from;i<A.to;i++){ if(dmDex.indexOf(i)<0){ roamDone=false; break; } }
+    if(roamDone){ dmMsg="ALL COLLECTED \u00b7 BOSS INCOMING!"; dmMsgT=120; setTimeout(function(){ if(arcadeGame==="dream" && !dmBoss) spawnBoss(); }, 1400); } }
+}
 function projectDeep(cr){
   var W=pfCanvas.width, H=pfCanvas.height, sc=1/(cr.z*2.2+0.32);
   return { x:W/2+(cr.a-dmView)*W*0.5*sc, y:H/2+cr.y*H*0.34*sc+Math.sin(cr.bob)*3*sc, size:Math.min(H*0.42, 10*sc), sc:sc };
 }
 function spawnDeepCreature(){ var num=dmSpawnPool.length?dmSpawnPool[Math.floor(Math.random()*dmSpawnPool.length)]:(1+Math.floor(Math.random()*DL_COUNT)); dmCreatures.push({ a:(Math.random()*2-1)*1.0, y:(Math.random()*0.44-0.22), z:1, num:num, bob:Math.random()*6, rare:(Math.random()<0.1) }); }
-function spawnBoss(){ var req=20+(dmFusions.length)*10+Math.floor(Math.random()*12); dmBoss={ num:DL_AREAS[dmArea].to, z:1, bob:0, req:req, rare:(Math.random()<0.25) }; dmBossReadyT=170; dmState="boss"; dmMsg=(dmBoss.rare?"\u2726RARE BOSS APPEARED!":"BOSS APPEARED!"); dmMsgT=150; try{haptic([40,30,40,30,40]);}catch(e){} }
+function spawnBoss(){ var A=DL_AREAS[dmArea]; var span=A.to-A.from+1;
+  var need=(dmDex.indexOf(A.to)<0);
+  var a=need?A.to:(A.from+Math.floor(Math.random()*span));
+  var b; do{ b=A.from+Math.floor(Math.random()*span); }while(b===a && span>1);
+  var comp=[a,b], pw=a+b;
+  var req=Math.max(10, Math.min(24, Math.round(pw*0.85)+Math.floor(Math.random()*4)));   // low-medium: beatable with a decent pair
+  dmBoss={ comp:comp, num:a, power:pw, req:req, name:fusNameArr(comp), z:1, bob:0, rare:(Math.random()<0.2) };
+  dmBossReadyT=170; dmState="boss"; dmMsg=(dmBoss.rare?"\u2726RARE FUSION BOSS!":"FUSION BOSS APPEARED!"); dmMsgT=150; try{haptic([40,30,40,30,40]);}catch(e){} }
 function updateDeep(){
   if(!pfCanvas || dmPaused || arcadePaused) return;
   dmT++;
@@ -2025,7 +2035,7 @@ function dmCapture(){
   if(dmState!=="ride"){ dmMsg="AIM \u2014 PRESS RED TO FUSE"; dmMsgT=40; return; }
   var W=pfCanvas.width, H=pfCanvas.height, cx=W/2, cy=H/2, best=null, bd=1e9;
   dmCreatures.forEach(function(cr){ if(cr.z<0.85){ var p=projectDeep(cr); var d=Math.hypot(p.x-cx,p.y-cy); if(d<p.size*2.3 && d<bd){ bd=d; best=cr; } } });
-  if(best){ dmCreatures=dmCreatures.filter(function(c){return c!==best;}); dmHeld.push(best.num); if(dmDex.indexOf(best.num)<0) dmDex.push(best.num); if(best.rare){ if(dmRare.indexOf(best.num)<0) dmRare.push(best.num); } dmCaptures++; dlSave(); dmMsg=(best.rare?"\u2726RARE! \u00b7 ":"")+"COLLECTED #"+best.num; dmMsgT=90; try{haptic([12,18]);}catch(e){} }
+  if(best){ dmCreatures=dmCreatures.filter(function(c){return c!==best;}); dmHeld.push(best.num); if(dmDex.indexOf(best.num)<0) dmDex.push(best.num); if(best.rare){ if(dmRare.indexOf(best.num)<0) dmRare.push(best.num); } dmCaptures++; dlSave(); dmMsg=(best.rare?"\u2726RARE! \u00b7 ":"")+"COLLECTED #"+best.num; dmMsgT=90; try{haptic([12,18]);}catch(e){} if(window.__fromTown){ window.__townCaught=(window.__townCaught||0)+1; if(window.__townCaught>=3){ dmMsg="3 COLLECTED \u00b7 BACK TO TOWN"; dmMsgT=80; setTimeout(function(){ location.href="index.html"; },1000); } } }
   else { dmMsg="MISSED..."; dmMsgT=28; }
 }
 function dmFuse(){
@@ -2214,8 +2224,8 @@ function drawDeep(){
   sorted.forEach(function(cr){ var p=projectDeep(cr); if(p.size>1) drawDreamlingImg(p.x,p.y,p.size,cr.num,t+cr.bob*10,cr.rare); });
   if(dmBoss){ var bsc=1/(dmBoss.z*2.2+0.32), bs=Math.min(H*0.42,10*bsc), bx0=cx-dmView*W*0.5*bsc;
     if(dmBoss.rare){ pfctx.save(); var _bp=0.5+0.5*Math.sin(t*3.2); pfctx.globalAlpha=0.35+0.35*_bp; var _rg=pfctx.createRadialGradient(bx0,cy,0,bx0,cy,bs*2.1); _rg.addColorStop(0,"rgba(255,220,110,0.6)"); _rg.addColorStop(0.5,"rgba(255,180,50,0.25)"); _rg.addColorStop(1,"rgba(255,180,50,0)"); pfctx.fillStyle=_rg; pfctx.beginPath(); pfctx.arc(bx0,cy,bs*2.1,0,6.283); pfctx.fill(); pfctx.restore(); }
-    pfctx.save(); pfctx.shadowColor=dmBoss.rare?"#ffe08a":"#22e0e0"; pfctx.shadowBlur=dmBoss.rare?42:22; drawDreamCreature(pfctx, bx0, cy, bs*1.25, dmBoss.num, t*1.4, dmBoss.rare); pfctx.restore();
-    pfctx.fillStyle="#22e0e0"; pfctx.font="bold 8px monospace"; pfctx.textAlign="center"; pfctx.fillText("BOSS \u2014 #"+dmBoss.num, cx, cy-bs*1.35); }
+    pfctx.save(); pfctx.shadowColor=dmBoss.rare?"#ffe08a":"#22e0e0"; pfctx.shadowBlur=dmBoss.rare?42:22; var _bc=dmBoss.comp||[dmBoss.num]; if(_bc.length>=2){ pfctx.globalAlpha=0.92; drawDreamCreature(pfctx, bx0-bs*0.3, cy, bs*1.12, _bc[0], t*1.4, dmBoss.rare); pfctx.globalCompositeOperation="lighter"; drawDreamCreature(pfctx, bx0+bs*0.3, cy, bs*1.12, _bc[1], t*1.15, dmBoss.rare); } else { drawDreamCreature(pfctx, bx0, cy, bs*1.25, _bc[0], t*1.4, dmBoss.rare); } pfctx.restore();
+    pfctx.fillStyle="#22e0e0"; pfctx.font="bold 8px monospace"; pfctx.textAlign="center"; pfctx.fillText("FUSION BOSS \u2014 "+(dmBoss.name||("#"+dmBoss.num))+" \u00b7 PWR "+(dmBoss.power||dmBoss.num), cx, cy-bs*1.35); }
   pfctx.strokeStyle="rgba(255,255,255,0.7)"; pfctx.lineWidth=1.5;
   pfctx.beginPath(); pfctx.arc(cx,cy,8,0,Math.PI*2); pfctx.moveTo(cx-12,cy); pfctx.lineTo(cx-4,cy); pfctx.moveTo(cx+4,cy); pfctx.lineTo(cx+12,cy); pfctx.moveTo(cx,cy-12); pfctx.lineTo(cx,cy-4); pfctx.moveTo(cx,cy+4); pfctx.lineTo(cx,cy+12); pfctx.stroke();
   pfctx.fillStyle="#8affea"; pfctx.font="bold 9px monospace"; pfctx.textAlign="left"; pfctx.textBaseline="top"; pfctx.fillText("COLLECTED "+dmCaptures, 4,4);
@@ -3012,7 +3022,7 @@ function doFuse(){
   var req=dmBoss.req, bnum=dmBoss.num, brare=dmBoss.rare;
   var caught=Math.random() < Math.max(0.12, Math.min(0.95, power/req));
   var ent2={comp:comp, power:power, rare:rare, name:fusNameArr(comp)};
-  if(caught){ if(dmDex.indexOf(bnum)<0) dmDex.push(bnum); if(brare && dmRare.indexOf(bnum)<0) dmRare.push(bnum); } else { dmEscaped.push({num:bnum,rare:brare}); }
+  if(caught){ var bcomp=dmBoss.comp||[bnum]; for(var bi=0;bi<bcomp.length;bi++){ if(dmDex.indexOf(bcomp[bi])<0) dmDex.push(bcomp[bi]); if(brare && dmRare.indexOf(bcomp[bi])<0) dmRare.push(bcomp[bi]); } if(dmBoss.comp){ dmFusions.push({comp:dmBoss.comp.slice(), power:(dmBoss.power||0), rare:(brare?"full":""), name:(dmBoss.name||fusNameArr(dmBoss.comp))}); } } else { dmEscaped.push({num:bnum,rare:brare}); }
   consume(); dmFusions.push(ent2);
   dmFuseSel=[]; dmBoss=null; dmState="ride"; dmCaptures++;
   if(dmArea>=dmProgress && dmProgress<DL_AREAS.length-1){ dmProgress=dmArea+1; dmJustUnlocked=dmProgress; try{localStorage.setItem("qu33phDLProgress",dmProgress);}catch(e){} }
@@ -3020,6 +3030,7 @@ function doFuse(){
   dmMsg="FUSION \u2014 BOSS "+(caught?"COLLECTED!":"ESCAPED!"); dmMsgT=170; try{haptic(caught?[30,40,90]:[40,30,40]);}catch(e){}
   closeFuse();
   try{ startFuseAnim(comp[0],comp[1],caught,bnum,ent2); }catch(e){}
+  if(window.__fromTown){ setTimeout(function(){ location.href="index.html"; }, 2400); }
 }
 function openArcadePause(){ arcadePaused=true; document.getElementById("arcadePause").style.display="flex"; pfMusicPause(); }
 function resumeArcade(){ arcadePaused=false; document.getElementById("arcadePause").style.display="none"; pfMusicStart(); }
@@ -3114,8 +3125,9 @@ function themeBack(){ if(paused){ showPauseOverlay(); } else { showTitle(); } }
 function settingsBack(){ if(paused){ showPauseOverlay(); } else { showTitle(); } }
 
 function addTownBtn(){ if(document.getElementById("townBtn")) return; var b=document.createElement("div"); b.id="townBtn"; b.textContent="\u25C0 TOWN"; b.style.cssText="position:fixed;left:8px;top:8px;z-index:100000;background:rgba(13,10,23,.85);color:#8affea;font:bold 13px sans-serif;padding:8px 12px;border-radius:9px;border:1px solid #3a2360;"; b.onclick=function(){ location.href="index.html"; }; document.body.appendChild(b); }
-(function(){ try{ var q=new URLSearchParams(location.search); var pa=q.get("area"), pv=q.get("view"), ft=(q.get("town")==="1"||pa!==null||pv!==null);
-  if(pv==="binder"){ dlLoadImages(); openBinderCab(); if(ft)addTownBtn(); return; }
+(function(){ try{ var q=new URLSearchParams(location.search); var pa=q.get("area"), pv=q.get("view"), ft=(q.get("town")==="1"||pa!==null||pv!==null); window.__fromTown=ft;
+  if(ft){ window.pfMapBack=function(){ var _cd=document.getElementById("dlCard"); if(_cd&&_cd.style.display!=="none"){ _cd.style.display="none"; return; } location.href="index.html"; }; }
+  if(pv==="binder"){ dlLoadImages(); showPlatformer("binder"); openBinderCab(); return; }
   if(pa!==null){ var n=parseInt(pa,10); if(!isNaN(n)&&n>=0&&n<DL_AREAS.length){ dlLoadImages(); launchArea(n); if(ft)addTownBtn(); return; } }
 }catch(e){} showTitle(); })();
 
