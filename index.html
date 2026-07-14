@@ -37,11 +37,13 @@
 // ===== CABINET (gold overlay) geometry, from the game =====
 const CAB_SRC="dreamlingoverlay.png";
 const PF_PNG_W=1440, PF_PNG_H=2560;
-const PF_SCREEN=[0.13,0.285,0.87,0.53];   // normalized screen rect in the overlay
-const PF_JUMP=[0.599,0.607], PF_ACT=[0.737,0.605];  // round buttons -> A / B
-const DP_C=[0.306,0.605], DP_SZ=0.30;      // D-pad over the painted left/right cluster
+const PF_SCREEN=[0.15,0.30,0.85,0.515];          // screen rect (slightly smaller)
+const A_POS=[0.625,0.665], B_POS=[0.765,0.665];  // over the red / blue painted buttons (down + right)
+const DP_C=[0.255,0.655], DP_SZ=0.26;            // D-pad over the green painted pad (lower, left, smaller)
 
 // ===== CONFIG =====
+const ARCADE_FILE="deepdreamlings.html";   // your real game: 3D roam + binder + Dex + fusion
+const AREA_INDEX=0;                          // this town's area in DL_AREAS (Dream Core = 0)
 const START_MAP="map", START_ENTRY="start";
 const AREA_FIRST=1, AREA_LAST=11;
 const COLLECT_PER_VISIT=3, TAPS_TO_COLLECT=3;
@@ -87,8 +89,8 @@ function layout(){
   const dp=document.getElementById("dpad"), dsz=DP_SZ*rw;
   dp.style.left=(ox+DP_C[0]*rw-dsz/2)+"px"; dp.style.top=(oy+DP_C[1]*rh-dsz/2)+"px"; dp.style.width=dsz+"px"; dp.style.height=dsz+"px";
   const bd=0.12*rw;
-  place(document.getElementById("aBtn"), ox+PF_JUMP[0]*rw, oy+PF_JUMP[1]*rh, bd);
-  place(document.getElementById("bBtn"), ox+PF_ACT[0]*rw,  oy+PF_ACT[1]*rh,  bd);
+  place(document.getElementById("aBtn"), ox+A_POS[0]*rw, oy+A_POS[1]*rh, bd);
+  place(document.getElementById("bBtn"), ox+B_POS[0]*rw, oy+B_POS[1]*rh, bd);
   draw();
 }
 addEventListener("resize",layout);
@@ -126,16 +128,12 @@ function drawWalk(){
   for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ if(zoneAt(c,r)){ const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.fillStyle="rgba(150,90,255,"+(0.16+0.10*Math.sin(Date.now()/300+c+r))+")"; x.fillRect(dx,dy,sz,sz); } }
   const ppx=Math.round((px*T-camx)*s),ppy=Math.round((py*T-camy)*s);
   x.fillStyle="#8affea";x.strokeStyle="#0d0a17";x.lineWidth=Math.max(2,sz*0.06);x.beginPath();x.arc(ppx+sz/2,ppy+sz/2,sz*0.3,0,7);x.fill();x.stroke();
-  x.fillStyle="rgba(13,10,23,.7)"; roundRect(6,6,150,22,7); x.fill(); x.fillStyle="#c9a0ff"; x.font="11px sans-serif"; x.textAlign="left"; x.textBaseline="middle"; x.fillText("Collected "+areaCount()+"/"+(AREA_LAST-AREA_FIRST+1)+"  ·  B = Dex",12,18);
+  x.fillStyle="rgba(13,10,23,.7)"; roundRect(6,6,150,22,7); x.fill(); x.fillStyle="#c9a0ff"; x.font="11px sans-serif"; x.textAlign="left"; x.textBaseline="middle"; x.fillText("Collected "+areaCount()+"/"+(AREA_LAST-AREA_FIRST+1)+"  ·  B = Binder",12,18);
 }
 
 // ===== COLLECTING =====
 let enc=null;
-function startEncounter(){ const rem=remaining();
-  if(rem.length===0 && !townBoss){ startBoss(); return; }
-  if(rem.length===0 && townBoss){ message("Dream Core is complete!\nEvery dreamling collected.",()=>{mode="walk";draw();}); return; }
-  const pick=rem.slice(0,COLLECT_PER_VISIT);
-  enc={ list:pick.map((idx,i)=>({idx,bx:0.28+0.22*i,by:0.54,ph:Math.random()*6,meter:0,got:false})), sel:0 }; mode="collect"; }
+function startEncounter(){ location.href = ARCADE_FILE+"?area="+AREA_INDEX+"&town=1"; }
 function drawCollect(){
   const g=x.createRadialGradient(W/2,H/2,20,W/2,H/2,Math.max(W,H)); g.addColorStop(0,"#2a1150"); g.addColorStop(1,"#0a0518"); x.fillStyle=g; x.fillRect(0,0,W,H);
   x.fillStyle="#c9a0ff"; x.font="bold 13px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText("COLLECTING — tap ("+TAPS_TO_COLLECT+"x) or A",W/2,6);
@@ -205,7 +203,7 @@ function drawMessage(){ x.fillStyle="rgba(6,3,14,.95)"; x.fillRect(0,0,W,H); x.f
 function onDir(dx,dy){ if(mode==="walk") walkStep(dx,dy); else if(mode==="collect"){ if(dx>0)enc.sel=(enc.sel+1)%enc.list.length; else if(dx<0)enc.sel=(enc.sel-1+enc.list.length)%enc.list.length; draw(); } }
 function onA(){ if(mode==="collect"){ collectAdvance(); } else if(mode==="dex"){ mode="walk"; draw(); } else if(mode==="message"){ const cb=msg.cb; msg=null; if(cb)cb(); else{mode="walk";draw();} }
   else if(mode==="fusion"){ if(fus.result){ mode="message"; message(fus.won?("You created "+fus.made.name+"!\nDream Core cleared."):"The boss slipped away.\nTry fusing again.",()=>{mode="walk";inZone=true;draw();}); } else if(fus.picks.length===2){ doFuse(); } } }
-function onB(){ if(mode==="walk"){ mode="dex"; draw(); } else if(mode==="dex"){ mode="walk"; draw(); } else if(mode==="collect"&&enc.list.every(m=>m.got)){ collectAdvance(); } }
+function onB(){ if(mode==="walk"){ location.href = ARCADE_FILE+"?view=binder&town=1"; } else if(mode==="collect"&&enc&&enc.list.every(m=>m.got)){ collectAdvance(); } }
 cv.addEventListener("pointerdown",e=>{ const b=cv.getBoundingClientRect(), mx=(e.clientX-b.left)*(W/b.width), my=(e.clientY-b.top)*(H/b.height);
   if(mode==="collect"){ if(enc.list.every(m=>m.got)){ collectAdvance(); return; } for(const m of enc.list){ if(m._hit&&Math.hypot(mx-m._hit.cx,my-m._hit.cy)<=m._hit.rad){ collectTap(m); return; } } }
   else if(mode==="message"){ onA(); } else if(mode==="dex"){ mode="walk"; draw(); }
