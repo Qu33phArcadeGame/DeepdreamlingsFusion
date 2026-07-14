@@ -5,53 +5,55 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Dreamlings · Town 1</title>
 <style>
-  :root{ --line:#3a2360; --neon:#c9a0ff; --cyan:#8affea; --pink:#ff6ad5; --cab2:#2a1a48; }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
-  html,body{margin:0;height:100%;background:#050308;color:#eee;font-family:Helvetica,Arial,sans-serif;overflow:hidden;}
-  #cab{display:flex;flex-direction:column;height:100%;max-width:820px;margin:0 auto;background:linear-gradient(180deg,#241442,#160b2b);}
-  .marquee{flex:0 0 auto;text-align:center;padding:8px;font-weight:800;letter-spacing:2px;font-size:15px;color:#160a2c;
-    background:linear-gradient(90deg,var(--neon),var(--cyan));text-shadow:0 1px 0 rgba(255,255,255,.3);}
-  .marquee small{display:block;font-weight:600;letter-spacing:3px;font-size:9px;opacity:.7;}
-  #screenWrap{flex:1 1 auto;position:relative;margin:10px;border-radius:12px;border:3px solid var(--line);background:#000;overflow:hidden;box-shadow:0 0 24px rgba(201,160,255,.25) inset;}
-  #screen{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block;}
-  #controls{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:6px 20px 20px;}
-  #pad{position:relative;width:150px;height:150px;}
-  .dbtn{position:absolute;width:48px;height:48px;background:var(--cab2);border:1px solid var(--line);color:var(--neon);border-radius:12px;font-size:20px;display:flex;align-items:center;justify-content:center;}
-  .dbtn:active{background:rgba(138,255,234,.3);}
-  #up{left:51px;top:0;}#dn{left:51px;top:100px;}#lf{left:0;top:51px;}#rt{left:102px;top:51px;}
-  #abtns{display:flex;gap:16px;align-items:center;}
-  .rbtn{width:62px;height:62px;border-radius:50%;border:2px solid rgba(0,0,0,.4);font-weight:800;font-size:14px;color:#160a2c;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 3px 0 rgba(0,0,0,.4);line-height:1;}
-  .rbtn small{font-size:8px;opacity:.7;font-weight:700;}
-  .rbtn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.4);}
-  #aBtn{background:radial-gradient(circle at 35% 30%,#b6ffe9,#3fe0b0);}
-  #bBtn{background:radial-gradient(circle at 35% 30%,#ffb0d8,#ff5aa8);}
-  #err{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#ffb3d1;background:#0d0a17;font-size:14px;padding:26px;text-align:center;line-height:1.6;z-index:5;}
+  html,body{margin:0;height:100%;background:#07040f;overflow:hidden;font-family:Helvetica,Arial,sans-serif;}
+  #stage{position:fixed;inset:0;background:#0a0512;}
+  #cabImg{position:absolute;pointer-events:none;image-rendering:auto;}
+  #screen{position:absolute;background:#000;touch-action:none;}
+  #err{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#ffb3d1;background:#0d0a17;font-size:14px;padding:26px;text-align:center;line-height:1.6;z-index:9;}
+  /* D-pad over the painted left/right cluster */
+  #dpad{position:absolute;}
+  #dpad .dp{position:absolute;width:38%;height:38%;display:flex;align-items:center;justify-content:center;
+    background:rgba(18,10,28,.5);border:1px solid rgba(201,160,255,.55);border-radius:12px;color:#d9c9ff;font-size:20px;}
+  #dpad .dp:active{background:rgba(138,255,234,.4);}
+  #up{left:31%;top:0}#dn{left:31%;bottom:0}#lf{left:0;top:31%}#rt{right:0;top:31%}
+  .rbtn{position:absolute;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:#fff;font-weight:800;font-size:15px;line-height:1;background:rgba(0,0,0,.12);border:2px solid rgba(255,255,255,.4);}
+  .rbtn small{font-size:8px;opacity:.85;}
+  .rbtn:active{background:rgba(255,255,255,.25);}
 </style>
 </head>
 <body>
-<div id="cab">
-  <div class="marquee">DREAMLINGS<small>TOWN 1 · DREAM CORE</small></div>
-  <div id="screenWrap"><canvas id="screen"></canvas><div id="err"></div></div>
-  <div id="controls">
-    <div id="pad"><div class="dbtn" id="up">▲</div><div class="dbtn" id="dn">▼</div><div class="dbtn" id="lf">◀</div><div class="dbtn" id="rt">▶</div></div>
-    <div id="abtns"><div class="rbtn" id="bBtn">B<small>DEX</small></div><div class="rbtn" id="aBtn">A<small>OK</small></div></div>
-  </div>
+<div id="stage">
+  <img id="cabImg" alt="">
+  <canvas id="screen"></canvas>
+  <div id="dpad"><div class="dp" id="up">▲</div><div class="dp" id="dn">▼</div><div class="dp" id="lf">◀</div><div class="dp" id="rt">▶</div></div>
+  <div class="rbtn" id="aBtn">A<small>OK</small></div>
+  <div class="rbtn" id="bBtn">B<small>DEX</small></div>
+  <div id="err"></div>
 </div>
 
 <script>
+// ===== CABINET (gold overlay) geometry, from the game =====
+const CAB_SRC="dreamlingoverlay.png";
+const PF_PNG_W=1440, PF_PNG_H=2560;
+const PF_SCREEN=[0.13,0.285,0.87,0.53];   // normalized screen rect in the overlay
+const PF_JUMP=[0.599,0.607], PF_ACT=[0.737,0.605];  // round buttons -> A / B
+const DP_C=[0.306,0.605], DP_SZ=0.30;      // D-pad over the painted left/right cluster
+
 // ===== CONFIG =====
 const START_MAP="map", START_ENTRY="start";
-const AREA_FIRST=1, AREA_LAST=11;          // DREAM CORE = dreamling1..11
+const AREA_FIRST=1, AREA_LAST=11;
 const COLLECT_PER_VISIT=3, TAPS_TO_COLLECT=3;
 
-// ===== SHARED SAVE (same keys as the main game — real Dex hookup) =====
+// ===== SHARED SAVE (same keys as main game) =====
 function load(k,d){ try{ return JSON.parse(localStorage.getItem(k)||d); }catch(e){ return JSON.parse(d); } }
 let dmDex=load("qu33phDLDex","[]"), dmHeld=load("qu33phDLHeld","[]"), dmFusions=load("qu33phDLFusions","[]"), dmRare=load("qu33phDLRare","[]");
 let townBoss=load("dl_town1_boss","false")===true;
 function dlSave(){ try{ localStorage.setItem("qu33phDLDex",JSON.stringify(dmDex)); localStorage.setItem("qu33phDLHeld",JSON.stringify(dmHeld)); localStorage.setItem("qu33phDLFusions",JSON.stringify(dmFusions)); localStorage.setItem("qu33phDLRare",JSON.stringify(dmRare)); }catch(e){} }
 function saveTown(){ try{ localStorage.setItem("dl_town1_boss",JSON.stringify(townBoss)); }catch(e){} }
 
-// ===== NAME / POWER SYSTEM (copied from the game so names & numbers match) =====
+// ===== NAME / POWER (from the game) =====
 function dlRng(seed){ var s=(seed*2654435761)%2147483647; if(s<=0)s+=2147483646; return function(){ s=(s*16807)%2147483647; return (s-1)/2147483646; }; }
 const DL_SYL1=["oo","vex","mo","glo","zu","fer","wis","kra","ny","sha","bl","gru","um","ith","qua","zel","pho","dra","ee","aur","tza","mir","ob","syl"];
 const DL_SYL2=["na","tl","phi","ox","ba","ren","du","mo","sk","va","lo","th","ex","ir","um","al","oz","en","ix","ar","is","oon","el","yx"];
@@ -68,20 +70,37 @@ for(let i=AREA_FIRST;i<=AREA_LAST;i++){ const im=new Image(); const rec={img:im,
 const tileCache={};
 function tileImg(n){ return tileCache[n]||(tileCache[n]=(function(){const im=new Image();im.src=n;return im;})()); }
 
-// ===== CANVAS =====
-const cv=document.getElementById("screen"), x=cv.getContext("2d");
+// ===== CANVAS + CABINET LAYOUT =====
+const stage=document.getElementById("stage"), cabImg=document.getElementById("cabImg"), cv=document.getElementById("screen"), x=cv.getContext("2d");
+cabImg.onerror=()=>{ cabImg.style.display="none"; };
+cabImg.src=CAB_SRC;
 let W,H,DPR;
-function resize(){ const wrap=document.getElementById("screenWrap"); DPR=devicePixelRatio||1; W=wrap.clientWidth; H=wrap.clientHeight; cv.width=W*DPR; cv.height=H*DPR; x.setTransform(DPR,0,0,DPR,0,0); draw(); }
-addEventListener("resize",resize);
+function place(el,cx,cy,d){ el.style.left=(cx-d/2)+"px"; el.style.top=(cy-d/2)+"px"; el.style.width=d+"px"; el.style.height=d+"px"; }
+function layout(){
+  const sw=stage.clientWidth, sh=stage.clientHeight;
+  const scale=Math.min(sw/PF_PNG_W, sh/PF_PNG_H), rw=PF_PNG_W*scale, rh=PF_PNG_H*scale, ox=(sw-rw)/2, oy=(sh-rh)/2;
+  cabImg.style.left=ox+"px"; cabImg.style.top=oy+"px"; cabImg.style.width=rw+"px"; cabImg.style.height=rh+"px";
+  const scX=PF_SCREEN[0],scY=PF_SCREEN[1],scW=PF_SCREEN[2]-PF_SCREEN[0],scH=PF_SCREEN[3]-PF_SCREEN[1];
+  const cl=ox+scX*rw, ct=oy+scY*rh, cw=scW*rw, ch=scH*rh;
+  cv.style.left=cl+"px"; cv.style.top=ct+"px"; cv.style.width=cw+"px"; cv.style.height=ch+"px";
+  W=cw; H=ch; DPR=devicePixelRatio||1; cv.width=Math.max(80,Math.round(cw*DPR)); cv.height=Math.max(60,Math.round(ch*DPR)); x.setTransform(DPR,0,0,DPR,0,0);
+  const dp=document.getElementById("dpad"), dsz=DP_SZ*rw;
+  dp.style.left=(ox+DP_C[0]*rw-dsz/2)+"px"; dp.style.top=(oy+DP_C[1]*rh-dsz/2)+"px"; dp.style.width=dsz+"px"; dp.style.height=dsz+"px";
+  const bd=0.12*rw;
+  place(document.getElementById("aBtn"), ox+PF_JUMP[0]*rw, oy+PF_JUMP[1]*rh, bd);
+  place(document.getElementById("bBtn"), ox+PF_ACT[0]*rw,  oy+PF_ACT[1]*rh,  bd);
+  draw();
+}
+addEventListener("resize",layout);
 
 // ===== MAP / WALK =====
-let M=null,T=64,tiles=[],px=0,py=0,cam={x:0,y:0,s:3},mode="walk",inZone=false;
+let M=null,T=64,tiles=[],px=0,py=0,mode="walk",inZone=false;
 function loadMap(name,entry){
   fetch(name+".json").then(r=>{ if(!r.ok) throw new Error(name+".json ("+r.status+")"); return r.json(); })
    .then(d=>{ M=d; T=d.tileSize||64; tiles=(d.tiles||[]).map(n=>{const im=tileImg(n); if(!im.complete)im.addEventListener("load",draw); return im;});
      const sp=(d.spawns||[]).find(s=>s.name===entry)||(d.spawns||[]).find(s=>s.name==="start")||(d.spawns||[])[0];
-     px=sp?sp.x:Math.floor((d.cols||1)/2); py=sp?sp.y:Math.floor((d.rows||1)/2); inZone=zoneAt(px,py); resize(); })
-   .catch(e=>{ const el=document.getElementById("err"); el.innerHTML="Couldn't load <b>"+name+".json</b>.<br>"+e.message+"<br><br>Serve over http (GitHub Pages), keep map + tiles + dreamling PNGs in this folder."; el.style.display="flex"; });
+     px=sp?sp.x:Math.floor((d.cols||1)/2); py=sp?sp.y:Math.floor((d.rows||1)/2); inZone=zoneAt(px,py); layout(); })
+   .catch(e=>{ const el=document.getElementById("err"); el.innerHTML="Couldn't load <b>"+name+".json</b>.<br>"+e.message+"<br><br>Serve over http (GitHub Pages); keep map + tiles + dreamling PNGs + "+CAB_SRC+" in this folder."; el.style.display="flex"; });
 }
 function solidAt(c,r){ if(!M) return true; if(c<0||r<0||c>=M.cols||r>=M.rows) return true; return !!(M.solid&&M.solid[r][c]); }
 function zoneAt(c,r){ if(!M) return false; const g=M.encounter||M.enc; return !!(g&&g[r]&&g[r][c]); }
@@ -98,136 +117,98 @@ function sprite(idx,cx,cy,rad,alpha){ const rec=spr[idx]; x.save(); if(alpha!=nu
 
 function drawWalk(){
   if(!M){ x.fillStyle="#0d0a17"; x.fillRect(0,0,W,H); return; }
-  const s=Math.max(1.6,Math.min(4.5,W/(11*T))), sz=T*s; cam.x=(px+0.5)*T-W/(2*s); cam.y=(py+0.5)*T-H/(2*s);
-  const c0=Math.max(0,Math.floor(cam.x/T)),r0=Math.max(0,Math.floor(cam.y/T)),c1=Math.min(M.cols-1,Math.floor((cam.x+W/s)/T)),r1=Math.min(M.rows-1,Math.floor((cam.y+H/s)/T));
+  const s=Math.max(1.4,Math.min(4,W/(11*T))), sz=T*s; let camx=(px+0.5)*T-W/(2*s), camy=(py+0.5)*T-H/(2*s);
+  const c0=Math.max(0,Math.floor(camx/T)),r0=Math.max(0,Math.floor(camy/T)),c1=Math.min(M.cols-1,Math.floor((camx+W/s)/T)),r1=Math.min(M.rows-1,Math.floor((camy+H/s)/T));
   x.imageSmoothingEnabled=true;
   for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ const idx=M.map[r][c]; if(idx<0||!tiles[idx]||!tiles[idx].complete||!tiles[idx].naturalWidth) continue;
-    const dx=Math.round((c*T-cam.x)*s),dy=Math.round((r*T-cam.y)*s); x.drawImage(tiles[idx],dx,dy,Math.ceil(sz)+1,Math.ceil(sz)+1);
+    const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.drawImage(tiles[idx],dx,dy,Math.ceil(sz)+1,Math.ceil(sz)+1);
     if(M.border>0){const lw=Math.max(1,M.border*s);x.strokeStyle="#000";x.lineWidth=lw;x.strokeRect(dx+lw/2,dy+lw/2,sz-lw,sz-lw);} }
-  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ if(zoneAt(c,r)){ const dx=Math.round((c*T-cam.x)*s),dy=Math.round((r*T-cam.y)*s); x.fillStyle="rgba(150,90,255,"+(0.16+0.10*Math.sin(Date.now()/300+c+r))+")"; x.fillRect(dx,dy,sz,sz); } }
-  const ppx=Math.round((px*T-cam.x)*s),ppy=Math.round((py*T-cam.y)*s);
+  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ if(zoneAt(c,r)){ const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.fillStyle="rgba(150,90,255,"+(0.16+0.10*Math.sin(Date.now()/300+c+r))+")"; x.fillRect(dx,dy,sz,sz); } }
+  const ppx=Math.round((px*T-camx)*s),ppy=Math.round((py*T-camy)*s);
   x.fillStyle="#8affea";x.strokeStyle="#0d0a17";x.lineWidth=Math.max(2,sz*0.06);x.beginPath();x.arc(ppx+sz/2,ppy+sz/2,sz*0.3,0,7);x.fill();x.stroke();
-  x.fillStyle="rgba(13,10,23,.7)"; roundRect(8,8,150,26,8); x.fill(); x.fillStyle="#c9a0ff"; x.font="12px sans-serif"; x.textAlign="left"; x.textBaseline="middle"; x.fillText("Collected "+areaCount()+" / "+(AREA_LAST-AREA_FIRST+1)+"  (B=Dex)",14,22);
+  x.fillStyle="rgba(13,10,23,.7)"; roundRect(6,6,150,22,7); x.fill(); x.fillStyle="#c9a0ff"; x.font="11px sans-serif"; x.textAlign="left"; x.textBaseline="middle"; x.fillText("Collected "+areaCount()+"/"+(AREA_LAST-AREA_FIRST+1)+"  ·  B = Dex",12,18);
 }
 
-// ===== COLLECTING (tap to fill — unchanged mechanic) =====
+// ===== COLLECTING =====
 let enc=null;
-function startEncounter(){
-  const rem=remaining();
+function startEncounter(){ const rem=remaining();
   if(rem.length===0 && !townBoss){ startBoss(); return; }
   if(rem.length===0 && townBoss){ message("Dream Core is complete!\nEvery dreamling collected.",()=>{mode="walk";draw();}); return; }
   const pick=rem.slice(0,COLLECT_PER_VISIT);
-  enc={ list:pick.map((idx,i)=>({idx,bx:0.28+0.22*i,by:0.52,ph:Math.random()*6,meter:0,got:false})), sel:0 };
-  mode="collect";
-}
+  enc={ list:pick.map((idx,i)=>({idx,bx:0.28+0.22*i,by:0.54,ph:Math.random()*6,meter:0,got:false})), sel:0 }; mode="collect"; }
 function drawCollect(){
   const g=x.createRadialGradient(W/2,H/2,20,W/2,H/2,Math.max(W,H)); g.addColorStop(0,"#2a1150"); g.addColorStop(1,"#0a0518"); x.fillStyle=g; x.fillRect(0,0,W,H);
-  x.fillStyle="#c9a0ff"; x.font="bold 14px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText("COLLECTING — tap a dreamling ("+TAPS_TO_COLLECT+"x) or press A",W/2,8);
-  enc.list.forEach((m,i)=>{ const cx=m.bx*W, cy=m.by*H+Math.sin(Date.now()/500+m.ph)*10, rad=Math.min(W,H)*0.13; m._hit={cx,cy,rad};
-    if(i===enc.sel&&!m.got){ x.strokeStyle="#8affea"; x.lineWidth=3; x.beginPath(); x.arc(cx,cy,rad+8,0,7); x.stroke(); }
+  x.fillStyle="#c9a0ff"; x.font="bold 13px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText("COLLECTING — tap ("+TAPS_TO_COLLECT+"x) or A",W/2,6);
+  enc.list.forEach((m,i)=>{ const cx=m.bx*W, cy=m.by*H+Math.sin(Date.now()/500+m.ph)*8, rad=Math.min(W,H)*0.16; m._hit={cx,cy,rad};
+    if(i===enc.sel&&!m.got){ x.strokeStyle="#8affea"; x.lineWidth=3; x.beginPath(); x.arc(cx,cy,rad+7,0,7); x.stroke(); }
     sprite(m.idx,cx,cy,rad,m.got?0.4:1);
-    if(!m.got){ x.strokeStyle="#8affea"; x.lineWidth=5; x.beginPath(); x.arc(cx,cy,rad+16,-Math.PI/2,-Math.PI/2+2*Math.PI*(m.meter/TAPS_TO_COLLECT)); x.stroke(); }
-    // number + name + power
-    x.fillStyle=m.got?"#8affea":"#e9e0ff"; x.font="bold 12px sans-serif"; x.textAlign="center"; x.textBaseline="top";
-    x.fillText((m.got?"✓ ":"#"+m.idx+"  ")+dreamlingName(m.idx),cx,cy+rad+18);
-    x.fillStyle="#9585c0"; x.font="10px sans-serif"; x.fillText("PWR "+m.idx,cx,cy+rad+32);
-  });
-  if(enc.list.every(m=>m.got)){ x.fillStyle="#8affea"; x.font="bold 15px sans-serif"; x.textAlign="center"; x.textBaseline="bottom"; x.fillText("Press A to continue",W/2,H-12); }
+    if(!m.got){ x.strokeStyle="#8affea"; x.lineWidth=5; x.beginPath(); x.arc(cx,cy,rad+13,-Math.PI/2,-Math.PI/2+2*Math.PI*(m.meter/TAPS_TO_COLLECT)); x.stroke(); }
+    x.fillStyle=m.got?"#8affea":"#e9e0ff"; x.font="bold 11px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText((m.got?"✓ ":"#"+m.idx+" ")+dreamlingName(m.idx),cx,cy+rad+8);
+    x.fillStyle="#9585c0"; x.font="9px sans-serif"; x.fillText("PWR "+m.idx,cx,cy+rad+21); });
+  if(enc.list.every(m=>m.got)){ x.fillStyle="#8affea"; x.font="bold 13px sans-serif"; x.textAlign="center"; x.textBaseline="bottom"; x.fillText("Press A to continue",W/2,H-8); }
 }
 function collectTap(m){ if(m.got) return; m.meter++; if(m.meter>=TAPS_TO_COLLECT){ m.got=true; dmHeld.push(m.idx); if(!dmDex.includes(m.idx))dmDex.push(m.idx); dlSave(); } draw(); }
-function collectAdvance(){
-  if(enc.list.every(m=>m.got)){ const names=enc.list.map(m=>"#"+m.idx+" "+dreamlingName(m.idx)).join("\n"); const done=remaining().length===0;
-    message("COLLECTED:\n"+names+(done?"\n\nThat's all of Dream Core — return to face the boss!":""),()=>{mode="walk";inZone=true;draw();});
-  } else collectTap(enc.list[enc.sel]);
-}
+function collectAdvance(){ if(enc.list.every(m=>m.got)){ const names=enc.list.map(m=>"#"+m.idx+" "+dreamlingName(m.idx)).join("\n"); const done=remaining().length===0;
+    message("COLLECTED:\n"+names+(done?"\n\nThat's all of Dream Core — return for the boss!":""),()=>{mode="walk";inZone=true;draw();}); } else collectTap(enc.list[enc.sel]); }
 
-// ===== DEX / COLLECTION SCREEN =====
+// ===== DEX =====
 function drawDex(){
-  x.fillStyle="#0c0620"; x.fillRect(0,0,W,H);
-  x.fillStyle="#8affea"; x.font="bold 15px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText("COLLECTION · DREAM CORE",W/2,8);
-  x.fillStyle="#9585c0"; x.font="11px sans-serif"; x.fillText(areaCount()+" / "+(AREA_LAST-AREA_FIRST+1)+" collected  ·  "+dmFusions.length+" fusions  ·  A/B to close",W/2,28);
-  const cols=4, n=AREA_LAST-AREA_FIRST+1, gap=Math.min(96,(W-30)/cols), startx=W/2-(cols-1)*gap/2, topy=54, rowh=Math.min(gap*0.9,78), rad=Math.min(gap*0.3,28);
+  x.fillStyle="#0c0620"; x.fillRect(0,0,W,H); x.fillStyle="#8affea"; x.font="bold 14px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText("COLLECTION · DREAM CORE",W/2,6);
+  x.fillStyle="#9585c0"; x.font="10px sans-serif"; x.fillText(areaCount()+"/"+(AREA_LAST-AREA_FIRST+1)+" · "+dmFusions.length+" fusions · A/B to close",W/2,24);
+  const cols=6, n=AREA_LAST-AREA_FIRST+1, gap=Math.min(78,(W-20)/cols), startx=W/2-(cols-1)*gap/2, topy=44, rowh=gap*0.98, rad=Math.min(gap*0.32,24);
   for(let k=0;k<n;k++){ const idx=AREA_FIRST+k, col=k%cols, row=Math.floor(k/cols); const cx=startx+col*gap, cy=topy+rad+row*rowh; const have=dmDex.includes(idx);
     if(have){ sprite(idx,cx,cy,rad,1); if(dmRare.includes(idx)){ x.strokeStyle="#ffd75a"; x.lineWidth=2; x.beginPath(); x.arc(cx,cy,rad+3,0,7); x.stroke(); }
-      x.fillStyle="#e9e0ff"; x.font="bold 10px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText("#"+idx+" "+dreamlingName(idx),cx,cy+rad+3);
-      x.fillStyle="#9585c0"; x.font="9px sans-serif"; x.fillText("PWR "+idx,cx,cy+rad+15); }
-    else { x.fillStyle="#1a1030"; x.beginPath(); x.arc(cx,cy,rad,0,7); x.fill(); x.fillStyle="#4a3a6a"; x.font="bold "+Math.floor(rad)+"px sans-serif"; x.textAlign="center"; x.textBaseline="middle"; x.fillText("?",cx,cy);
-      x.fillStyle="#4a3a6a"; x.font="10px sans-serif"; x.textBaseline="top"; x.fillText("#"+idx,cx,cy+rad+3); }
-  }
+      x.fillStyle="#e9e0ff"; x.font="bold 9px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText("#"+idx,cx,cy+rad+2); x.fillStyle="#9585c0"; x.font="8px sans-serif"; x.fillText("PWR "+idx,cx,cy+rad+13); }
+    else { x.fillStyle="#1a1030"; x.beginPath(); x.arc(cx,cy,rad,0,7); x.fill(); x.fillStyle="#4a3a6a"; x.font="bold "+Math.floor(rad)+"px sans-serif"; x.textAlign="center"; x.textBaseline="middle"; x.fillText("?",cx,cy); } }
 }
 
-// ===== BOSS + FUSION (real mechanic: power = sum of parts) =====
-let boss=null, fus=null;   // fus={picks:[],phase}
-function startBoss(){
-  let a=AREA_FIRST+Math.floor(Math.random()*(AREA_LAST-AREA_FIRST+1)), b=a; while(b===a) b=AREA_FIRST+Math.floor(Math.random()*(AREA_LAST-AREA_FIRST+1));
+// ===== BOSS + FUSION =====
+let boss=null, fus=null;
+function startBoss(){ let a=AREA_FIRST+Math.floor(Math.random()*(AREA_LAST-AREA_FIRST+1)), b=a; while(b===a) b=AREA_FIRST+Math.floor(Math.random()*(AREA_LAST-AREA_FIRST+1));
   boss={ comp:[a,b], power:a+b, name:fusNameArr([a,b]) };
-  message("BOSS: "+boss.name+"\nA "+fusLabel(2)+" of #"+boss.comp[0]+" + #"+boss.comp[1]+"\nBOSS POWER "+boss.power+"\n\nFuse two of YOUR dreamlings to beat it.",()=>{ startFusion(); });
-}
-function startFusion(){ fus={ picks:[], result:null }; mode="fusion"; draw(); }
+  message("BOSS: "+boss.name+"\nA "+fusLabel(2)+" of #"+boss.comp[0]+" + #"+boss.comp[1]+"\nBOSS POWER "+boss.power+"\n\nFuse two of YOUR dreamlings to beat it.",()=>{ fus={picks:[],result:null}; mode="fusion"; draw(); }); }
 function fusPower(){ return sum(fus.picks.map(i=>dmHeld[i])); }
-function fusChance(){ const p=fusPower(); return boss.power>0?Math.max(0.12,Math.min(0.95,p/boss.power)):0; }
 function drawFusion(){
   x.fillStyle="#0c0620"; x.fillRect(0,0,W,H);
-  if(fus.result){ // result screen
-    const cx=W/2, cy=H*0.4, rad=Math.min(W,H)*0.16;
-    x.save(); x.globalAlpha=0.85; sprite(fus.made.comp[0],cx-12,cy,rad,0.85); x.globalCompositeOperation="lighter"; sprite(fus.made.comp[1],cx+12,cy,rad,0.85); x.restore();
-    x.strokeStyle="#ff6ad5"; x.lineWidth=4; x.beginPath(); x.arc(cx,cy,rad+8+Math.sin(Date.now()/200)*4,0,7); x.stroke();
-    x.fillStyle="#ff6ad5"; x.font="bold 16px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText(fus.made.name+"  ·  PWR "+fus.made.power,W/2,cy+rad+14);
-    x.fillStyle=fus.won?"#8affea":"#ff5aa0"; x.font="bold 18px sans-serif"; x.fillText(fus.won?"BOSS COLLECTED!":"BOSS ESCAPED",W/2,cy+rad+40);
-    x.fillStyle="#c9a0ff"; x.font="12px sans-serif"; x.fillText("Press A to continue",W/2,H-24); return;
-  }
-  x.fillStyle="#ff6ad5"; x.font="bold 15px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText("FUSE — pick 2 of your dreamlings",W/2,8);
-  x.fillStyle="#c9a0ff"; x.font="11px sans-serif"; x.fillText("BOSS "+boss.name+" · POWER "+boss.power+"  (your power must rival it)",W/2,28);
-  // held row
-  const list=dmHeld, n=list.length; if(n===0){ x.fillStyle="#ff5aa0"; x.font="13px sans-serif"; x.fillText("No dreamlings to fuse — go collect some!",W/2,H/2); return; }
-  const per=Math.min(72,(W-24)/Math.max(1,Math.min(n,6))), rad=Math.min(per*0.38,32); let show=Math.min(n,12);
-  const cols=Math.min(6,show), rows=Math.ceil(show/cols), startx=W/2-(cols-1)*per/2, topy=H*0.34;
+  if(fus.result){ const cx=W/2, cy=H*0.4, rad=Math.min(W,H)*0.18;
+    x.save(); x.globalAlpha=0.85; sprite(fus.made.comp[0],cx-10,cy,rad,0.85); x.globalCompositeOperation="lighter"; sprite(fus.made.comp[1],cx+10,cy,rad,0.85); x.restore();
+    x.strokeStyle="#ff6ad5"; x.lineWidth=4; x.beginPath(); x.arc(cx,cy,rad+7+Math.sin(Date.now()/200)*4,0,7); x.stroke();
+    x.fillStyle="#ff6ad5"; x.font="bold 14px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText(fus.made.name+" · PWR "+fus.made.power,W/2,cy+rad+12);
+    x.fillStyle=fus.won?"#8affea":"#ff5aa0"; x.font="bold 16px sans-serif"; x.fillText(fus.won?"BOSS COLLECTED!":"BOSS ESCAPED",W/2,cy+rad+34);
+    x.fillStyle="#c9a0ff"; x.font="11px sans-serif"; x.fillText("Press A ▶",W/2,H-16); return; }
+  x.fillStyle="#ff6ad5"; x.font="bold 13px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText("FUSE — pick 2 of yours",W/2,4);
+  x.fillStyle="#c9a0ff"; x.font="10px sans-serif"; x.fillText("BOSS "+boss.name+" · POWER "+boss.power,W/2,20);
+  const list=dmHeld, n=list.length; if(n===0){ x.fillStyle="#ff5aa0"; x.font="12px sans-serif"; x.fillText("No dreamlings to fuse!",W/2,H/2); return; }
+  const show=Math.min(n,12), cols=Math.min(6,show), per=Math.min(64,(W-16)/cols), rad=Math.min(per*0.36,26), startx=W/2-(cols-1)*per/2, topy=H*0.36;
   fus._hits=[];
-  for(let k=0;k<show;k++){ const col=k%cols,row=Math.floor(k/cols); const cx=startx+col*per, cy=topy+row*(rad*2+26); const idx=list[k]; const picked=fus.picks.includes(k);
-    fus._hits.push({cx,cy,rad,k});
-    if(picked){ x.strokeStyle="#ff6ad5"; x.lineWidth=4; x.beginPath(); x.arc(cx,cy,rad+6,0,7); x.stroke(); }
-    sprite(idx,cx,cy,rad,1);
-    x.fillStyle="#9585c0"; x.font="9px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText("#"+idx+" ·PWR "+idx,cx,cy+rad+3);
-  }
-  // power readout + fuse button
-  const p=fusPower(), ch=Math.round(fusChance()*100);
-  x.fillStyle="#e9e0ff"; x.font="bold 14px sans-serif"; x.textAlign="center"; x.textBaseline="bottom";
-  x.fillText("YOUR POWER "+p+" / "+boss.power+(fus.picks.length===2?"   ·   "+ch+"% collect":"   ·   pick "+(2-fus.picks.length)+" more"),W/2,H-58);
-  if(fus.picks.length===2){ x.fillStyle="#ff6ad5"; roundRect(W/2-64,H-48,128,36,10); x.fill(); x.fillStyle="#160a2c"; x.font="bold 16px sans-serif"; x.textBaseline="middle"; x.fillText("FUSE ▶",W/2,H-30); fus._fuseBtn={x:W/2-64,y:H-48,w:128,h:36}; } else fus._fuseBtn=null;
+  for(let k=0;k<show;k++){ const col=k%cols,row=Math.floor(k/cols); const cx=startx+col*per, cy=topy+row*(rad*2+22); const idx=list[k]; const picked=fus.picks.includes(k); fus._hits.push({cx,cy,rad,k});
+    if(picked){ x.strokeStyle="#ff6ad5"; x.lineWidth=4; x.beginPath(); x.arc(cx,cy,rad+5,0,7); x.stroke(); }
+    sprite(idx,cx,cy,rad,1); x.fillStyle="#9585c0"; x.font="8px sans-serif"; x.textAlign="center"; x.textBaseline="top"; x.fillText("#"+idx+" P"+idx,cx,cy+rad+2); }
+  const p=fusPower(), ch=Math.round(Math.max(0.12,Math.min(0.95,boss.power?p/boss.power:0))*100);
+  x.fillStyle="#e9e0ff"; x.font="bold 12px sans-serif"; x.textAlign="center"; x.textBaseline="bottom"; x.fillText("POWER "+p+"/"+boss.power+(fus.picks.length===2?" · "+ch+"% collect":" · pick "+(2-fus.picks.length)+" more"),W/2,H-42);
+  if(fus.picks.length===2){ x.fillStyle="#ff6ad5"; roundRect(W/2-56,H-36,112,30,9); x.fill(); x.fillStyle="#160a2c"; x.font="bold 14px sans-serif"; x.textBaseline="middle"; x.fillText("FUSE ▶",W/2,H-21); fus._fuseBtn={x:W/2-56,y:H-36,w:112,h:30}; } else fus._fuseBtn=null;
 }
-function doFuse(){
-  if(fus.picks.length!==2) return;
-  const idxs=fus.picks.map(i=>dmHeld[i]); const power=sum(idxs); const name=fusNameArr(idxs);
+function doFuse(){ if(fus.picks.length!==2) return; const idxs=fus.picks.map(i=>dmHeld[i]); const power=sum(idxs); const name=fusNameArr(idxs);
   const won=Math.random()<Math.max(0.12,Math.min(0.95,power/boss.power));
-  // consume the two held (remove higher index first)
   fus.picks.slice().sort((a,b)=>b-a).forEach(i=>dmHeld.splice(i,1));
   const myFus={comp:idxs.slice(),power:power,name:name}; dmFusions.push(myFus);
-  if(won){ const bossFus={comp:boss.comp.slice(),power:boss.power,name:boss.name}; dmFusions.push(bossFus);
-    boss.comp.forEach(nn=>{ if(!dmDex.includes(nn)) dmDex.push(nn); }); townBoss=true; saveTown(); }
-  dlSave();
-  fus.result=true; fus.won=won; fus.made=myFus; draw();
-}
+  if(won){ dmFusions.push({comp:boss.comp.slice(),power:boss.power,name:boss.name}); boss.comp.forEach(nn=>{ if(!dmDex.includes(nn)) dmDex.push(nn); }); townBoss=true; saveTown(); }
+  dlSave(); fus.result=true; fus.won=won; fus.made=myFus; draw(); }
 
 // ===== MESSAGE =====
 let msg=null;
 function message(text,cb){ msg={text,cb}; mode="message"; draw(); }
-function drawMessage(){ x.fillStyle="rgba(6,3,14,.94)"; x.fillRect(0,0,W,H); x.fillStyle="#eee"; x.font="bold 15px sans-serif"; x.textAlign="center"; x.textBaseline="middle";
-  const lines=msg.text.split("\n"); lines.forEach((ln,i)=>x.fillText(ln,W/2,H/2-(lines.length-1)*11+i*22)); x.fillStyle="#8affea"; x.font="13px sans-serif"; x.fillText("Press A ▶",W/2,H-20); }
+function drawMessage(){ x.fillStyle="rgba(6,3,14,.95)"; x.fillRect(0,0,W,H); x.fillStyle="#eee"; x.font="bold 13px sans-serif"; x.textAlign="center"; x.textBaseline="middle";
+  const lines=msg.text.split("\n"); lines.forEach((ln,i)=>x.fillText(ln,W/2,H/2-(lines.length-1)*9+i*18)); x.fillStyle="#8affea"; x.font="11px sans-serif"; x.fillText("Press A ▶",W/2,H-14); }
 
 // ===== INPUT =====
 function onDir(dx,dy){ if(mode==="walk") walkStep(dx,dy); else if(mode==="collect"){ if(dx>0)enc.sel=(enc.sel+1)%enc.list.length; else if(dx<0)enc.sel=(enc.sel-1+enc.list.length)%enc.list.length; draw(); } }
-function onA(){
-  if(mode==="walk"){ /* reserved */ }
-  else if(mode==="collect"){ collectAdvance(); }
-  else if(mode==="dex"){ mode="walk"; draw(); }
-  else if(mode==="message"){ const cb=msg.cb; msg=null; if(cb)cb(); else{mode="walk";draw();} }
-  else if(mode==="fusion"){ if(fus.result){ mode="message"; message(fus.won?("You created "+fus.made.name+"!\nDream Core cleared."):"The boss slipped away.\nCollect/fuse and try again.",()=>{mode="walk";inZone=true;draw();}); } else if(fus.picks.length===2){ doFuse(); } }
-}
+function onA(){ if(mode==="collect"){ collectAdvance(); } else if(mode==="dex"){ mode="walk"; draw(); } else if(mode==="message"){ const cb=msg.cb; msg=null; if(cb)cb(); else{mode="walk";draw();} }
+  else if(mode==="fusion"){ if(fus.result){ mode="message"; message(fus.won?("You created "+fus.made.name+"!\nDream Core cleared."):"The boss slipped away.\nTry fusing again.",()=>{mode="walk";inZone=true;draw();}); } else if(fus.picks.length===2){ doFuse(); } } }
 function onB(){ if(mode==="walk"){ mode="dex"; draw(); } else if(mode==="dex"){ mode="walk"; draw(); } else if(mode==="collect"&&enc.list.every(m=>m.got)){ collectAdvance(); } }
-cv.addEventListener("pointerdown",e=>{ const b=cv.getBoundingClientRect(), mx=e.clientX-b.left, my=e.clientY-b.top;
+cv.addEventListener("pointerdown",e=>{ const b=cv.getBoundingClientRect(), mx=(e.clientX-b.left)*(W/b.width), my=(e.clientY-b.top)*(H/b.height);
   if(mode==="collect"){ if(enc.list.every(m=>m.got)){ collectAdvance(); return; } for(const m of enc.list){ if(m._hit&&Math.hypot(mx-m._hit.cx,my-m._hit.cy)<=m._hit.rad){ collectTap(m); return; } } }
-  else if(mode==="message"){ onA(); }
-  else if(mode==="dex"){ mode="walk"; draw(); }
+  else if(mode==="message"){ onA(); } else if(mode==="dex"){ mode="walk"; draw(); }
   else if(mode==="fusion"){ if(fus.result){ onA(); return; } if(fus._fuseBtn){ const f=fus._fuseBtn; if(mx>=f.x&&mx<=f.x+f.w&&my>=f.y&&my<=f.y+f.h){ doFuse(); return; } } for(const h of(fus._hits||[])){ if(Math.hypot(mx-h.cx,my-h.cy)<=h.rad){ const p=fus.picks.indexOf(h.k); if(p>=0)fus.picks.splice(p,1); else if(fus.picks.length<2)fus.picks.push(h.k); draw(); return; } } }
 });
 function bindHold(id,fn){ const el=document.getElementById(id); let iv; const on=e=>{ e.preventDefault(); fn(); iv=setInterval(fn,160); }; const off=e=>{ if(e)e.preventDefault(); clearInterval(iv); };
@@ -240,7 +221,7 @@ function loop(){ if(mode==="collect"||mode==="fusion"||(mode==="walk"&&M)) draw(
 requestAnimationFrame(loop);
 
 // ===== START =====
-resize(); loadMap(START_MAP,START_ENTRY);
+layout(); loadMap(START_MAP,START_ENTRY);
 </script>
 </body>
 </html>
