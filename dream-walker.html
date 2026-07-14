@@ -58,7 +58,7 @@ let px=0, py=0;                 // player cell
 let ready=false;
 
 function resize(){ DPR=devicePixelRatio||1; W=innerWidth; H=innerHeight; cv.width=W*DPR; cv.height=H*DPR;
-  x.setTransform(DPR,0,0,DPR,0,0); if(M) cam.s=Math.max(2.4,Math.min(5,Math.min(W,H)/(9*T))); draw(); }
+  x.setTransform(DPR,0,0,DPR,0,0); if(M) cam.s=Math.max(1.5,Math.min(5,Math.min(W,H)/(13*T))); }
 addEventListener("resize",resize);
 
 function loadImage(name){ return tileCache[name] || (tileCache[name]=(function(){ const im=new Image(); im.src=name; return im; })()); }
