@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dream Walker</title>
+<style>
+  html,body{margin:0;height:100%;background:#0d0a17;overflow:hidden;font-family:Helvetica,Arial,sans-serif;-webkit-tap-highlight-color:transparent;user-select:none;}
+  #c{display:block;width:100vw;height:100vh;touch-action:none;}
+  #msg{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);background:rgba(150,90,255,.94);color:#fff;
+    padding:11px 20px;border-radius:22px;font-size:16px;display:none;z-index:9;box-shadow:0 4px 18px rgba(0,0,0,.4);}
+  /* D-pad */
+  #pad{position:fixed;left:18px;bottom:26px;width:150px;height:150px;z-index:8;touch-action:none;}
+  .dbtn{position:absolute;width:50px;height:50px;background:rgba(30,23,51,.85);border:1px solid #2a2140;color:#c9a0ff;
+    border-radius:12px;font-size:22px;display:flex;align-items:center;justify-content:center;}
+  .dbtn:active{background:rgba(138,255,234,.3);}
+  #up{left:50px;top:0;} #dn{left:50px;top:100px;} #lf{left:0;top:50px;} #rt{left:100px;top:50px;}
+  #err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;color:#ffb3d1;
+    background:#0d0a17;font-size:15px;padding:30px;text-align:center;line-height:1.6;z-index:20;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="msg"></div>
+<div id="pad">
+  <div class="dbtn" id="up">▲</div><div class="dbtn" id="dn">▼</div>
+  <div class="dbtn" id="lf">◀</div><div class="dbtn" id="rt">▶</div>
+</div>
+<div id="err"></div>
+
+<script>
+// =====================================================================
+//  DREAM WALKER — loads your exported map.json files and lets you walk
+//  them, with collision, doors/warps between maps, and encounter zones.
+//
+//  SETUP: put this file + your map.json files + your tile PNGs together
+//  (same folder, e.g. your repo). Then set the starting map below.
+//  NOTE: uses fetch(), so it must be served over http(s) (GitHub Pages
+//  works). Opening straight from disk (file://) will block the fetch.
+// =====================================================================
+const START_MAP   = "testarea";   // which .json to load first (no extension)
+const START_ENTRY = "start";      // which spawn point to drop onto
+
+// hook this into your catch game — called when a dream encounter fires
+function onEncounter(area){
+  msg("💤 A " + area + " dreamling appears!");
+  // e.g. launchCatchGame(area);
+}
+
+// ---- engine ----
+const cv=document.getElementById("c"), x=cv.getContext("2d");
+let W,H,DPR, cam={x:0,y:0,s:3};
+let M=null;                     // current map data
+let T=64;                       // tile size of current map
+const tileCache={};             // filename -> Image
+let tiles=[];                   // index -> Image for current map
+let px=0, py=0;                 // player cell
+let ready=false;
+
+function resize(){ DPR=devicePixelRatio||1; W=innerWidth; H=innerHeight; cv.width=W*DPR; cv.height=H*DPR;
+  x.setTransform(DPR,0,0,DPR,0,0); if(M) cam.s=Math.max(2.4,Math.min(5,Math.min(W,H)/(9*T))); draw(); }
+addEventListener("resize",resize);
+
+function loadImage(name){ return tileCache[name] || (tileCache[name]=(function(){ const im=new Image(); im.src=name; return im; })()); }
+
+function loadMap(name, entry){
+  fetch(name+".json").then(r=>{ if(!r.ok) throw new Error(name+".json ("+r.status+")"); return r.json(); })
+    .then(data=>{
+      M=data; T=data.tileSize||64;
+      tiles=(data.tiles||[]).map(loadImage);
+      const sp=(data.spawns||[]).find(s=>s.name===entry) || (data.spawns||[]).find(s=>s.name==="start") || (data.spawns||[])[0];
+      px = sp?sp.x:Math.floor((data.cols||1)/2);
+      py = sp?sp.y:Math.floor((data.rows||1)/2);
+      ready=true; resize();
+    })
+    .catch(e=>{ showErr("Couldn't load <b>"+name+".json</b>.<br>"+e.message+"<br><br>Make sure the map + tile files are in this same folder, and that you're viewing over http (GitHub Pages), not from a local file."); });
+}
+function showErr(html){ const el=document.getElementById("err"); el.innerHTML=html; el.style.display="flex"; }
+
+function solidAt(c,r){ if(c<0||r<0||c>=M.cols||r>=M.rows) return true; return !!(M.solid && M.solid[r][c]); }
+
+function step(dx,dy){
+  if(!ready) return;
+  const nc=px+dx, nr=py+dy;
+  if(solidAt(nc,nr)) return;
+  px=nc; py=nr;
+  const w=(M.warps||[]).find(o=>o.x===px&&o.y===py);
+  if(w){ ready=false; loadMap(w.toMap, w.entry||"start"); return; }
+  const encGrid = M.encounter || M.enc;
+  if(encGrid && encGrid[py] && encGrid[py][px]){ if(Math.random()<0.5) onEncounter(M.area||"dream"); }
+  draw();
+}
+
+let mt; function msg(t){ const b=document.getElementById("msg"); b.textContent=t; b.style.display="block"; clearTimeout(mt); mt=setTimeout(()=>b.style.display="none",1500); }
+
+function draw(){
+  x.clearRect(0,0,W,H); if(!M) return;
+  const sz=T*cam.s;
+  cam.x=(px+0.5)*T - W/(2*cam.s);
+  cam.y=(py+0.5)*T - H/(2*cam.s);
+  x.imageSmoothingEnabled=true;
+  const c0=Math.max(0,Math.floor(cam.x/T)), r0=Math.max(0,Math.floor(cam.y/T));
+  const c1=Math.min(M.cols-1,Math.floor((cam.x+W/cam.s)/T)), r1=Math.min(M.rows-1,Math.floor((cam.y+H/cam.s)/T));
+  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){
+    const idx=M.map[r][c]; if(idx<0||!tiles[idx]||!tiles[idx].complete||!tiles[idx].naturalWidth) continue;
+    const dx=Math.round((c*T-cam.x)*cam.s), dy=Math.round((r*T-cam.y)*cam.s);
+    x.drawImage(tiles[idx],dx,dy,Math.ceil(sz)+1,Math.ceil(sz)+1);
+    if(M.border>0){ const lw=Math.max(1,M.border*cam.s); x.strokeStyle="#000"; x.lineWidth=lw; x.strokeRect(dx+lw/2,dy+lw/2,sz-lw,sz-lw); }
+  }
+  // player
+  const ppx=Math.round((px*T-cam.x)*cam.s), ppy=Math.round((py*T-cam.y)*cam.s);
+  x.fillStyle="#8affea"; x.strokeStyle="#0d0a17"; x.lineWidth=Math.max(2,sz*0.06);
+  x.beginPath(); x.arc(ppx+sz/2,ppy+sz/2,sz*0.3,0,7); x.fill(); x.stroke();
+}
+
+// ---- input: hold to move ----
+let held=null, lastStep=0;
+function tick(t){ if(held && t-lastStep>150){ step(held[0],held[1]); lastStep=t; } requestAnimationFrame(tick); }
+requestAnimationFrame(tick);
+function bindDir(id,dx,dy){ const el=document.getElementById(id);
+  const on=e=>{ e.preventDefault(); held=[dx,dy]; step(dx,dy); lastStep=performance.now()+120; };
+  const off=e=>{ e.preventDefault(); if(held&&held[0]===dx&&held[1]===dy) held=null; };
+  el.addEventListener("touchstart",on,{passive:false}); el.addEventListener("touchend",off,{passive:false});
+  el.addEventListener("mousedown",on); el.addEventListener("mouseup",off); el.addEventListener("mouseleave",off);
+}
+bindDir("up",0,-1); bindDir("dn",0,1); bindDir("lf",-1,0); bindDir("rt",1,0);
+addEventListener("keydown",e=>{ const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key]; if(m){ e.preventDefault(); if(!held||held[0]!==m[0]||held[1]!==m[1]){ held=m; step(m[0],m[1]); lastStep=performance.now()+120; } } });
+addEventListener("keyup",e=>{ if(e.key.startsWith("Arrow")) held=null; });
+// swipe (anywhere on canvas)
+let sx0,sy0; cv.addEventListener("touchstart",e=>{ sx0=e.touches[0].clientX; sy0=e.touches[0].clientY; },{passive:true});
+cv.addEventListener("touchend",e=>{ const t=e.changedTouches[0], dx=t.clientX-sx0, dy=t.clientY-sy0;
+  if(Math.abs(dx)<16&&Math.abs(dy)<16) return; if(Math.abs(dx)>Math.abs(dy)) step(dx>0?1:-1,0); else step(0,dy>0?1:-1); },{passive:true});
+
+loadMap(START_MAP, START_ENTRY);
+</script>
+</body>
+</html>
