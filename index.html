@@ -79,7 +79,7 @@ function isWater(idx){ return M && M.tiles && M.tiles[idx] && /water/i.test(M.ti
 function isTree(idx){ return M && M.tiles && M.tiles[idx] && /^tree[12]\.png$/i.test(M.tiles[idx]); }
 
 // ===== PIXEL CREATURE RENDER (rarity tint matches shiny idea) =====
-function rarityFilter(t){ if(t==="green") return "invert(1) hue-rotate(40deg) saturate(160%)"; if(t==="blue") return "invert(1) hue-rotate(155deg) saturate(210%)"; return "none"; }
+function rarityFilter(t){ if(t==="green") return "invert(1) hue-rotate(40deg) saturate(160%)"; if(t==="blue") return "invert(1) hue-rotate(155deg) saturate(210%)"; if(t==="purple") return "invert(1) hue-rotate(240deg) saturate(250%)"; return "none"; }
 function drawPix(num,cx,cy,size,t){ var rec=(sprP[num]&&sprP[num].ok)?sprP[num]:sprPhoto[num]; x.save(); x.imageSmoothingEnabled=false; x.filter=rarityFilter(t);
   if(rec&&rec.ok){ x.drawImage(rec.img,Math.round(cx-size/2),Math.round(cy-size/2),Math.round(size),Math.round(size)); }
   else { x.filter="none"; x.fillStyle="#5a3a8a"; x.beginPath(); x.arc(cx,cy,size*0.4,0,7); x.fill(); x.fillStyle="#fff"; x.font="bold "+Math.floor(size*0.4)+"px sans-serif"; x.textAlign="center"; x.textBaseline="middle"; x.fillText(num,cx,cy); }
@@ -87,6 +87,11 @@ function drawPix(num,cx,cy,size,t){ var rec=(sprP[num]&&sprP[num].ok)?sprP[num]:
   if(t!=="red"){ x.save(); x.globalCompositeOperation="overlay"; var o=(Date.now()/700)%1; var g=x.createLinearGradient(cx-size/2,cy-size/2,cx+size/2,cy+size/2); g.addColorStop(Math.max(0,o-0.2),"rgba(255,255,255,0)"); g.addColorStop(o,"rgba(255,255,255,"+(t==="blue"?0.4:0.22)+")"); g.addColorStop(Math.min(1,o+0.2),"rgba(255,255,255,0)"); x.fillStyle=g; x.fillRect(cx-size/2,cy-size/2,size,size); x.restore(); }
 }
 function drawDot(t,cx,cy){ x.fillStyle=TAG_COLOR[t]||"#fff"; x.beginPath(); x.arc(cx,cy,4,0,7); x.fill(); x.strokeStyle="rgba(0,0,0,.5)"; x.lineWidth=1; x.stroke(); }
+function compTier(){ if(typeof companion==="number") return tier[companion]||"red"; if(companion&&companion.t) return companion.t; return "red"; }
+function drawCompanionSprite(cx,cy,size){ if(typeof companion==="number"){ drawPix(companion,cx,cy,size,tier[companion]||"red"); return; }
+  if(companion&&companion.comp){ var t=companion.t||"red", cs=companion.comp; x.save(); x.imageSmoothingEnabled=false; x.filter=rarityFilter(t);
+    for(var i=0;i<cs.length&&i<2;i++){ var rec=(sprP[cs[i]]&&sprP[cs[i]].ok)?sprP[cs[i]]:sprPhoto[cs[i]]; var two=cs.length>=2; var ofx=two?(i===0?-size*0.14:size*0.14):0, ss=two?size*0.85:size; if(i===1)x.globalCompositeOperation="lighter"; if(rec&&rec.ok) x.drawImage(rec.img,Math.round(cx+ofx-ss/2),Math.round(cy-ss/2),Math.round(ss),Math.round(ss)); }
+    x.restore(); x.filter="none"; } }
 
 // ===== CANVAS / LAYOUT =====
 const stage=document.getElementById("stage"), cabImg=document.getElementById("cabImg"), cv=document.getElementById("screen"), x=cv.getContext("2d");
@@ -114,7 +119,7 @@ function loadMap(name,entry){
   fetch(name+".json").then(r=>{ if(!r.ok) throw new Error(name+".json ("+r.status+")"); return r.json(); })
    .then(d=>{ M=d; T=d.tileSize||64; tiles=(d.tiles||[]).map(n=>{const im=tileImg(n); if(!im.complete)im.addEventListener("load",draw); return im;});
      const sp=(d.spawns||[]).find(s=>s.name===entry)||(d.spawns||[]).find(s=>s.name==="start")||(d.spawns||[])[0];
-     px=sp?sp.x:Math.floor((d.cols||1)/2); py=sp?sp.y:Math.floor((d.rows||1)/2); if(retPos){ px=retPos.x; py=retPos.y; retPos=null; } inZone=zoneAt(px,py); layout(); })
+     px=sp?sp.x:Math.floor((d.cols||1)/2); py=sp?sp.y:Math.floor((d.rows||1)/2); if(retPos){ px=retPos.x; py=retPos.y; if(retPos.f) guyFace=retPos.f; retPos=null; } inZone=zoneAt(px,py); layout(); })
    .catch(e=>{ const el=document.getElementById("err"); el.innerHTML="Couldn't load <b>"+name+".json</b>.<br>"+e.message; el.style.display="flex"; });
 }
 function solidAt(c,r){ if(!M) return true; if(c<0||r<0||c>=M.cols||r>=M.rows) return true; return !!(M.solid&&M.solid[r][c]); }
@@ -141,12 +146,12 @@ function drawWalk(){
   const ppx=Math.round((px*T-camx)*s),ppy=Math.round((py*T-camy)*s), pcx=ppx+sz/2, pcy=ppy+sz/2;
   const bounce=Math.max(0,1-(now-lastStepAt)/240), bounceY=-Math.sin(bounce*Math.PI)*sz*0.16, idleY=Math.sin(now/500)*sz*0.05*(1-bounce);
   orbit+=0.03;
-  var hasComp=(companion>=0);
-  if(hasComp){ var oa=orbit, ox2=pcx+Math.cos(oa)*sz*0.9, oy2=pcy+Math.sin(oa)*sz*0.5-sz*0.1; if(Math.sin(oa)<0){ x.imageSmoothingEnabled=false; drawPix(companion,ox2,oy2,sz*0.9,tier[companion]||"red"); } }
+  var hasComp=(companion!=null && companion!==-1);
+  if(hasComp){ var oa=orbit, ox2=pcx+Math.cos(oa)*sz*0.9, oy2=pcy+Math.sin(oa)*sz*0.5-sz*0.1; if(Math.sin(oa)<0){ drawCompanionSprite(ox2,oy2,sz*0.9); } }
   const gim=guy[guyFace]; x.imageSmoothingEnabled=true;
   if(gim&&gim.complete&&gim.naturalWidth){ const pw2=sz*1.05, ph2=sz*1.5; x.drawImage(gim, ppx+sz/2-pw2/2, ppy+sz-ph2+sz*0.12+bounceY+idleY, pw2, ph2); }
   else { x.fillStyle="#8affea";x.strokeStyle="#0d0a17";x.lineWidth=Math.max(2,sz*0.06);x.beginPath();x.arc(pcx,pcy+bounceY+idleY,sz*0.3,0,7);x.fill();x.stroke(); }
-  if(hasComp){ var oa2=orbit, ox3=pcx+Math.cos(oa2)*sz*0.9, oy3=pcy+Math.sin(oa2)*sz*0.5-sz*0.1; if(Math.sin(oa2)>=0){ x.imageSmoothingEnabled=false; drawPix(companion,ox3,oy3,sz*0.9,tier[companion]||"red"); } }
+  if(hasComp){ var oa2=orbit, ox3=pcx+Math.cos(oa2)*sz*0.9, oy3=pcy+Math.sin(oa2)*sz*0.5-sz*0.1; if(Math.sin(oa2)>=0){ drawCompanionSprite(ox3,oy3,sz*0.9); } }
   updateLeaves(now,treeCells); drawLeaves(); updateMotes(now); drawMotes();
   x.fillStyle="rgba(13,10,23,.7)"; roundRect(6,6,168,22,7); x.fill(); x.fillStyle="#c9a0ff"; x.font="11px sans-serif"; x.textAlign="left"; x.textBaseline="middle"; x.fillText("Collected "+areaCount()+"/"+(AREA_LAST-AREA_FIRST+1)+"  ·  B = Binder",12,18);
 }
@@ -167,12 +172,17 @@ function startEncounter(){
   enc={ dir:dir, mons:mons, grow:0, holdT:0, vidStarted:false, px:cxN-fwd[0]*0.22, py:cyN-fwd[1]*0.22, done:false, msg:"" };
   mode="encounter";
 }
-function boxRect(){ var bs=Math.min(W,H)*0.94*(0.24+0.76*enc.grow); return {x:W/2-bs/2, y:H/2-bs/2, s:bs}; }
+function boxRect(){ var bs=Math.min(W,H)*0.8*(0.3+0.7*enc.grow); return {x:W/2-bs/2, y:H/2-bs/2, s:bs}; }
+function drawMapBg(){ if(!M){ x.fillStyle="#0d0a17"; x.fillRect(0,0,W,H); return; }
+  const s=Math.max(0.45,Math.min(2.6,W/(18*T))), sz=T*s; let camx=(px+0.5)*T-W/(2*s), camy=(py+0.5)*T-H/(2*s);
+  const c0=Math.max(0,Math.floor(camx/T)),r0=Math.max(0,Math.floor(camy/T)),c1=Math.min(M.cols-1,Math.floor((camx+W/s)/T)),r1=Math.min(M.rows-1,Math.floor((camy+H/s)/T));
+  x.imageSmoothingEnabled=true;
+  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ const idx=M.map[r][c]; if(idx<0||!tiles[idx]||!tiles[idx].complete||!tiles[idx].naturalWidth) continue; const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.drawImage(tiles[idx],dx,dy,Math.ceil(sz)+1,Math.ceil(sz)+1); } }
 function drawEncounter(){ if(!enc) return;
-  enc.holdT++; var HOLD=110;
-  if(enc.holdT>HOLD){ if(!enc.vidStarted){ enc.vidStarted=true; var vv=encVid[enc.dir]; if(vv){ try{ vv.currentTime=0; var pr=vv.play(); if(pr&&pr.catch)pr.catch(function(){}); }catch(e){} } } if(enc.grow<1) enc.grow=Math.min(1,enc.grow+0.035); }
+  enc.holdT++; var HOLD=10;
+  if(enc.holdT>HOLD){ if(!enc.vidStarted){ enc.vidStarted=true; var vv=encVid[enc.dir]; if(vv){ try{ vv.currentTime=0; var pr=vv.play(); if(pr&&pr.catch)pr.catch(function(){}); }catch(e){} } } if(enc.grow<1) enc.grow=Math.min(1,enc.grow+0.08); }
   var b=boxRect();
-  x.fillStyle="#05030c"; x.fillRect(0,0,W,H); var v=encVid[enc.dir];
+  drawMapBg(); x.fillStyle="rgba(5,3,12,0.6)"; x.fillRect(0,0,W,H); var v=encVid[enc.dir];
   x.save(); roundRect(b.x,b.y,b.s,b.s,10); x.clip();
   if(enc.vidStarted && v && v.readyState>=2){ try{ x.imageSmoothingEnabled=true; x.drawImage(v,b.x,b.y,b.s,b.s); }catch(e){ encBg(b); } } else encBg(b);
   var psz=b.s*0.2, pcx=b.x+enc.px*b.s, pcy=b.y+enc.py*b.s, face=({U:"B",D:"F",L:"L",R:"R"})[enc.dir], gim=guy[face], bob=Math.sin(Date.now()/400)*psz*0.05;
@@ -181,14 +191,14 @@ function drawEncounter(){ if(!enc) return;
   if(enc.grow>=0.9){ for(var i=0;i<enc.mons.length;i++){ var m=enc.mons[i]; if(m.fled) continue; var mx=b.x+m.x*b.s, my=b.y+m.y*b.s+Math.sin(Date.now()/500+m.ph)*psz*0.12; drawPix(m.num,mx,my,psz*1.35,m.t); x.filter="none"; drawDot(m.t,mx,my+psz*0.78); } }
   x.restore();
   x.fillStyle="#c9a0ff"; x.font="bold 12px sans-serif"; x.textAlign="center"; x.textBaseline="top";
-  x.fillText((companion<0)?"Walk into one — free first pick!":"Walk into one to try collecting it",W/2,6);
+  x.fillText((companion==null||companion===-1)?"Walk into one — free first pick!":"Walk into one to try collecting it",W/2,6);
   if(enc.msg){ x.fillStyle="#8affea"; x.font="bold 13px sans-serif"; x.textBaseline="bottom"; x.fillText(enc.msg,W/2,H-8); }
 }
 function encBg(b){ var g=x.createRadialGradient(W/2,H/2,10,W/2,H/2,b.s*0.7); g.addColorStop(0,"#3a1a66"); g.addColorStop(1,"#0a0518"); x.fillStyle=g; x.fillRect(b.x,b.y,b.s,b.s); }
 function encMove(dx,dy){ if(!enc||enc.done) return; enc.px=Math.max(0.12,Math.min(0.88,enc.px+dx*0.055)); enc.py=Math.max(0.12,Math.min(0.88,enc.py+dy*0.055));
   for(var i=0;i<enc.mons.length;i++){ var m=enc.mons[i]; if(m.fled) continue; if(Math.hypot(enc.px-m.x,enc.py-m.y)<0.12){ attempt(m); break; } } draw(); }
-function attempt(m){ if(enc.done) return; var free=(companion<0);
-  var chance = free?1:(TAG_VAL[tier[companion]||"red"]/100);
+function attempt(m){ if(enc.done) return; var free=(companion==null||companion===-1);
+  var chance = free?1:( (typeof companion==="number") ? (TAG_VAL[tier[companion]||"red"]/100) : 0.9 );
   if(Math.random()<chance){ collectMon(m); }
   else { m.fled=true; enc.msg=dreamName(m.num)+" fled!"; if(enc.mons.every(function(mm){return mm.fled;})){ enc.done=true; setTimeout(function(){ mode="walk"; inZone=true; },900); } draw(); }
 }
@@ -197,7 +207,7 @@ function collectMon(m){ enc.done=true;
   var isNew=(dmDex.indexOf(m.num)<0); if(isNew) dmDex.push(m.num); dmHeld.push(m.num);
   if(!tier[m.num] || TAG_VAL[m.t]>TAG_VAL[tier[m.num]]) tier[m.num]=m.t;
   if(m.t!=="red" && dmRare.indexOf(m.num)<0) dmRare.push(m.num);
-  var first=(companion<0);
+  var first=(companion==null||companion===-1);
   if(first){ companion=m.num; saveGame(); enc.msg="Collected #"+m.num+"!"; setTimeout(function(){ mode="walk"; inZone=true; },1100); }
   else { saveGame(); promptCompanion(m.num); }
   draw();
@@ -215,7 +225,7 @@ function promptNo(){ prompt=null; mode="walk"; inZone=true; draw(); }
 // ===== INPUT =====
 function onDir(dx,dy){ if(mode==="walk") walkStep(dx,dy); else if(mode==="encounter") encMove(dx,dy); }
 function onA(){ if(mode==="prompt") promptYes(); }
-function onB(){ if(mode==="walk"){ try{localStorage.setItem("town_pos",JSON.stringify({x:px,y:py}));}catch(e){} saveGame(); location.href=ARCADE_FILE+"?view=binder&town=1"; } else if(mode==="prompt") promptNo(); }
+function onB(){ if(mode==="walk"){ try{localStorage.setItem("town_pos",JSON.stringify({x:px,y:py,f:guyFace}));}catch(e){} saveGame(); location.href=ARCADE_FILE+"?view=binder&town=1"; } else if(mode==="prompt") promptNo(); }
 function bindHold(id,fn){ const el=document.getElementById(id); let iv; const on=e=>{ e.preventDefault(); fn(); iv=setInterval(fn,150); }; const off=e=>{ if(e)e.preventDefault(); clearInterval(iv); };
   el.addEventListener("touchstart",on,{passive:false}); el.addEventListener("touchend",off); el.addEventListener("touchcancel",off); el.addEventListener("mousedown",on); el.addEventListener("mouseup",off); el.addEventListener("mouseleave",off); }
 bindHold("up",()=>onDir(0,-1)); bindHold("dn",()=>onDir(0,1)); bindHold("lf",()=>onDir(-1,0)); bindHold("rt",()=>onDir(1,0));
