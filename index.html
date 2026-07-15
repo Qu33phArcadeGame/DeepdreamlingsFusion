@@ -13,7 +13,7 @@
   #err{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#ffb3d1;background:#0d0a17;font-size:14px;padding:26px;text-align:center;line-height:1.6;z-index:9;}
   /* D-pad over the painted left/right cluster */
   #dpad{position:absolute;}
-  #dpad .dp{position:absolute;width:40%;height:40%;background:transparent;border:none;border-radius:12px;}
+  #dpad .dp{position:absolute;width:40%;height:40%;background:transparent;border:none;border-radius:12px;color:transparent;font-size:0;}
   #dpad .dp:active{background:rgba(138,255,234,.22);}
   #up{left:30%;top:0}#dn{left:30%;bottom:0}#lf{left:0;top:30%}#rt{right:0;top:30%}
   .rbtn{position:absolute;border-radius:50%;background:transparent;border:none;color:transparent;}
@@ -37,7 +37,7 @@ const CAB_SRC="dreamlingoverlay.png";
 const PF_PNG_W=1440, PF_PNG_H=2560;
 const PF_SCREEN=[0.15,0.30,0.85,0.515];          // screen rect (slightly smaller)
 const A_POS=[0.623,0.632], B_POS=[0.778,0.632];  // centered on red / blue painted buttons
-const DP_C=[0.246,0.650], DP_SZ=0.24;            // centered on the green painted pad
+const DP_C=[0.248,0.646], DP_SZ=0.19;            // centered on the green painted pad
 
 // ===== CONFIG =====
 const ARCADE_FILE="deepdreamlings.html";   // your real game: 3D roam + binder + Dex + fusion
@@ -74,7 +74,7 @@ const guy={}; let guyFace="F";   // player sprite: F=front, B=back, L=left, R=ri
 let lastStepAt=0, leaves=[];
 const LEAF_COLORS=["#6aa84c","#c9a04c","#4caf9a","#8fbf5a","#d98cff","#7ad6c0"];
 function isWater(idx){ return M && M.tiles && M.tiles[idx] && /water/i.test(M.tiles[idx]); }
-function isTree(idx){ return M && M.tiles && M.tiles[idx] && /tree/i.test(M.tiles[idx]); }
+function isTree(idx){ return M && M.tiles && M.tiles[idx] && /^tree[12]\.png$/i.test(M.tiles[idx]); }
 let motes=[];
 const MOTE_COLORS=["#8affea","#c9a0ff","#ffe08a"];
 
