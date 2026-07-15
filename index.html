@@ -69,6 +69,14 @@ const spr={};
 for(let i=AREA_FIRST;i<=AREA_LAST;i++){ const im=new Image(); const rec={img:im,ok:false}; im.onload=()=>rec.ok=true; im.onerror=()=>rec.ok=false; im.src="dreamling"+i+".png"; spr[i]=rec; }
 const tileCache={};
 function tileImg(n){ return tileCache[n]||(tileCache[n]=(function(){const im=new Image();im.src=n;return im;})()); }
+const guy={}; let guyFace="F";   // player sprite: F=front, B=back, L=left, R=right
+["F","B","L","R"].forEach(function(d){ var im=new Image(); im.src="dreamguy"+d+".png"; guy[d]=im; });
+let lastStepAt=0, leaves=[];
+const LEAF_COLORS=["#6aa84c","#c9a04c","#4caf9a","#8fbf5a","#d98cff","#7ad6c0"];
+function isWater(idx){ return M && M.tiles && M.tiles[idx] && /water/i.test(M.tiles[idx]); }
+function isTree(idx){ return M && M.tiles && M.tiles[idx] && /tree/i.test(M.tiles[idx]); }
+let motes=[];
+const MOTE_COLORS=["#8affea","#c9a0ff","#ffe08a"];
 
 // ===== CANVAS + CABINET LAYOUT =====
 const stage=document.getElementById("stage"), cabImg=document.getElementById("cabImg"), cv=document.getElementById("screen"), x=cv.getContext("2d");
@@ -104,7 +112,7 @@ function loadMap(name,entry){
 }
 function solidAt(c,r){ if(!M) return true; if(c<0||r<0||c>=M.cols||r>=M.rows) return true; return !!(M.solid&&M.solid[r][c]); }
 function zoneAt(c,r){ if(!M) return false; const g=M.encounter||M.enc; return !!(g&&g[r]&&g[r][c]); }
-function walkStep(dx,dy){ if(!M) return; const nc=px+dx,nr=py+dy; if(solidAt(nc,nr)) return; px=nc; py=nr;
+function walkStep(dx,dy){ if(!M) return; if(dx<0)guyFace="L"; else if(dx>0)guyFace="R"; else if(dy<0)guyFace="B"; else if(dy>0)guyFace="F"; const nc=px+dx,nr=py+dy; if(solidAt(nc,nr)){ draw(); return; } px=nc; py=nr; lastStepAt=Date.now();
   const w=(M.warps||[]).find(o=>o.x===px&&o.y===py); if(w){ loadMap(w.toMap,w.entry||"start"); return; }
   const nz=zoneAt(px,py); if(nz&&!inZone){ inZone=true; startEncounter(); return; } if(!nz) inZone=false; draw(); }
 
@@ -119,15 +127,31 @@ function drawWalk(){
   if(!M){ x.fillStyle="#0d0a17"; x.fillRect(0,0,W,H); return; }
   const s=Math.max(0.45,Math.min(2.6,W/(18*T))), sz=T*s; let camx=(px+0.5)*T-W/(2*s), camy=(py+0.5)*T-H/(2*s);
   const c0=Math.max(0,Math.floor(camx/T)),r0=Math.max(0,Math.floor(camy/T)),c1=Math.min(M.cols-1,Math.floor((camx+W/s)/T)),r1=Math.min(M.rows-1,Math.floor((camy+H/s)/T));
+  const now=Date.now(); const treeCells=[];
   x.imageSmoothingEnabled=true;
   for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ const idx=M.map[r][c]; if(idx<0||!tiles[idx]||!tiles[idx].complete||!tiles[idx].naturalWidth) continue;
-    const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.drawImage(tiles[idx],dx,dy,Math.ceil(sz)+1,Math.ceil(sz)+1);
+    const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.drawImage(tiles[idx],dx,dy,Math.ceil(sz)+1,Math.ceil(sz)+1); if(isTree(idx)) treeCells.push({x:dx+sz/2,y:dy+sz*0.3});
+    if(isWater(idx)){ var wph=now/650+c*0.6+r*0.4; x.fillStyle="rgba(170,225,255,"+(0.05+0.05*Math.sin(wph))+")"; x.fillRect(dx,dy,sz,sz);
+      x.strokeStyle="rgba(255,255,255,0.10)"; x.lineWidth=Math.max(1,sz*0.045); var wy=dy+(0.28+0.44*(0.5+0.5*Math.sin(wph)))*sz; x.beginPath(); x.moveTo(dx,wy); x.lineTo(dx+sz,wy+Math.sin(wph*1.3)*sz*0.08); x.stroke(); }
     if(M.border>0){const lw=Math.max(1,M.border*s);x.strokeStyle="#000";x.lineWidth=lw;x.strokeRect(dx+lw/2,dy+lw/2,sz-lw,sz-lw);} }
-  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ if(zoneAt(c,r)){ const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.fillStyle="rgba(150,90,255,"+(0.16+0.10*Math.sin(Date.now()/300+c+r))+")"; x.fillRect(dx,dy,sz,sz); } }
+  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ if(zoneAt(c,r)){ const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.fillStyle="rgba(150,90,255,"+(0.16+0.10*Math.sin(now/300+c+r))+")"; x.fillRect(dx,dy,sz,sz); } }
   const ppx=Math.round((px*T-camx)*s),ppy=Math.round((py*T-camy)*s);
-  x.fillStyle="#8affea";x.strokeStyle="#0d0a17";x.lineWidth=Math.max(2,sz*0.06);x.beginPath();x.arc(ppx+sz/2,ppy+sz/2,sz*0.3,0,7);x.fill();x.stroke();
+  const bounce=Math.max(0,1-(now-lastStepAt)/240), bounceY=-Math.sin(bounce*Math.PI)*sz*0.16, idleY=Math.sin(now/500)*sz*0.05*(1-bounce);
+  const gim=guy[guyFace];
+  if(gim&&gim.complete&&gim.naturalWidth){ const pw2=sz*1.05, ph2=sz*1.5; x.drawImage(gim, ppx+sz/2-pw2/2, ppy+sz-ph2+sz*0.12+bounceY+idleY, pw2, ph2); }
+  else { x.fillStyle="#8affea";x.strokeStyle="#0d0a17";x.lineWidth=Math.max(2,sz*0.06);x.beginPath();x.arc(ppx+sz/2,ppy+sz/2+bounceY+idleY,sz*0.3,0,7);x.fill();x.stroke(); }
+  updateLeaves(now,treeCells); drawLeaves(); updateMotes(now); drawMotes();
   x.fillStyle="rgba(13,10,23,.7)"; roundRect(6,6,150,22,7); x.fill(); x.fillStyle="#c9a0ff"; x.font="11px sans-serif"; x.textAlign="left"; x.textBaseline="middle"; x.fillText("Collected "+areaCount()+"/"+(AREA_LAST-AREA_FIRST+1)+"  ·  B = Binder",12,18);
 }
+function updateLeaves(now,treeCells){ if(treeCells && treeCells.length && leaves.length<22 && Math.random()<0.5){ var tc=treeCells[Math.floor(Math.random()*treeCells.length)]; leaves.push({x:tc.x+(Math.random()-0.5)*22, y:tc.y+(Math.random()-0.5)*16, vy:0.3+Math.random()*0.7, sway:0.5+Math.random()*1.1, ph:Math.random()*6, spin:(Math.random()-0.5)*0.12, rot:Math.random()*6, size:6+Math.random()*8, col:LEAF_COLORS[Math.floor(Math.random()*LEAF_COLORS.length)]}); }
+  for(var i=0;i<leaves.length;i++){ var l=leaves[i]; l.y+=l.vy; l.x+=Math.sin(l.ph)*l.sway*0.5; l.ph+=0.03; l.rot+=l.spin; }
+  leaves=leaves.filter(function(l){ return l.y<H+16; }); }
+function drawLeaves(){ for(var i=0;i<leaves.length;i++){ var l=leaves[i]; x.save(); x.translate(l.x,l.y); x.rotate(l.rot); x.globalAlpha=0.82; x.fillStyle=l.col;
+  x.beginPath(); x.ellipse(0,0,l.size*0.5,l.size*0.28,0,0,7); x.fill(); x.strokeStyle="rgba(0,0,0,0.22)"; x.lineWidth=1; x.beginPath(); x.moveTo(-l.size*0.5,0); x.lineTo(l.size*0.5,0); x.stroke(); x.restore(); } x.globalAlpha=1; }
+function updateMotes(now){ if(motes.length<14 && Math.random()<0.12){ motes.push({x:Math.random()*W, y:H+8, vx:(Math.random()-0.5)*0.3, vy:-0.12-Math.random()*0.28, ph:Math.random()*6, r:2+Math.random()*3.2, col:MOTE_COLORS[Math.floor(Math.random()*MOTE_COLORS.length)]}); }
+  for(var i=0;i<motes.length;i++){ var m=motes[i]; m.ph+=0.02; m.x+=m.vx+Math.sin(m.ph)*0.25; m.y+=m.vy; }
+  motes=motes.filter(function(m){ return m.y>-12; }); }
+function drawMotes(){ for(var i=0;i<motes.length;i++){ var m=motes[i]; var a=0.25+0.25*Math.sin(m.ph*1.5); var g=x.createRadialGradient(m.x,m.y,0,m.x,m.y,m.r*4); g.addColorStop(0,m.col); g.addColorStop(1,"rgba(0,0,0,0)"); x.globalAlpha=a; x.fillStyle=g; x.beginPath(); x.arc(m.x,m.y,m.r*4,0,7); x.fill(); } x.globalAlpha=1; }
 
 // ===== COLLECTING =====
 let enc=null;
