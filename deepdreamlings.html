@@ -3126,7 +3126,7 @@ function settingsBack(){ if(paused){ showPauseOverlay(); } else { showTitle(); }
 
 function addTownBtn(){ if(document.getElementById("townBtn")) return; var b=document.createElement("div"); b.id="townBtn"; b.textContent="\u25C0 TOWN"; b.style.cssText="position:fixed;left:8px;top:8px;z-index:100000;background:rgba(13,10,23,.85);color:#8affea;font:bold 13px sans-serif;padding:8px 12px;border-radius:9px;border:1px solid #3a2360;"; b.onclick=function(){ location.href="index.html"; }; document.body.appendChild(b); }
 (function(){ try{ var q=new URLSearchParams(location.search); var pa=q.get("area"), pv=q.get("view"), ft=(q.get("town")==="1"||pa!==null||pv!==null); window.__fromTown=ft;
-  if(ft){ window.pfMapBack=function(){ var _cd=document.getElementById("dlCard"); if(_cd&&_cd.style.display!=="none"){ _cd.style.display="none"; return; } location.href="index.html"; }; }
+  if(ft){ window.pfMapBack=function(){ var _cd=document.getElementById("dlCard"); if(_cd&&_cd.style.display!=="none"){ _cd.style.display="none"; return; } location.href="index.html?ret=1"; }; }
   if(pv==="binder"){ dlLoadImages(); showPlatformer("binder"); openBinderCab(); return; }
   if(pa!==null){ var n=parseInt(pa,10); if(!isNaN(n)&&n>=0&&n<DL_AREAS.length){ dlLoadImages(); launchArea(n); if(ft)addTownBtn(); return; } }
 }catch(e){} showTitle(); })();
