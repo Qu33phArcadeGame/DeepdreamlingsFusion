@@ -89,9 +89,7 @@ function drawPix(num,cx,cy,size,t){ var rec=(sprP[num]&&sprP[num].ok)?sprP[num]:
 function drawDot(t,cx,cy){ x.fillStyle=TAG_COLOR[t]||"#fff"; x.beginPath(); x.arc(cx,cy,4,0,7); x.fill(); x.strokeStyle="rgba(0,0,0,.5)"; x.lineWidth=1; x.stroke(); }
 function compTier(){ if(typeof companion==="number") return tier[companion]||"red"; if(companion&&companion.t) return companion.t; return "red"; }
 function drawCompanionSprite(cx,cy,size){ if(typeof companion==="number"){ drawPix(companion,cx,cy,size,tier[companion]||"red"); return; }
-  if(companion&&companion.comp){ var t=companion.t||"red", cs=companion.comp; x.save(); x.imageSmoothingEnabled=false; x.filter=rarityFilter(t);
-    for(var i=0;i<cs.length&&i<2;i++){ var rec=(sprP[cs[i]]&&sprP[cs[i]].ok)?sprP[cs[i]]:sprPhoto[cs[i]]; var two=cs.length>=2; var ofx=two?(i===0?-size*0.14:size*0.14):0, ss=two?size*0.85:size; if(i===1)x.globalCompositeOperation="lighter"; if(rec&&rec.ok) x.drawImage(rec.img,Math.round(cx+ofx-ss/2),Math.round(cy-ss/2),Math.round(ss),Math.round(ss)); }
-    x.restore(); x.filter="none"; } }
+  if(companion&&companion.comp&&companion.comp.length){ drawPix(companion.comp[0],cx,cy,size,companion.t||"red"); } }
 
 // ===== CANVAS / LAYOUT =====
 const stage=document.getElementById("stage"), cabImg=document.getElementById("cabImg"), cv=document.getElementById("screen"), x=cv.getContext("2d");
@@ -179,7 +177,7 @@ function drawMapBg(){ if(!M){ x.fillStyle="#0d0a17"; x.fillRect(0,0,W,H); return
   x.imageSmoothingEnabled=true;
   for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ const idx=M.map[r][c]; if(idx<0||!tiles[idx]||!tiles[idx].complete||!tiles[idx].naturalWidth) continue; const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.drawImage(tiles[idx],dx,dy,Math.ceil(sz)+1,Math.ceil(sz)+1); } }
 function drawEncounter(){ if(!enc) return;
-  enc.holdT++; var HOLD=10;
+  enc.holdT++; var HOLD=0;
   if(enc.holdT>HOLD){ if(!enc.vidStarted){ enc.vidStarted=true; var vv=encVid[enc.dir]; if(vv){ try{ vv.currentTime=0; var pr=vv.play(); if(pr&&pr.catch)pr.catch(function(){}); }catch(e){} } } if(enc.grow<1) enc.grow=Math.min(1,enc.grow+0.08); }
   var b=boxRect();
   drawMapBg(); x.fillStyle="rgba(5,3,12,0.6)"; x.fillRect(0,0,W,H); var v=encVid[enc.dir];
