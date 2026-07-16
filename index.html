@@ -70,6 +70,11 @@ const tileCache={};
 function tileImg(n){ return tileCache[n]||(tileCache[n]=(function(){const im=new Image();im.src=n;return im;})()); }
 const guy={}; let guyFace="F";
 ["F","B","L","R"].forEach(function(d){ var im=new Image(); im.src="dreamguy"+d+".png"; guy[d]=im; });
+const bobImg=new Image(); bobImg.src="bob.png";
+const BOB={ map:"room1", x:2, y:2, text:"There's some crazy things in the water over there, go for a swim!" };
+let currentMap="map", bobShown=false, dialogue=null;
+let waterSaid = (localStorage.getItem("town_water_said")==="1");
+function say(t){ dialogue=t; }
 const encVid={ U:document.getElementById("vU"), D:document.getElementById("vD"), L:document.getElementById("vL"), R:document.getElementById("vR") };
 encVid.U.src="encounterU.mp4"; encVid.D.src="encounterD.mp4"; encVid.L.src="encounterR.mp4"; encVid.R.src="encounterL.mp4";
 let lastStepAt=0, leaves=[], motes=[];
@@ -115,20 +120,27 @@ addEventListener("resize",layout);
 let M=null,T=64,px=0,py=0,mode="walk",inZone=false,orbit=0,tiles=[];
 function loadMap(name,entry){
   fetch(name+".json").then(r=>{ if(!r.ok) throw new Error(name+".json ("+r.status+")"); return r.json(); })
-   .then(d=>{ M=d; T=d.tileSize||64; tiles=(d.tiles||[]).map(n=>{const im=tileImg(n); if(!im.complete)im.addEventListener("load",draw); return im;});
+   .then(d=>{ M=d; T=d.tileSize||64; currentMap=name; if(name===BOB.map) bobShown=false; tiles=(d.tiles||[]).map(n=>{const im=tileImg(n); if(!im.complete)im.addEventListener("load",draw); return im;});
      const sp=(d.spawns||[]).find(s=>s.name===entry)||(d.spawns||[]).find(s=>s.name==="start")||(d.spawns||[])[0];
      px=sp?sp.x:Math.floor((d.cols||1)/2); py=sp?sp.y:Math.floor((d.rows||1)/2); if(retPos){ px=retPos.x; py=retPos.y; if(retPos.f) guyFace=retPos.f; retPos=null; } inZone=zoneAt(px,py); layout(); })
    .catch(e=>{ const el=document.getElementById("err"); el.innerHTML="Couldn't load <b>"+name+".json</b>.<br>"+e.message; el.style.display="flex"; });
 }
 function solidAt(c,r){ if(!M) return true; if(c<0||r<0||c>=M.cols||r>=M.rows) return true; return !!(M.solid&&M.solid[r][c]); }
 function zoneAt(c,r){ if(!M) return false; const g=M.encounter||M.enc; return !!(g&&g[r]&&g[r][c]); }
-function walkStep(dx,dy){ if(!M) return; if(dx<0)guyFace="L"; else if(dx>0)guyFace="R"; else if(dy<0)guyFace="B"; else if(dy>0)guyFace="F"; const nc=px+dx,nr=py+dy; if(solidAt(nc,nr)){ draw(); return; } px=nc; py=nr; lastStepAt=Date.now();
+function walkStep(dx,dy){ if(!M||dialogue) return; if(dx<0)guyFace="L"; else if(dx>0)guyFace="R"; else if(dy<0)guyFace="B"; else if(dy>0)guyFace="F"; const nc=px+dx,nr=py+dy; if(solidAt(nc,nr)){ draw(); return; } px=nc; py=nr; lastStepAt=Date.now();
   const w=(M.warps||[]).find(o=>o.x===px&&o.y===py); if(w){ loadMap(w.toMap,w.entry||"start"); return; }
+  if(!waterSaid && isWater(M.map[py][px])){ waterSaid=true; try{localStorage.setItem("town_water_said","1");}catch(e){} say("Am I dreaming? I'm walking on this water"); draw(); return; }
+  if(currentMap===BOB.map && !bobShown && Math.abs(px-BOB.x)+Math.abs(py-BOB.y)<=1){ bobShown=true; say(BOB.text); draw(); return; }
   const nz=zoneAt(px,py); if(nz&&!inZone){ inZone=true; startEncounter(); return; } if(!nz) inZone=false; draw(); }
 
 // ===== DRAW ROUTER =====
 function draw(){ if(!W) return; x.clearRect(0,0,W,H); x.filter="none"; x.globalAlpha=1; x.globalCompositeOperation="source-over";
-  if(mode==="walk") drawWalk(); else if(mode==="encounter") drawEncounter(); else if(mode==="prompt"){ drawEncounter(); drawPrompt(); } }
+  if(mode==="walk"){ drawWalk(); if(dialogue) drawDialogue(); } else if(mode==="encounter") drawEncounter(); else if(mode==="prompt"){ drawEncounter(); drawPrompt(); } }
+function drawDialogue(){ var bh=Math.max(50,H*0.24); var by=H-bh-8; x.fillStyle="rgba(8,5,18,0.93)"; roundRect(8,by,W-16,bh,10); x.fill(); x.strokeStyle="#c9a0ff"; x.lineWidth=2; roundRect(8,by,W-16,bh,10); x.stroke();
+  x.fillStyle="#eee"; x.font="bold 13px sans-serif"; x.textAlign="left"; x.textBaseline="top";
+  var words=dialogue.split(" "), line="", maxw=W-40, lines=[]; for(var i=0;i<words.length;i++){ var test=line+words[i]+" "; if(x.measureText(test).width>maxw && line){ lines.push(line); line=words[i]+" "; } else line=test; } lines.push(line);
+  for(var j=0;j<lines.length;j++) x.fillText(lines[j], 20, by+12+j*18);
+  x.fillStyle="#8affea"; x.font="11px sans-serif"; x.textAlign="right"; x.fillText("\u25B6 A", W-20, by+bh-16); }
 function roundRect(rx,ry,rw,rh,rad){ x.beginPath(); x.moveTo(rx+rad,ry); x.arcTo(rx+rw,ry,rx+rw,ry+rh,rad); x.arcTo(rx+rw,ry+rh,rx,ry+rh,rad); x.arcTo(rx,ry+rh,rx,ry,rad); x.arcTo(rx,ry,rx+rw,ry,rad); x.closePath(); }
 
 function drawWalk(){
@@ -141,6 +153,7 @@ function drawWalk(){
     if(isWater(idx)){ var wph=now/650+c*0.6+r*0.4; x.fillStyle="rgba(170,225,255,"+(0.05+0.05*Math.sin(wph))+")"; x.fillRect(dx,dy,sz,sz); x.strokeStyle="rgba(255,255,255,0.10)"; x.lineWidth=Math.max(1,sz*0.045); var wy=dy+(0.28+0.44*(0.5+0.5*Math.sin(wph)))*sz; x.beginPath(); x.moveTo(dx,wy); x.lineTo(dx+sz,wy+Math.sin(wph*1.3)*sz*0.08); x.stroke(); }
     if(M.border>0){const lw=Math.max(1,M.border*s);x.strokeStyle="#000";x.lineWidth=lw;x.strokeRect(dx+lw/2,dy+lw/2,sz-lw,sz-lw);} }
   for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ if(zoneAt(c,r)){ const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.fillStyle="rgba(150,90,255,"+(0.16+0.10*Math.sin(now/300+c+r))+")"; x.fillRect(dx,dy,sz,sz); } }
+  if(currentMap===BOB.map && bobImg.complete && bobImg.naturalWidth){ var bbx=Math.round((BOB.x*T-camx)*s), bby=Math.round((BOB.y*T-camy)*s), bw=sz*1.0, bhh=sz*1.4; x.imageSmoothingEnabled=true; x.drawImage(bobImg, bbx+sz/2-bw/2, bby+sz-bhh+sz*0.1+Math.sin(now/500)*sz*0.03, bw, bhh); }
   const ppx=Math.round((px*T-camx)*s),ppy=Math.round((py*T-camy)*s), pcx=ppx+sz/2, pcy=ppy+sz/2;
   const bounce=Math.max(0,1-(now-lastStepAt)/240), bounceY=-Math.sin(bounce*Math.PI)*sz*0.16, idleY=Math.sin(now/500)*sz*0.05*(1-bounce);
   orbit+=0.03;
@@ -222,7 +235,7 @@ function promptNo(){ prompt=null; mode="walk"; inZone=true; draw(); }
 
 // ===== INPUT =====
 function onDir(dx,dy){ if(mode==="walk") walkStep(dx,dy); else if(mode==="encounter") encMove(dx,dy); }
-function onA(){ if(mode==="prompt") promptYes(); }
+function onA(){ if(dialogue){ dialogue=null; draw(); return; } if(mode==="prompt") promptYes(); }
 function onB(){ if(mode==="walk"){ try{localStorage.setItem("town_pos",JSON.stringify({x:px,y:py,f:guyFace}));}catch(e){} saveGame(); location.href=ARCADE_FILE+"?view=binder&town=1"; } else if(mode==="prompt") promptNo(); }
 function bindHold(id,fn){ const el=document.getElementById(id); let iv; const on=e=>{ e.preventDefault(); fn(); iv=setInterval(fn,150); }; const off=e=>{ if(e)e.preventDefault(); clearInterval(iv); };
   el.addEventListener("touchstart",on,{passive:false}); el.addEventListener("touchend",off); el.addEventListener("touchcancel",off); el.addEventListener("mousedown",on); el.addEventListener("mouseup",off); el.addEventListener("mouseleave",off); }
