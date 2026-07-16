@@ -72,7 +72,7 @@ const guy={}; let guyFace="F";
 ["F","B","L","R"].forEach(function(d){ var im=new Image(); im.src="dreamguy"+d+".png"; guy[d]=im; });
 const bobImg=new Image(); bobImg.src="bob.png";
 const BOB={ map:"room1", x:2, y:2, text:"There's some crazy things in the water over there, go for a swim!" };
-let currentMap="map", bobShown=false, dialogue=null;
+let currentMap="map", bobShown=false, bobTalks=0, dialogue=null;
 let waterSaid = (localStorage.getItem("town_water_said")==="1");
 function say(t){ dialogue=t; }
 const encVid={ U:document.getElementById("vU"), D:document.getElementById("vD"), L:document.getElementById("vL"), R:document.getElementById("vR") };
@@ -127,10 +127,11 @@ function loadMap(name,entry){
 }
 function solidAt(c,r){ if(!M) return true; if(c<0||r<0||c>=M.cols||r>=M.rows) return true; return !!(M.solid&&M.solid[r][c]); }
 function zoneAt(c,r){ if(!M) return false; const g=M.encounter||M.enc; return !!(g&&g[r]&&g[r][c]); }
-function walkStep(dx,dy){ if(!M||dialogue) return; if(dx<0)guyFace="L"; else if(dx>0)guyFace="R"; else if(dy<0)guyFace="B"; else if(dy>0)guyFace="F"; const nc=px+dx,nr=py+dy; if(solidAt(nc,nr)){ draw(); return; } px=nc; py=nr; lastStepAt=Date.now();
+function walkStep(dx,dy){ if(!M||dialogue) return; if(dx<0)guyFace="L"; else if(dx>0)guyFace="R"; else if(dy<0)guyFace="B"; else if(dy>0)guyFace="F"; const nc=px+dx,nr=py+dy;
+  if(currentMap===BOB.map && nc===BOB.x && nr===BOB.y){ bobTalks++; say(bobTalks>=2?"Be careful though, I get lost sometimes":BOB.text); draw(); return; }
+  if(solidAt(nc,nr)){ draw(); return; } px=nc; py=nr; lastStepAt=Date.now();
   const w=(M.warps||[]).find(o=>o.x===px&&o.y===py); if(w){ loadMap(w.toMap,w.entry||"start"); return; }
   if(!waterSaid && isWater(M.map[py][px])){ waterSaid=true; try{localStorage.setItem("town_water_said","1");}catch(e){} say("Am I dreaming? I'm walking on this water"); draw(); return; }
-  if(currentMap===BOB.map && !bobShown && Math.abs(px-BOB.x)+Math.abs(py-BOB.y)<=1){ bobShown=true; say(BOB.text); draw(); return; }
   const nz=zoneAt(px,py); if(nz&&!inZone){ inZone=true; startEncounter(); return; } if(!nz) inZone=false; draw(); }
 
 // ===== DRAW ROUTER =====
@@ -145,11 +146,11 @@ function roundRect(rx,ry,rw,rh,rad){ x.beginPath(); x.moveTo(rx+rad,ry); x.arcTo
 
 function drawWalk(){
   if(!M){ x.fillStyle="#0d0a17"; x.fillRect(0,0,W,H); return; }
-  const s=Math.max(0.45,Math.min(2.6,W/(18*T))), sz=T*s; let camx=(px+0.5)*T-W/(2*s), camy=(py+0.5)*T-H/(2*s);
+  const s=Math.max(0.45,Math.min(2.6,W/(22*T))), sz=T*s; let camx=(px+0.5)*T-W/(2*s), camy=(py+0.5)*T-H/(2*s);
   const c0=Math.max(0,Math.floor(camx/T)),r0=Math.max(0,Math.floor(camy/T)),c1=Math.min(M.cols-1,Math.floor((camx+W/s)/T)),r1=Math.min(M.rows-1,Math.floor((camy+H/s)/T));
   const now=Date.now(); const treeCells=[]; x.imageSmoothingEnabled=true;
   for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ const idx=M.map[r][c]; if(idx<0||!tiles[idx]||!tiles[idx].complete||!tiles[idx].naturalWidth) continue;
-    const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.drawImage(tiles[idx],dx,dy,Math.ceil(sz)+1,Math.ceil(sz)+1); if(isTree(idx)) treeCells.push({x:dx+sz/2,y:dy+sz*0.3});
+    const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.fillStyle="#241a34"; x.fillRect(dx,dy,Math.ceil(sz)+1,Math.ceil(sz)+1); x.drawImage(tiles[idx],dx,dy,Math.ceil(sz)+1,Math.ceil(sz)+1); if(isTree(idx)) treeCells.push({x:dx+sz/2,y:dy+sz*0.3});
     if(isWater(idx)){ var wph=now/650+c*0.6+r*0.4; x.fillStyle="rgba(170,225,255,"+(0.05+0.05*Math.sin(wph))+")"; x.fillRect(dx,dy,sz,sz); x.strokeStyle="rgba(255,255,255,0.10)"; x.lineWidth=Math.max(1,sz*0.045); var wy=dy+(0.28+0.44*(0.5+0.5*Math.sin(wph)))*sz; x.beginPath(); x.moveTo(dx,wy); x.lineTo(dx+sz,wy+Math.sin(wph*1.3)*sz*0.08); x.stroke(); }
     if(M.border>0){const lw=Math.max(1,M.border*s);x.strokeStyle="#000";x.lineWidth=lw;x.strokeRect(dx+lw/2,dy+lw/2,sz-lw,sz-lw);} }
   for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ if(zoneAt(c,r)){ const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.fillStyle="rgba(150,90,255,"+(0.16+0.10*Math.sin(now/300+c+r))+")"; x.fillRect(dx,dy,sz,sz); } }
@@ -158,11 +159,11 @@ function drawWalk(){
   const bounce=Math.max(0,1-(now-lastStepAt)/240), bounceY=-Math.sin(bounce*Math.PI)*sz*0.16, idleY=Math.sin(now/500)*sz*0.05*(1-bounce);
   orbit+=0.03;
   var hasComp=(companion!=null && companion!==-1);
-  if(hasComp){ var oa=orbit, ox2=pcx+Math.cos(oa)*sz*0.9, oy2=pcy+Math.sin(oa)*sz*0.5-sz*0.1; if(Math.sin(oa)<0){ drawCompanionSprite(ox2,oy2,sz*0.9); } }
+  if(hasComp){ var oa=orbit, ox2=pcx+Math.cos(oa)*sz*0.9, oy2=pcy+Math.sin(oa)*sz*0.5-sz*0.1; if(Math.sin(oa)<0){ drawCompanionSprite(ox2,oy2,sz*1.15); } }
   const gim=guy[guyFace]; x.imageSmoothingEnabled=true;
   if(gim&&gim.complete&&gim.naturalWidth){ const pw2=sz*1.05, ph2=sz*1.5; x.drawImage(gim, ppx+sz/2-pw2/2, ppy+sz-ph2+sz*0.12+bounceY+idleY, pw2, ph2); }
   else { x.fillStyle="#8affea";x.strokeStyle="#0d0a17";x.lineWidth=Math.max(2,sz*0.06);x.beginPath();x.arc(pcx,pcy+bounceY+idleY,sz*0.3,0,7);x.fill();x.stroke(); }
-  if(hasComp){ var oa2=orbit, ox3=pcx+Math.cos(oa2)*sz*0.9, oy3=pcy+Math.sin(oa2)*sz*0.5-sz*0.1; if(Math.sin(oa2)>=0){ drawCompanionSprite(ox3,oy3,sz*0.9); } }
+  if(hasComp){ var oa2=orbit, ox3=pcx+Math.cos(oa2)*sz*0.9, oy3=pcy+Math.sin(oa2)*sz*0.5-sz*0.1; if(Math.sin(oa2)>=0){ drawCompanionSprite(ox3,oy3,sz*1.15); } }
   updateLeaves(now,treeCells); drawLeaves(); updateMotes(now); drawMotes();
   x.fillStyle="rgba(13,10,23,.7)"; roundRect(6,6,168,22,7); x.fill(); x.fillStyle="#c9a0ff"; x.font="11px sans-serif"; x.textAlign="left"; x.textBaseline="middle"; x.fillText("Collected "+areaCount()+"/"+(AREA_LAST-AREA_FIRST+1)+"  ·  B = Binder",12,18);
 }
@@ -185,7 +186,7 @@ function startEncounter(){
 }
 function boxRect(){ var bs=Math.min(W,H)*0.8*(0.3+0.7*enc.grow); return {x:W/2-bs/2, y:H/2-bs/2, s:bs}; }
 function drawMapBg(){ if(!M){ x.fillStyle="#0d0a17"; x.fillRect(0,0,W,H); return; }
-  const s=Math.max(0.45,Math.min(2.6,W/(18*T))), sz=T*s; let camx=(px+0.5)*T-W/(2*s), camy=(py+0.5)*T-H/(2*s);
+  const s=Math.max(0.45,Math.min(2.6,W/(22*T))), sz=T*s; let camx=(px+0.5)*T-W/(2*s), camy=(py+0.5)*T-H/(2*s);
   const c0=Math.max(0,Math.floor(camx/T)),r0=Math.max(0,Math.floor(camy/T)),c1=Math.min(M.cols-1,Math.floor((camx+W/s)/T)),r1=Math.min(M.rows-1,Math.floor((camy+H/s)/T));
   x.imageSmoothingEnabled=true;
   for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ const idx=M.map[r][c]; if(idx<0||!tiles[idx]||!tiles[idx].complete||!tiles[idx].naturalWidth) continue; const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.drawImage(tiles[idx],dx,dy,Math.ceil(sz)+1,Math.ceil(sz)+1); } }
@@ -199,7 +200,7 @@ function drawEncounter(){ if(!enc) return;
   var psz=b.s*0.2, pcx=b.x+enc.px*b.s, pcy=b.y+enc.py*b.s, face=({U:"B",D:"F",L:"L",R:"R"})[enc.dir], gim=guy[face], bob=Math.sin(Date.now()/400)*psz*0.05;
   x.imageSmoothingEnabled=true;
   if(gim&&gim.complete&&gim.naturalWidth){ var pw=psz*1.05, ph=psz*1.5; x.drawImage(gim,pcx-pw/2,pcy-ph+psz*0.5+bob,pw,ph); } else { x.fillStyle="#8affea"; x.beginPath(); x.arc(pcx,pcy+bob,psz*0.4,0,7); x.fill(); }
-  if(enc.grow>=0.9){ for(var i=0;i<enc.mons.length;i++){ var m=enc.mons[i]; if(m.fled) continue; var mx=b.x+m.x*b.s, my=b.y+m.y*b.s+Math.sin(Date.now()/500+m.ph)*psz*0.12; drawPix(m.num,mx,my,psz*1.35,m.t); x.filter="none"; drawDot(m.t,mx,my+psz*0.78); } }
+  if(enc.grow>=0.9){ for(var i=0;i<enc.mons.length;i++){ var m=enc.mons[i]; if(m.fled) continue; var mx=b.x+m.x*b.s, my=b.y+m.y*b.s+Math.sin(Date.now()/500+m.ph)*psz*0.12; drawPix(m.num,mx,my,psz*1.7,m.t); x.filter="none"; drawDot(m.t,mx,my+psz*1.0); } }
   x.restore();
   x.fillStyle="#c9a0ff"; x.font="bold 12px sans-serif"; x.textAlign="center"; x.textBaseline="top";
   x.fillText((companion==null||companion===-1)?"Walk into one — free first pick!":"Walk into one to try collecting it",W/2,6);
@@ -219,7 +220,7 @@ function collectMon(m){ enc.done=true;
   if(!tier[m.num] || TAG_VAL[m.t]>TAG_VAL[tier[m.num]]) tier[m.num]=m.t;
   if(m.t!=="red" && dmRare.indexOf(m.num)<0) dmRare.push(m.num);
   var first=(companion==null||companion===-1);
-  if(first){ companion=m.num; saveGame(); enc.msg="Collected #"+m.num+"!"; setTimeout(function(){ mode="walk"; inZone=true; },1100); }
+  if(first){ companion=m.num; saveGame(); enc.msg="Collected #"+m.num+"!"; setTimeout(function(){ mode="walk"; inZone=true; if(!localStorage.getItem("town_tut")){ try{localStorage.setItem("town_tut","1");}catch(e){} say("Nice — that dreamling now circles you! Hold the RED button to run around faster."); } draw(); },1100); }
   else { saveGame(); promptCompanion(m.num); }
   draw();
 }
@@ -237,11 +238,17 @@ function promptNo(){ prompt=null; mode="walk"; inZone=true; draw(); }
 function onDir(dx,dy){ if(mode==="walk") walkStep(dx,dy); else if(mode==="encounter") encMove(dx,dy); }
 function onA(){ if(dialogue){ dialogue=null; draw(); return; } if(mode==="prompt") promptYes(); }
 function onB(){ if(mode==="walk"){ try{localStorage.setItem("town_pos",JSON.stringify({x:px,y:py,f:guyFace}));}catch(e){} saveGame(); location.href=ARCADE_FILE+"?view=binder&town=1"; } else if(mode==="prompt") promptNo(); }
-function bindHold(id,fn){ const el=document.getElementById(id); let iv; const on=e=>{ e.preventDefault(); fn(); iv=setInterval(fn,150); }; const off=e=>{ if(e)e.preventDefault(); clearInterval(iv); };
+let running=false;
+function bindHold(id,fn){ const el=document.getElementById(id); let t=null, held=false;
+  function step(){ if(!held) return; fn(); t=setTimeout(step, running?70:150); }
+  const on=e=>{ e.preventDefault(); if(held) return; held=true; fn(); t=setTimeout(step, running?70:150); };
+  const off=e=>{ if(e)e.preventDefault(); held=false; clearTimeout(t); };
   el.addEventListener("touchstart",on,{passive:false}); el.addEventListener("touchend",off); el.addEventListener("touchcancel",off); el.addEventListener("mousedown",on); el.addEventListener("mouseup",off); el.addEventListener("mouseleave",off); }
 bindHold("up",()=>onDir(0,-1)); bindHold("dn",()=>onDir(0,1)); bindHold("lf",()=>onDir(-1,0)); bindHold("rt",()=>onDir(1,0));
+(function(){ var a=document.getElementById("aBtn"); function down(e){ e.preventDefault(); running=true; onA(); } function up(){ running=false; }
+  a.addEventListener("touchstart",down,{passive:false}); a.addEventListener("touchend",up); a.addEventListener("touchcancel",up); a.addEventListener("mousedown",down); a.addEventListener("mouseup",up); a.addEventListener("mouseleave",up); })();
 function tapBtn(id,fn){ const el=document.getElementById(id); el.addEventListener("touchstart",e=>{e.preventDefault();fn();},{passive:false}); el.addEventListener("mousedown",e=>{e.preventDefault();fn();}); }
-tapBtn("aBtn",onA); tapBtn("bBtn",onB);
+tapBtn("bBtn",onB);
 addEventListener("keydown",e=>{ const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key]; if(m){e.preventDefault();onDir(m[0],m[1]);} else if(e.key==="a"||e.key==="Enter"||e.key===" "){e.preventDefault();onA();} else if(e.key==="b"){onB();} });
 function loop(){ draw(); requestAnimationFrame(loop); }
 requestAnimationFrame(loop);

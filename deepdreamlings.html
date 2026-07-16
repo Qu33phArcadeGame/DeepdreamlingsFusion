@@ -2871,18 +2871,18 @@ function renderBinder(){
     for(var i=1;i<=DL_COUNT;i++){
       var got=dmDex.indexOf(i)>=0, cnt=0; for(var k=0;k<dmHeld.length;k++){ if(dmHeld[k]===i) cnt++; }
       var _bo=DL_BOSSES.indexOf(i)>=0;
-      if(got){ var _rr=dmRare.indexOf(i)>=0; h+='<div class="dl-card got'+(_bo?" boss":"")+'" onclick="openCard(&#39;dex&#39;,'+i+')"><div class="dl-dots">'+(_rr?'<span class="dl-dot-rare"></span>':'')+'<span class="dl-dot-red"></span></div><canvas id="dlbc'+i+'" width="54" height="54" style="width:100%;max-width:46px;height:auto;"></canvas><div>#'+i+(cnt>1?" x"+cnt:"")+'</div><div style="font-size:7px;color:'+(_bo?"#22e0e0":"#8affea")+';line-height:1.1;">'+dreamlingName(i)+'</div></div>'; }
+      if(got){ var _rr=dmRare.indexOf(i)>=0; h+='<div class="dl-card got'+(_bo?" boss":"")+'" onclick="openCard(&#39;dex&#39;,'+i+')"><div class="dl-dots">'+(_rr?'<span class="dl-dot-rare"></span>':'')+'<span class="dl-dot-red"></span></div><canvas id="dlbc'+i+'" width="54" height="54" style="width:100%;max-width:58px;height:auto;"></canvas><div>#'+i+(cnt>1?" x"+cnt:"")+'</div><div style="font-size:7px;color:'+(_bo?"#22e0e0":"#8affea")+';line-height:1.1;">'+dreamlingName(i)+'</div></div>'; }
       else { h+='<div class="dl-card'+(_bo?" boss":"")+'"><div style="font-size:16px;color:'+(_bo?"#22e0e0":"#555")+';">?</div><div>#'+i+'</div></div>'; }
     }
     h+='</div>'; body.innerHTML=h;
-    for(var i2=1;i2<=DL_COUNT;i2++){ if(dmDex.indexOf(i2)>=0){ var cv=document.getElementById("dlbc"+i2); if(cv){ var cc=cv.getContext("2d"); cc.clearRect(0,0,54,54); drawDreamCreature(cc,27,27,15,i2,0); } } }
+    for(var i2=1;i2<=DL_COUNT;i2++){ if(dmDex.indexOf(i2)>=0){ var cv=document.getElementById("dlbc"+i2); if(cv){ var cc=cv.getContext("2d"); cc.clearRect(0,0,54,54); drawDreamCreature(cc,27,27,20,i2,0); } } }
     return;
   } else if(dmBinderTab==="fus"){
     if(dmFusions.length===0){ body.innerHTML='<div style="font-size:11px;color:#666;text-align:center;margin-top:34px;">no fusions yet \u2014 beat a boss to make one!</div>'; return; }
     h+='<div class="dl-grid">';
     for(var f=0;f<dmFusions.length;f++){ var fu=dmFusions[f]; var _lb=fusLabel(fu), _lc=(_lb==="DEEPDREAMLING")?"#c9a0ff":(_lb==="TRI-BEING")?"#8affea":"#ff5aa0"; h+='<div class="dl-card got" onclick="openCard(&#39;fus&#39;,'+f+')" style="border-color:'+_lc+';"><div style="position:absolute;top:2px;left:4px;font-size:6px;letter-spacing:0px;color:'+_lc+';">'+_lb+'</div><canvas id="dlfc'+f+'" width="54" height="54" style="width:100%;max-width:46px;height:auto;"></canvas><div style="color:'+_lc+';">#'+fusNum(fu)+'</div><div style="font-size:7px;color:#ff9ac0;">'+fusName(fu)+'</div>'+(fu.rare?'<div style="font-size:6px;letter-spacing:1px;color:'+(fu.rare==="full"?"#ffd24a":"#7dffa0")+';">'+(fu.rare==="full"?"FULL RARE":"HALF RARE")+'</div>':'')+'</div>'; }
     h+='</div>'; body.innerHTML=h;
-    for(var f2=0;f2<dmFusions.length;f2++){ var cvf=document.getElementById("dlfc"+f2); if(cvf){ var ccf=cvf.getContext("2d"); ccf.clearRect(0,0,54,54); drawFusedEntity(ccf,27,27,15,dmFusions[f2],0); } }
+    for(var f2=0;f2<dmFusions.length;f2++){ var cvf=document.getElementById("dlfc"+f2); if(cvf){ var ccf=cvf.getContext("2d"); ccf.clearRect(0,0,54,54); drawFusedEntity(ccf,27,27,20,dmFusions[f2],0); } }
   }
   else {
     if(dmEscaped.length===0){ body.innerHTML='<div style="font-size:11px;color:#666;text-align:center;margin-top:34px;">none escaped \u2014 catch those bosses!</div>'; return; }
@@ -3001,7 +3001,7 @@ function renderFuse(){
   function isSel(t,i){ for(var k=0;k<dmFuseSel.length;k++){ if(dmFuseSel[k].t===t&&dmFuseSel[k].i===i) return true; } return false; }
   var h='<div class="dl-grid">';
   for(var idx=0;idx<dmHeld.length;idx++){ var num=dmHeld[idx], _fr=dmRare.indexOf(num)>=0;
-    h+='<div class="dl-card got'+(isSel("held",idx)?" sel":"")+'" onclick="toggleFuseSel(&#39;held&#39;,'+idx+')"><div class="dl-dots">'+(_fr?'<span class="dl-dot-rare"></span>':'')+'<span class="dl-dot-red"></span></div><canvas id="dlfsc'+idx+'" width="54" height="54" style="width:100%;max-width:46px;height:auto;"></canvas><div>#'+num+'</div></div>';
+    h+='<div class="dl-card got'+(isSel("held",idx)?" sel":"")+'" onclick="toggleFuseSel(&#39;held&#39;,'+idx+')"><div class="dl-dots">'+(_fr?'<span class="dl-dot-rare"></span>':'')+'<span class="dl-dot-red"></span></div><canvas id="dlfsc'+idx+'" width="54" height="54" style="width:100%;max-width:58px;height:auto;"></canvas><div>#'+num+'</div></div>';
   }
   h+='</div>';
   if(showFus){ h+='<div style="font-size:9px;color:#c9a0ff;letter-spacing:2px;margin:10px 0 4px;">YOUR FUSIONS \u2014 combine for TRI-BEINGS &amp; DEEPDREAMLINGS</div><div class="dl-grid">';
@@ -3009,7 +3009,7 @@ function renderFuse(){
     h+='</div>';
   }
   body.innerHTML=h;
-  for(var q=0;q<dmHeld.length;q++){ var cvq=document.getElementById("dlfsc"+q); if(cvq){ var ccq=cvq.getContext("2d"); ccq.clearRect(0,0,54,54); drawDreamCreature(ccq,27,27,15,dmHeld[q],0, dmRare.indexOf(dmHeld[q])>=0); } }
+  for(var q=0;q<dmHeld.length;q++){ var cvq=document.getElementById("dlfsc"+q); if(cvq){ var ccq=cvq.getContext("2d"); ccq.clearRect(0,0,54,54); drawDreamCreature(ccq,27,27,20,dmHeld[q],0, dmRare.indexOf(dmHeld[q])>=0); } }
   if(showFus){ for(var q2=0;q2<dmFusions.length;q2++){ var cvp=document.getElementById("dlfpc"+q2); if(cvp){ var ccp=cvp.getContext("2d"); ccp.clearRect(0,0,54,54); drawFusedEntity(ccp,27,27,15,dmFusions[q2],0); } } }
   var pw=0; for(var s=0;s<dmFuseSel.length;s++){ var sc=selComp(dmFuseSel[s]); for(var z=0;z<sc.length;z++) pw+=sc[z]; }
   var req=dmBoss?dmBoss.req:0;
