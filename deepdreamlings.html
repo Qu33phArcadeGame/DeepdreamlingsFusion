@@ -1936,7 +1936,7 @@ function drawDreamCreature(ctx,x,y,size,id,t,rare,frozen){
     if(dd2&&dd2.complete&&dd2.naturalWidth){ ctx.save(); ctx.globalAlpha=0.15; ctx.drawImage(dd2,-S*0.5,-S*0.5,S,S); ctx.restore(); } // deepdream scene faint behind
     if(rare){ var _rc=["#ffd24a","#7dffa0","#e2e6ec"], _ci=Math.floor((frozen?0:t)*0.05)%3, _pu=0.5+0.5*Math.sin((frozen?0:t)*0.14); ctx.save(); ctx.shadowColor=_rc[_ci]; ctx.shadowBlur=size*(0.5+_pu*0.7); ctx.fillStyle="rgba(0,0,0,0.001)"; ctx.beginPath(); ctx.arc(0,0,S*0.42,0,6.283); ctx.fill(); ctx.restore(); }
     var prevSmooth=ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled=false;
-    var _tt=tierTags(id), _tf=tierFilter(_tt);
+    var _tt=Array.isArray(rare)?rare:tierTags(id), _tf=tierFilter(_tt);
     if(_tf){ ctx.save(); ctx.filter=_tf; ctx.drawImage(lay,-S*0.5,-S*0.5,S,S); ctx.restore(); } else { ctx.drawImage(lay,-S*0.5,-S*0.5,S,S); }
     var _hl=tierHolo(_tt);
     if(_hl>0){ ctx.save(); ctx.globalCompositeOperation="overlay"; var _ho=((frozen?0:t)/60)%1; var _sg=ctx.createLinearGradient(-S*0.5,-S*0.5,S*0.5,S*0.5); _sg.addColorStop(Math.max(0,_ho-0.22),"rgba(255,255,255,0)"); _sg.addColorStop(_ho,"rgba(255,255,255,"+Math.min(0.55,0.2*_hl)+")"); _sg.addColorStop(Math.min(1,_ho+0.22),"rgba(255,255,255,0)"); ctx.fillStyle=_sg; ctx.beginPath(); ctx.arc(0,0,S*0.45,0,6.283); ctx.fill(); ctx.restore(); }
@@ -2776,15 +2776,18 @@ function drawMarkerBorder(ctx,W,H){
   for(var x2=W-seg*0.5;x2>0;x2-=seg){ put(x2,H-seg*0.28,Math.PI); }
   for(var y2=H-seg*0.5;y2>0;y2-=seg){ put(seg*0.28,y2,-Math.PI/2); }
 }
-let dlCardKind="dex", dlCardVal=1, dlCardRare=false;
+let dlCardKind="dex", dlCardVal=1, dlCardRare=false, dlCardTier="red";
+const TIER_ORDER=["red","green","blue","purple"];
+const TIER_COL={red:"#ff6b6b",green:"#5dff8f",blue:"#5db4ff",purple:"#c46bff"};
+function dexTier(v){ return dmTier[v] || (dmRare.indexOf(v)>=0?"green":"red"); }
 let _cardSwipeBound=false, cardSwipeX=0, cardSwipeY=0, cardSwipeT=0;
 let dlCardShimRAF=null, _swipeHintTO=null;
 function cardNav(dir){
   if(dlCardKind==="fus"){ if(dmFusions.length<=1) return; dlCardVal=(dlCardVal+dir+dmFusions.length)%dmFusions.length; openCard("fus",dlCardVal,false,true); }
   else if(dlCardKind==="dex"){ var list=dmDex.slice().sort(function(a,b){return a-b;}); if(list.length<=1) return; var i=list.indexOf(dlCardVal); if(i<0)i=0; dlCardVal=list[(i+dir+list.length)%list.length]; openCard("dex",dlCardVal,false,true); }
 }
-function cardSwitchVariant(){ dlCardRare=!dlCardRare; openCard(dlCardKind,dlCardVal,true,true); }
-function dlCardIsRare(){ if(dlCardKind==="fus"){ var f=dmFusions[dlCardVal]; return f&&f.rare; } if(dlCardKind==="dex"){ return dlCardRare; } return false; }
+function cardSwitchVariant(){ var i=TIER_ORDER.indexOf(dlCardTier); dlCardTier=TIER_ORDER[(i+1)%TIER_ORDER.length]; openCard(dlCardKind,dlCardVal,true,true); }
+function dlCardIsRare(){ if(dlCardKind==="fus"){ var f=dmFusions[dlCardVal]; return f&&f.rare; } return dlCardTier!=="red"; }
 function drawCardShimmer(cc,w,h,t){
   cc.save(); cc.globalCompositeOperation="screen";
   var span=w+h, sweep=((t*4)%(span*1.7))-span*0.35;
@@ -2809,8 +2812,7 @@ function dlPaintCard(t){
     else if(f.rare==="half"){ cc.save(); cc.globalCompositeOperation="screen"; var _sg=cc.createLinearGradient(0,0,w,h); _sg.addColorStop(0,"rgba(190,200,220,0.18)"); _sg.addColorStop(0.5,"rgba(255,255,255,0.32)"); _sg.addColorStop(1,"rgba(170,180,205,0.18)"); cc.fillStyle=_sg; cc.fillRect(0,0,w,h); cc.restore(); }
   }
   else {
-    if(dlCardRare){ var _tx=DL_IMGS[val]; if(_tx&&_tx.complete&&_tx.naturalWidth){ cc.save(); cc.filter="invert(1) hue-rotate(180deg)"; var _ar=_tx.naturalWidth/_tx.naturalHeight,_sr=w/h,_dw,_dh; if(_ar>_sr){_dh=h;_dw=h*_ar;}else{_dw=w;_dh=w/_ar;} cc.drawImage(_tx,(w-_dw)/2,(h-_dh)/2,_dw,_dh); cc.filter="none"; cc.restore(); cc.fillStyle="rgba(10,6,20,0.22)"; cc.fillRect(0,0,w,h); } else { cc.fillStyle="#141a28"; cc.fillRect(0,0,w,h); } }
-    drawDreamCreature(cc,w/2,cy,size,val,t,dlCardRare,true);
+    drawDreamCreature(cc,w/2,cy,size,val,t,[dlCardTier],true);
   }
   drawMarkerBorder(cc,w,h);
   var _dtags=(kind==="fus")?((dmFusions[val]&&dmFusions[val].tags)||["red"]):tierTags(val);
@@ -2832,7 +2834,7 @@ function flashSwipeHint(){
   _swipeHintTO=setTimeout(function(){ hint.style.display="none"; }, 2250);
 }
 function openCard(kind,val,_keep,_noHint){
-  if(!_keep) dlCardRare=false;
+  if(!_keep){ dlCardRare=false; dlCardTier=(kind==="dex")?dexTier(val):"red"; }
   dlCardKind=kind; dlCardVal=val;
   var w=window.innerWidth, h=window.innerHeight;
   var cardEl=document.getElementById("dlCard"); cardEl.style.display="flex";
@@ -2841,10 +2843,12 @@ function openCard(kind,val,_keep,_noHint){
   if(kind==="fus"){ var f=dmFusions[val]; cardEl.style.backgroundImage="none";
     if(tEl) tEl.innerHTML='<div style="font-family:Helvetica,Arial,sans-serif;font-size:20px;font-weight:bold;color:#fff;text-shadow:0 2px 6px #000;">'+fusLabel(f)+'</div><div style="font-family:Helvetica,Arial,sans-serif;font-size:17px;font-weight:bold;color:#ff5aa0;text-shadow:0 2px 6px #000;">#'+fusNum(f)+'</div><div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;color:#ff9ac0;text-shadow:0 2px 6px #000;">'+fusName(f)+'</div>'; }
   else {
-    if(dlCardRare){ cardEl.style.backgroundImage="none"; } else { cardEl.style.backgroundImage="url('dreamling"+val+".png')"; }
-    if(tEl) tEl.innerHTML='<div style="font-family:Helvetica,Arial,sans-serif;font-size:21px;font-weight:bold;color:'+(dlCardRare?"#22e0e0":"#fff")+';text-shadow:0 2px 6px #000;">DREAMLING #'+val+(dlCardRare?" \u2726RARE":"")+'</div><div style="font-family:Helvetica,Arial,sans-serif;font-size:16px;color:#8affea;text-shadow:0 2px 6px #000;">'+dreamlingName(val)+'</div>'; }
+    cardEl.style.backgroundImage="url('dreamling"+val+".png')";
+    if(dlCardTier==="red"){ cardEl.style.backgroundColor=""; cardEl.style.backgroundBlendMode="normal"; } else { cardEl.style.backgroundColor=TIER_COL[dlCardTier]; cardEl.style.backgroundBlendMode="overlay"; }
+    var _tc=TIER_COL[dlCardTier]||"#fff";
+    if(tEl) tEl.innerHTML='<div style="font-family:Helvetica,Arial,sans-serif;font-size:21px;font-weight:bold;color:'+_tc+';text-shadow:0 2px 6px #000;">DREAMLING #'+val+' \u00b7 '+dlCardTier.toUpperCase()+'</div><div style="font-family:Helvetica,Arial,sans-serif;font-size:16px;color:#8affea;text-shadow:0 2px 6px #000;">'+dreamlingName(val)+'</div>'; }
   var _sw=document.getElementById("dlCardSwitch");
-  if(_sw){ if(kind==="dex" && dmRare.indexOf(val)>=0){ _sw.style.display="block"; _sw.innerHTML="\u21c4 "+(dlCardRare?"RARE":"NORMAL"); } else { _sw.style.display="none"; } }
+  if(_sw){ if(kind==="dex"){ _sw.style.display="block"; var _sc=TIER_COL[dlCardTier]||"#22e0e0"; _sw.style.borderColor=_sc; _sw.style.color=_sc; _sw.innerHTML="\u21c4 "+dlCardTier.toUpperCase(); } else { _sw.style.display="none"; } }
   var _cmp=document.getElementById("dlCardCompanion"); if(_cmp){ if(kind==="dex"||kind==="fus"){ _cmp.style.display="block"; _cmp.textContent="\u2605 SET COMPANION"; } else { _cmp.style.display="none"; } }
   startCardShimmer();
   if(!_noHint && kind!=="esc") flashSwipeHint(); else { var _hint=document.getElementById("dlCardHint"); if(_hint) _hint.style.display="none"; }
@@ -2852,9 +2856,12 @@ function openCard(kind,val,_keep,_noHint){
     if(_ce){ _ce.addEventListener("pointerdown",function(ev){ cardSwipeX=ev.clientX; cardSwipeY=ev.clientY; cardSwipeT=Date.now(); });
       _ce.addEventListener("pointerup",function(ev){ var dx=ev.clientX-cardSwipeX, dy=ev.clientY-cardSwipeY; if(Math.abs(dx)>45 && Math.abs(dx)>Math.abs(dy)*1.4 && (Date.now()-cardSwipeT)<650){ cardNav(dx<0?1:-1); } }); } }
 }
+function renderCompanionThumb(kind,val){ try{ var c=document.createElement("canvas"); c.width=200; c.height=200; var cc=c.getContext("2d");
+    if(kind==="fus"){ drawFusedEntity(cc,100,118,46,dmFusions[val],0,true); } else { drawDreamCreature(cc,100,100,58,val,0,[dexTier(val)],true); }
+    return c.toDataURL("image/png"); }catch(e){ return null; } }
 function setCompanionFromCard(){ try{
-    if(dlCardKind==="fus"){ var f=dmFusions[dlCardVal]; if(f&&f.comp){ var tg=f.tags||[]; var tt=tg.indexOf("purple")>=0?"purple":(tg.indexOf("blue")>=0?"blue":(tg.indexOf("green")>=0?"green":"red")); localStorage.setItem("town_companion", JSON.stringify({comp:f.comp.slice(), t:tt})); } }
-    else if(dlCardKind==="dex"){ localStorage.setItem("town_companion", JSON.stringify(dlCardVal)); var tj={}; try{tj=JSON.parse(localStorage.getItem("town_tier")||"{}");}catch(e){} if(!tj[dlCardVal]){ tj[dlCardVal]=(dmRare.indexOf(dlCardVal)>=0)?"green":"red"; localStorage.setItem("town_tier",JSON.stringify(tj)); } }
+    if(dlCardKind==="fus"){ var f=dmFusions[dlCardVal]; if(f&&f.comp){ var tg=f.tags||[]; var tt=tg.indexOf("purple")>=0?"purple":(tg.indexOf("blue")>=0?"blue":(tg.indexOf("green")>=0?"green":"red")); localStorage.setItem("town_companion", JSON.stringify({comp:f.comp.slice(), t:tt})); var im=renderCompanionThumb("fus",dlCardVal); if(im) localStorage.setItem("town_companion_img",im); else localStorage.removeItem("town_companion_img"); } }
+    else if(dlCardKind==="dex"){ localStorage.setItem("town_companion", JSON.stringify(dlCardVal)); localStorage.removeItem("town_companion_img"); var tj={}; try{tj=JSON.parse(localStorage.getItem("town_tier")||"{}");}catch(e){} if(!tj[dlCardVal]){ tj[dlCardVal]=(dmRare.indexOf(dlCardVal)>=0)?"green":"red"; localStorage.setItem("town_tier",JSON.stringify(tj)); } }
     var btn=document.getElementById("dlCardCompanion"); if(btn) btn.textContent="\u2605 COMPANION SET!";
   }catch(e){} }
 function closeCard(){ if(dlCardShimRAF){ cancelAnimationFrame(dlCardShimRAF); dlCardShimRAF=null; } var _h=document.getElementById("dlCardHint"); if(_h) _h.style.display="none"; document.getElementById("dlCard").style.display="none"; }

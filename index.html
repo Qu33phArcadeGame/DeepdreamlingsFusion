@@ -59,6 +59,7 @@ let retPos=null; try{ if(new URLSearchParams(location.search).get("ret")==="1") 
 let dmDex=load("qu33phDLDex","[]"), dmHeld=load("qu33phDLHeld","[]"), dmRare=load("qu33phDLRare","[]");
 let tier=load("town_tier","{}");            // num -> "red"/"green"/"blue" (highest seen)
 let companion=load("town_companion","-1");  // a dreamling num, or -1
+let compImg=null; (function(){ try{ var d=localStorage.getItem("town_companion_img"); if(d && typeof companion!=="number"){ compImg=new Image(); compImg.onload=function(){ if(typeof draw==="function") draw(); }; compImg.src=d; } }catch(e){} })();
 function saveGame(){ try{ localStorage.setItem("qu33phDLDex",JSON.stringify(dmDex)); localStorage.setItem("qu33phDLHeld",JSON.stringify(dmHeld)); localStorage.setItem("qu33phDLRare",JSON.stringify(dmRare)); localStorage.setItem("town_tier",JSON.stringify(tier)); localStorage.setItem("town_companion",JSON.stringify(companion)); }catch(e){} }
 function areaCount(){ var n=0; for(var i=AREA_FIRST;i<=AREA_LAST;i++) if(dmDex.indexOf(i)>=0) n++; return n; }
 
@@ -84,7 +85,7 @@ function isWater(idx){ return M && M.tiles && M.tiles[idx] && /water/i.test(M.ti
 function isTree(idx){ return M && M.tiles && M.tiles[idx] && /^tree[12]\.png$/i.test(M.tiles[idx]); }
 
 // ===== PIXEL CREATURE RENDER (rarity tint matches shiny idea) =====
-function rarityFilter(t){ if(t==="green") return "invert(1) hue-rotate(40deg) saturate(160%)"; if(t==="blue") return "invert(1) hue-rotate(155deg) saturate(210%)"; if(t==="purple") return "invert(1) hue-rotate(240deg) saturate(250%)"; return "none"; }
+function rarityFilter(t){ var hue={green:40,blue:135,purple:215}[t]; if(hue==null) return "none"; return "invert(1) hue-rotate("+hue+"deg) saturate(165%)"; }
 function drawPix(num,cx,cy,size,t){ var rec=(sprP[num]&&sprP[num].ok)?sprP[num]:sprPhoto[num]; x.save(); x.imageSmoothingEnabled=false; x.filter=rarityFilter(t);
   if(rec&&rec.ok){ x.drawImage(rec.img,Math.round(cx-size/2),Math.round(cy-size/2),Math.round(size),Math.round(size)); }
   else { x.filter="none"; x.fillStyle="#5a3a8a"; x.beginPath(); x.arc(cx,cy,size*0.4,0,7); x.fill(); x.fillStyle="#fff"; x.font="bold "+Math.floor(size*0.4)+"px sans-serif"; x.textAlign="center"; x.textBaseline="middle"; x.fillText(num,cx,cy); }
@@ -93,8 +94,11 @@ function drawPix(num,cx,cy,size,t){ var rec=(sprP[num]&&sprP[num].ok)?sprP[num]:
 }
 function drawDot(t,cx,cy){ x.fillStyle=TAG_COLOR[t]||"#fff"; x.beginPath(); x.arc(cx,cy,4,0,7); x.fill(); x.strokeStyle="rgba(0,0,0,.5)"; x.lineWidth=1; x.stroke(); }
 function compTier(){ if(typeof companion==="number") return tier[companion]||"red"; if(companion&&companion.t) return companion.t; return "red"; }
-function drawCompanionSprite(cx,cy,size){ if(typeof companion==="number"){ drawPix(companion,cx,cy,size,tier[companion]||"red"); return; }
-  if(companion&&companion.comp&&companion.comp.length){ drawPix(companion.comp[0],cx,cy,size,companion.t||"red"); } }
+function drawCompanionSprite(cx,cy,size){
+  if(typeof companion!=="number" && compImg && compImg.complete && compImg.naturalWidth){ x.imageSmoothingEnabled=false; var sc=size*1.9; x.drawImage(compImg,cx-sc/2,cy-sc*0.55,sc,sc); return; }
+  var num=(typeof companion==="number")?companion:((companion&&companion.comp&&companion.comp.length)?companion.comp[0]:null);
+  var t=(typeof companion==="number")?(tier[companion]||"red"):((companion&&companion.t)||"red");
+  if(num==null) return; drawPix(num,cx,cy,size,t); }
 
 // ===== CANVAS / LAYOUT =====
 const stage=document.getElementById("stage"), cabImg=document.getElementById("cabImg"), cv=document.getElementById("screen"), x=cv.getContext("2d");
@@ -220,7 +224,7 @@ function collectMon(m){ enc.done=true;
   if(!tier[m.num] || TAG_VAL[m.t]>TAG_VAL[tier[m.num]]) tier[m.num]=m.t;
   if(m.t!=="red" && dmRare.indexOf(m.num)<0) dmRare.push(m.num);
   var first=(companion==null||companion===-1);
-  if(first){ companion=m.num; saveGame(); enc.msg="Collected #"+m.num+"!"; setTimeout(function(){ mode="walk"; inZone=true; if(!localStorage.getItem("town_tut")){ try{localStorage.setItem("town_tut","1");}catch(e){} say("Nice — that dreamling now circles you! Hold the RED button to run around faster."); } draw(); },1100); }
+  if(first){ companion=m.num; compImg=null; try{localStorage.removeItem("town_companion_img");}catch(e){} saveGame(); enc.msg="Collected #"+m.num+"!"; setTimeout(function(){ mode="walk"; inZone=true; if(!localStorage.getItem("town_tut")){ try{localStorage.setItem("town_tut","1");}catch(e){} say("Nice — that dreamling now circles you! Hold the RED button to run around faster."); } draw(); },1100); }
   else { saveGame(); promptCompanion(m.num); }
   draw();
 }
@@ -231,7 +235,7 @@ function drawPrompt(){ x.fillStyle="rgba(6,3,14,.85)"; x.fillRect(0,0,W,H); x.fi
   x.fillStyle="#3fe0b0"; roundRect(W/2-104,H/2,96,34,9); x.fill(); x.fillStyle="#ff8fbf"; roundRect(W/2+8,H/2,96,34,9); x.fill();
   x.fillStyle="#08120e"; x.font="bold 13px sans-serif"; x.fillText("YES (A)",W/2-56,H/2+17); x.fillText("NO (B)",W/2+56,H/2+17);
   prompt._yes={x:W/2-104,y:H/2,w:96,h:34}; prompt._no={x:W/2+8,y:H/2,w:96,h:34}; }
-function promptYes(){ companion=prompt.num; saveGame(); prompt=null; mode="walk"; inZone=true; draw(); }
+function promptYes(){ companion=prompt.num; compImg=null; try{localStorage.removeItem("town_companion_img");}catch(e){} saveGame(); prompt=null; mode="walk"; inZone=true; draw(); }
 function promptNo(){ prompt=null; mode="walk"; inZone=true; draw(); }
 
 // ===== INPUT =====
