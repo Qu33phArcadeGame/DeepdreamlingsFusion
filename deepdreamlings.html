@@ -2003,6 +2003,8 @@ let dmFuseSel = [];
 let dmEscaped = (function(){ try{ return JSON.parse(localStorage.getItem("qu33phDLEscaped")||"[]"); }catch(e){ return []; } })();
 let dmRare = (function(){ try{ return JSON.parse(localStorage.getItem("qu33phDLRare")||"[]"); }catch(e){ return []; } })();
 let dmTier = (function(){ try{ return JSON.parse(localStorage.getItem("town_tier")||"{}"); }catch(e){ return {}; } })();
+let dmTiers = (function(){ try{ return JSON.parse(localStorage.getItem("town_tiers")||"{}"); }catch(e){ return {}; } })();
+function ownedTiers(v){ var a=dmTiers[v]; if(a&&a.length) return a.slice(); return [dmTier[v] || (dmRare.indexOf(v)>=0?"green":"red")]; }
 const TAG_COLOR={red:"#ff5555",green:"#5dff8f",blue:"#5db4ff",purple:"#c46bff"};
 function tierTags(id){ var t=dmTier[id]; if(t) return [t]; if(dmRare.indexOf(id)>=0) return ["green"]; return ["red"]; }
 function tierFilter(tags){ var g=0,b=0,p=0; (tags||[]).forEach(function(t){ if(t==="green")g++; else if(t==="blue")b++; else if(t==="purple")p++; }); if(g+b+p===0) return null; var hue=(g*40+b*135+p*215)%360, sat=120+(g+b+p)*45; return "invert(1) hue-rotate("+hue+"deg) saturate("+sat+"%)"; }
@@ -2786,7 +2788,7 @@ function cardNav(dir){
   if(dlCardKind==="fus"){ if(dmFusions.length<=1) return; dlCardVal=(dlCardVal+dir+dmFusions.length)%dmFusions.length; openCard("fus",dlCardVal,false,true); }
   else if(dlCardKind==="dex"){ var list=dmDex.slice().sort(function(a,b){return a-b;}); if(list.length<=1) return; var i=list.indexOf(dlCardVal); if(i<0)i=0; dlCardVal=list[(i+dir+list.length)%list.length]; openCard("dex",dlCardVal,false,true); }
 }
-function cardSwitchVariant(){ var i=TIER_ORDER.indexOf(dlCardTier); dlCardTier=TIER_ORDER[(i+1)%TIER_ORDER.length]; openCard(dlCardKind,dlCardVal,true,true); }
+function cardSwitchVariant(){ var owned=ownedTiers(dlCardVal); var i=owned.indexOf(dlCardTier); dlCardTier=owned[(i+1)%owned.length]; openCard(dlCardKind,dlCardVal,true,true); }
 function dlCardIsRare(){ if(dlCardKind==="fus"){ var f=dmFusions[dlCardVal]; return f&&f.rare; } return dlCardTier!=="red"; }
 function drawCardShimmer(cc,w,h,t){
   cc.save(); cc.globalCompositeOperation="screen";
@@ -2815,7 +2817,7 @@ function dlPaintCard(t){
     drawDreamCreature(cc,w/2,cy,size,val,t,[dlCardTier],true);
   }
   drawMarkerBorder(cc,w,h);
-  var _dtags=(kind==="fus")?((dmFusions[val]&&dmFusions[val].tags)||["red"]):tierTags(val);
+  var _dtags=(kind==="fus")?((dmFusions[val]&&dmFusions[val].tags)||["red"]):ownedTiers(val);
   drawTierDots(cc,_dtags,w/2,cy+size*1.5);
   if(dlCardIsRare()) drawCardShimmer(cc,w,h,t);
 }
@@ -2834,7 +2836,7 @@ function flashSwipeHint(){
   _swipeHintTO=setTimeout(function(){ hint.style.display="none"; }, 2250);
 }
 function openCard(kind,val,_keep,_noHint){
-  if(!_keep){ dlCardRare=false; dlCardTier=(kind==="dex")?dexTier(val):"red"; }
+  if(!_keep){ dlCardRare=false; dlCardTier=(kind==="dex")?ownedTiers(val)[0]:"red"; }
   dlCardKind=kind; dlCardVal=val;
   var w=window.innerWidth, h=window.innerHeight;
   var cardEl=document.getElementById("dlCard"); cardEl.style.display="flex";
@@ -2848,7 +2850,7 @@ function openCard(kind,val,_keep,_noHint){
     var _tc=TIER_COL[dlCardTier]||"#fff";
     if(tEl) tEl.innerHTML='<div style="font-family:Helvetica,Arial,sans-serif;font-size:21px;font-weight:bold;color:'+_tc+';text-shadow:0 2px 6px #000;">DREAMLING #'+val+' \u00b7 '+dlCardTier.toUpperCase()+'</div><div style="font-family:Helvetica,Arial,sans-serif;font-size:16px;color:#8affea;text-shadow:0 2px 6px #000;">'+dreamlingName(val)+'</div>'; }
   var _sw=document.getElementById("dlCardSwitch");
-  if(_sw){ if(kind==="dex"){ _sw.style.display="block"; var _sc=TIER_COL[dlCardTier]||"#22e0e0"; _sw.style.borderColor=_sc; _sw.style.color=_sc; _sw.innerHTML="\u21c4 "+dlCardTier.toUpperCase(); } else { _sw.style.display="none"; } }
+  if(_sw){ if(kind==="dex" && ownedTiers(val).length>1){ _sw.style.display="block"; var _sc=TIER_COL[dlCardTier]||"#22e0e0"; _sw.style.borderColor=_sc; _sw.style.color=_sc; _sw.innerHTML="\u21c4 "+dlCardTier.toUpperCase(); } else { _sw.style.display="none"; } }
   var _cmp=document.getElementById("dlCardCompanion"); if(_cmp){ if(kind==="dex"||kind==="fus"){ _cmp.style.display="block"; _cmp.textContent="\u2605 SET COMPANION"; } else { _cmp.style.display="none"; } }
   startCardShimmer();
   if(!_noHint && kind!=="esc") flashSwipeHint(); else { var _hint=document.getElementById("dlCardHint"); if(_hint) _hint.style.display="none"; }

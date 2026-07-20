@@ -63,11 +63,12 @@ if(localStorage.getItem("town_ver")!=="2"){ ["qu33phDLDex","qu33phDLHeld","qu33p
 function load(k,d){ try{ return JSON.parse(localStorage.getItem(k)||d); }catch(e){ return JSON.parse(d); } }
 let retPos=null; try{ if(new URLSearchParams(location.search).get("ret")==="1") retPos=JSON.parse(localStorage.getItem("town_pos")||"null"); }catch(e){}
 let dmDex=load("qu33phDLDex","[]"), dmHeld=load("qu33phDLHeld","[]"), dmRare=load("qu33phDLRare","[]");
-let tier=load("town_tier","{}");            // num -> "red"/"green"/"blue" (highest seen)
+let tier=load("town_tier","{}");
+let tiers=load("town_tiers","{}");   // num -> [owned tiers]
 let companion=load("town_companion","-1");  // a dreamling num, or -1
 let visited=load("town_visited","{}");
 let compImg=null; (function(){ try{ var d=localStorage.getItem("town_companion_img"); if(d && typeof companion!=="number"){ compImg=new Image(); compImg.onload=function(){ if(typeof draw==="function") draw(); }; compImg.src=d; } }catch(e){} })();
-function saveGame(){ try{ localStorage.setItem("qu33phDLDex",JSON.stringify(dmDex)); localStorage.setItem("qu33phDLHeld",JSON.stringify(dmHeld)); localStorage.setItem("qu33phDLRare",JSON.stringify(dmRare)); localStorage.setItem("town_tier",JSON.stringify(tier)); localStorage.setItem("town_companion",JSON.stringify(companion)); localStorage.setItem("town_visited",JSON.stringify(visited)); }catch(e){} }
+function saveGame(){ try{ localStorage.setItem("qu33phDLDex",JSON.stringify(dmDex)); localStorage.setItem("qu33phDLHeld",JSON.stringify(dmHeld)); localStorage.setItem("qu33phDLRare",JSON.stringify(dmRare)); localStorage.setItem("town_tier",JSON.stringify(tier)); localStorage.setItem("town_tiers",JSON.stringify(tiers)); localStorage.setItem("town_companion",JSON.stringify(companion)); localStorage.setItem("town_visited",JSON.stringify(visited)); }catch(e){} }
 function areaCount(){ var n=0; for(var i=area.first;i<=area.last;i++) if(dmDex.indexOf(i)>=0) n++; return n; }
 
 // ===== ASSETS: PIXEL sprites (dreamlingP), photo fallback =====
@@ -230,6 +231,7 @@ function dreamName(n){ return "#"+n; }
 function collectMon(m){ enc.done=true; visited[currentMap]=1;
   var isNew=(dmDex.indexOf(m.num)<0); if(isNew) dmDex.push(m.num); dmHeld.push(m.num);
   if(!tier[m.num] || TAG_VAL[m.t]>TAG_VAL[tier[m.num]]) tier[m.num]=m.t;
+  if(!tiers[m.num]) tiers[m.num]=[]; if(tiers[m.num].indexOf(m.t)<0) tiers[m.num].push(m.t);
   if(m.t!=="red" && dmRare.indexOf(m.num)<0) dmRare.push(m.num);
   var first=(companion==null||companion===-1);
   if(first){ companion=m.num; compImg=null; try{localStorage.removeItem("town_companion_img");}catch(e){} saveGame(); enc.msg="Collected #"+m.num+"!"; setTimeout(function(){ mode="walk"; inZone=true; if(!localStorage.getItem("town_tut")){ try{localStorage.setItem("town_tut","1");}catch(e){} say("Nice — that dreamling now circles you! Hold the RED button to run around faster."); } draw(); },1100); }
