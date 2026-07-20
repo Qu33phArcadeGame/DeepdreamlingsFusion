@@ -45,7 +45,13 @@ const DP_C=[0.248,0.646], DP_SZ=0.19;
 // ===== CONFIG =====
 const START_MAP="map", START_ENTRY="start";
 const ARCADE_FILE="deepdreamlings.html";     // real binder + cards + fuse animation
-const AREA_INDEX=0, AREA_FIRST=1, AREA_LAST=11;
+// Per-area config: map filename -> dreamling range, encounter-video prefix, character-sprite prefix
+const AREAS={
+  "map":   { first:1,  last:11, vid:"encounter", guy:"dreamguy",  name:"DREAM CORE" },
+  "woods": { first:12, last:22, vid:"woods",     guy:"dreamwood", name:"WAKING WOODS" }
+};
+const DEFAULT_AREA=AREAS["map"];
+let area=AREAS[START_MAP]||DEFAULT_AREA;
 
 // ===== RARITY (town-side, tiers) =====
 const TAG_VAL={red:15,green:35,blue:55};
@@ -59,25 +65,27 @@ let retPos=null; try{ if(new URLSearchParams(location.search).get("ret")==="1") 
 let dmDex=load("qu33phDLDex","[]"), dmHeld=load("qu33phDLHeld","[]"), dmRare=load("qu33phDLRare","[]");
 let tier=load("town_tier","{}");            // num -> "red"/"green"/"blue" (highest seen)
 let companion=load("town_companion","-1");  // a dreamling num, or -1
+let visited=load("town_visited","{}");
 let compImg=null; (function(){ try{ var d=localStorage.getItem("town_companion_img"); if(d && typeof companion!=="number"){ compImg=new Image(); compImg.onload=function(){ if(typeof draw==="function") draw(); }; compImg.src=d; } }catch(e){} })();
-function saveGame(){ try{ localStorage.setItem("qu33phDLDex",JSON.stringify(dmDex)); localStorage.setItem("qu33phDLHeld",JSON.stringify(dmHeld)); localStorage.setItem("qu33phDLRare",JSON.stringify(dmRare)); localStorage.setItem("town_tier",JSON.stringify(tier)); localStorage.setItem("town_companion",JSON.stringify(companion)); }catch(e){} }
-function areaCount(){ var n=0; for(var i=AREA_FIRST;i<=AREA_LAST;i++) if(dmDex.indexOf(i)>=0) n++; return n; }
+function saveGame(){ try{ localStorage.setItem("qu33phDLDex",JSON.stringify(dmDex)); localStorage.setItem("qu33phDLHeld",JSON.stringify(dmHeld)); localStorage.setItem("qu33phDLRare",JSON.stringify(dmRare)); localStorage.setItem("town_tier",JSON.stringify(tier)); localStorage.setItem("town_companion",JSON.stringify(companion)); localStorage.setItem("town_visited",JSON.stringify(visited)); }catch(e){} }
+function areaCount(){ var n=0; for(var i=area.first;i<=area.last;i++) if(dmDex.indexOf(i)>=0) n++; return n; }
 
 // ===== ASSETS: PIXEL sprites (dreamlingP), photo fallback =====
 const sprP={}, sprPhoto={};
-for(let i=AREA_FIRST;i<=AREA_LAST;i++){ var p=new Image(); var rp={img:p,ok:false}; p.onload=(function(r){return function(){r.ok=true;};})(rp); p.onerror=(function(r){return function(){r.ok=false;};})(rp); p.src="dreamlingP"+i+".png"; sprP[i]=rp;
-  var ph=new Image(); var rr={img:ph,ok:false}; ph.onload=(function(r){return function(){r.ok=true;};})(rr); ph.src="dreamling"+i+".png"; sprPhoto[i]=rr; }
+function pixSpr(n){ if(sprP[n]) return sprP[n]; var im=new Image(); var rec={img:im,ok:false}; im.onload=function(){rec.ok=true; if(typeof draw==="function")draw();}; im.onerror=function(){rec.ok=false;}; im.src="dreamlingP"+n+".png"; return sprP[n]=rec; }
+function photoSpr(n){ if(sprPhoto[n]) return sprPhoto[n]; var im=new Image(); var rec={img:im,ok:false}; im.onload=function(){rec.ok=true; if(typeof draw==="function")draw();}; im.src="dreamling"+n+".png"; return sprPhoto[n]=rec; }
 const tileCache={};
 function tileImg(n){ return tileCache[n]||(tileCache[n]=(function(){const im=new Image();im.src=n;return im;})()); }
 const guy={}; let guyFace="F";
-["F","B","L","R"].forEach(function(d){ var im=new Image(); im.src="dreamguy"+d+".png"; guy[d]=im; });
+function loadGuy(prefix){ ["F","B","L","R"].forEach(function(d){ var im=new Image(); im.onload=function(){if(typeof draw==="function")draw();}; im.src=prefix+d+".png"; guy[d]=im; }); }
 const bobImg=new Image(); bobImg.src="bob.png";
 const BOB={ map:"room1", x:2, y:2, text:"There's some crazy things in the water over there, go for a swim!" };
 let currentMap="map", bobShown=false, bobTalks=0, dialogue=null;
 let waterSaid = (localStorage.getItem("town_water_said")==="1");
 function say(t){ dialogue=t; }
 const encVid={ U:document.getElementById("vU"), D:document.getElementById("vD"), L:document.getElementById("vL"), R:document.getElementById("vR") };
-encVid.U.src="encounterU.mp4"; encVid.D.src="encounterD.mp4"; encVid.L.src="encounterR.mp4"; encVid.R.src="encounterL.mp4";
+function loadVids(prefix){ encVid.U.src=prefix+"U.mp4"; encVid.D.src=prefix+"D.mp4"; encVid.L.src=prefix+"R.mp4"; encVid.R.src=prefix+"L.mp4"; }
+function setArea(name){ area=AREAS[name]||DEFAULT_AREA; loadGuy(area.guy); loadVids(area.vid); }
 let lastStepAt=0, leaves=[], motes=[];
 const LEAF_COLORS=["#6aa84c","#c9a04c","#4caf9a","#8fbf5a","#d98cff","#7ad6c0"];
 const MOTE_COLORS=["#8affea","#c9a0ff","#ffe08a"];
@@ -86,7 +94,7 @@ function isTree(idx){ return M && M.tiles && M.tiles[idx] && /^tree[12]\.png$/i.
 
 // ===== PIXEL CREATURE RENDER (rarity tint matches shiny idea) =====
 function rarityFilter(t){ var hue={green:40,blue:135,purple:215}[t]; if(hue==null) return "none"; return "invert(1) hue-rotate("+hue+"deg) saturate(165%)"; }
-function drawPix(num,cx,cy,size,t){ var rec=(sprP[num]&&sprP[num].ok)?sprP[num]:sprPhoto[num]; x.save(); x.imageSmoothingEnabled=false; x.filter=rarityFilter(t);
+function drawPix(num,cx,cy,size,t){ var rp=pixSpr(num); var rec=rp.ok?rp:photoSpr(num); x.save(); x.imageSmoothingEnabled=false; x.filter=rarityFilter(t);
   if(rec&&rec.ok){ x.drawImage(rec.img,Math.round(cx-size/2),Math.round(cy-size/2),Math.round(size),Math.round(size)); }
   else { x.filter="none"; x.fillStyle="#5a3a8a"; x.beginPath(); x.arc(cx,cy,size*0.4,0,7); x.fill(); x.fillStyle="#fff"; x.font="bold "+Math.floor(size*0.4)+"px sans-serif"; x.textAlign="center"; x.textBaseline="middle"; x.fillText(num,cx,cy); }
   x.restore(); x.filter="none";
@@ -124,7 +132,7 @@ addEventListener("resize",layout);
 let M=null,T=64,px=0,py=0,mode="walk",inZone=false,orbit=0,tiles=[];
 function loadMap(name,entry){
   fetch(name+".json").then(r=>{ if(!r.ok) throw new Error(name+".json ("+r.status+")"); return r.json(); })
-   .then(d=>{ M=d; T=d.tileSize||64; currentMap=name; if(name===BOB.map) bobShown=false; tiles=(d.tiles||[]).map(n=>{const im=tileImg(n); if(!im.complete)im.addEventListener("load",draw); return im;});
+   .then(d=>{ M=d; T=d.tileSize||64; currentMap=name; setArea(name); if(name===BOB.map) bobShown=false; tiles=(d.tiles||[]).map(n=>{const im=tileImg(n); if(!im.complete)im.addEventListener("load",draw); return im;});
      const sp=(d.spawns||[]).find(s=>s.name===entry)||(d.spawns||[]).find(s=>s.name==="start")||(d.spawns||[])[0];
      px=sp?sp.x:Math.floor((d.cols||1)/2); py=sp?sp.y:Math.floor((d.rows||1)/2); if(retPos){ px=retPos.x; py=retPos.y; if(retPos.f) guyFace=retPos.f; retPos=null; } inZone=zoneAt(px,py); layout(); })
    .catch(e=>{ const el=document.getElementById("err"); el.innerHTML="Couldn't load <b>"+name+".json</b>.<br>"+e.message; el.style.display="flex"; });
@@ -169,7 +177,7 @@ function drawWalk(){
   else { x.fillStyle="#8affea";x.strokeStyle="#0d0a17";x.lineWidth=Math.max(2,sz*0.06);x.beginPath();x.arc(pcx,pcy+bounceY+idleY,sz*0.3,0,7);x.fill();x.stroke(); }
   if(hasComp){ var oa2=orbit, ox3=pcx+Math.cos(oa2)*sz*0.9, oy3=pcy+Math.sin(oa2)*sz*0.5-sz*0.1; if(Math.sin(oa2)>=0){ drawCompanionSprite(ox3,oy3,sz*1.15); } }
   updateLeaves(now,treeCells); drawLeaves(); updateMotes(now); drawMotes();
-  x.fillStyle="rgba(13,10,23,.7)"; roundRect(6,6,168,22,7); x.fill(); x.fillStyle="#c9a0ff"; x.font="11px sans-serif"; x.textAlign="left"; x.textBaseline="middle"; x.fillText("Collected "+areaCount()+"/"+(AREA_LAST-AREA_FIRST+1)+"  ·  B = Binder",12,18);
+  x.fillStyle="rgba(13,10,23,.7)"; roundRect(6,6,222,22,7); x.fill(); x.fillStyle="#c9a0ff"; x.font="11px sans-serif"; x.textAlign="left"; x.textBaseline="middle"; x.fillText(area.name+" · "+areaCount()+"/"+(area.last-area.first+1)+" · B=Binder",12,18);
 }
 function updateLeaves(now,treeCells){ if(treeCells&&treeCells.length&&leaves.length<22&&Math.random()<0.5){ var tc=treeCells[Math.floor(Math.random()*treeCells.length)]; leaves.push({x:tc.x+(Math.random()-0.5)*22,y:tc.y+(Math.random()-0.5)*16,vy:0.3+Math.random()*0.7,sway:0.5+Math.random()*1.1,ph:Math.random()*6,spin:(Math.random()-0.5)*0.12,rot:Math.random()*6,size:6+Math.random()*8,col:LEAF_COLORS[Math.floor(Math.random()*LEAF_COLORS.length)]}); }
   for(var i=0;i<leaves.length;i++){ var l=leaves[i]; l.y+=l.vy; l.x+=Math.sin(l.ph)*l.sway*0.5; l.ph+=0.03; l.rot+=l.spin; } leaves=leaves.filter(function(l){return l.y<H+16;}); }
@@ -184,7 +192,7 @@ let enc=null;
 function startEncounter(){
   var dir={B:"U",F:"D",L:"L",R:"R"}[guyFace]||"U"; var fwd=DIRV[dir], perp=[-fwd[1],fwd[0]];
   var cxN=0.5-fwd[0]*0.06, cyN=0.5-fwd[1]*0.06; var mons=[];
-  for(var i=0;i<3;i++){ var off=(i-1)*0.26; mons.push({num:AREA_FIRST+Math.floor(Math.random()*(AREA_LAST-AREA_FIRST+1)), t:rollRarity(), x:cxN+fwd[0]*0.22+perp[0]*off, y:cyN+fwd[1]*0.22+perp[1]*off, ph:Math.random()*6, fled:false}); }
+  for(var i=0;i<3;i++){ var off=(i-1)*0.26; mons.push({num:area.first+Math.floor(Math.random()*(area.last-area.first+1)), t:rollRarity(), x:cxN+fwd[0]*0.22+perp[0]*off, y:cyN+fwd[1]*0.22+perp[1]*off, ph:Math.random()*6, fled:false}); }
   enc={ dir:dir, mons:mons, grow:0, holdT:0, vidStarted:false, px:cxN-fwd[0]*0.22, py:cyN-fwd[1]*0.22, done:false, msg:"" };
   mode="encounter";
 }
@@ -213,13 +221,13 @@ function drawEncounter(){ if(!enc) return;
 function encBg(b){ var g=x.createRadialGradient(W/2,H/2,10,W/2,H/2,b.s*0.7); g.addColorStop(0,"#3a1a66"); g.addColorStop(1,"#0a0518"); x.fillStyle=g; x.fillRect(b.x,b.y,b.s,b.s); }
 function encMove(dx,dy){ if(!enc||enc.done) return; enc.px=Math.max(0.12,Math.min(0.88,enc.px+dx*0.055)); enc.py=Math.max(0.12,Math.min(0.88,enc.py+dy*0.055));
   for(var i=0;i<enc.mons.length;i++){ var m=enc.mons[i]; if(m.fled) continue; if(Math.hypot(enc.px-m.x,enc.py-m.y)<0.12){ attempt(m); break; } } draw(); }
-function attempt(m){ if(enc.done) return; var free=(companion==null||companion===-1);
+function attempt(m){ if(enc.done) return; var free=!visited[currentMap];
   var chance = free?1:( (typeof companion==="number") ? (TAG_VAL[tier[companion]||"red"]/100) : 0.9 );
   if(Math.random()<chance){ collectMon(m); }
   else { m.fled=true; enc.msg=dreamName(m.num)+" fled!"; if(enc.mons.every(function(mm){return mm.fled;})){ enc.done=true; setTimeout(function(){ mode="walk"; inZone=true; },900); } draw(); }
 }
 function dreamName(n){ return "#"+n; }
-function collectMon(m){ enc.done=true;
+function collectMon(m){ enc.done=true; visited[currentMap]=1;
   var isNew=(dmDex.indexOf(m.num)<0); if(isNew) dmDex.push(m.num); dmHeld.push(m.num);
   if(!tier[m.num] || TAG_VAL[m.t]>TAG_VAL[tier[m.num]]) tier[m.num]=m.t;
   if(m.t!=="red" && dmRare.indexOf(m.num)<0) dmRare.push(m.num);
@@ -241,7 +249,7 @@ function promptNo(){ prompt=null; mode="walk"; inZone=true; draw(); }
 // ===== INPUT =====
 function onDir(dx,dy){ if(mode==="walk") walkStep(dx,dy); else if(mode==="encounter") encMove(dx,dy); }
 function onA(){ if(dialogue){ dialogue=null; draw(); return; } if(mode==="prompt") promptYes(); }
-function onB(){ if(mode==="walk"){ try{localStorage.setItem("town_pos",JSON.stringify({x:px,y:py,f:guyFace}));}catch(e){} saveGame(); location.href=ARCADE_FILE+"?view=binder&town=1"; } else if(mode==="prompt") promptNo(); }
+function onB(){ if(mode==="walk"){ try{localStorage.setItem("town_pos",JSON.stringify({x:px,y:py,f:guyFace,map:currentMap}));}catch(e){} saveGame(); location.href=ARCADE_FILE+"?view=binder&town=1"; } else if(mode==="prompt") promptNo(); }
 let running=false;
 function bindHold(id,fn){ const el=document.getElementById(id); let t=null, held=false;
   function step(){ if(!held) return; fn(); t=setTimeout(step, running?70:150); }
@@ -258,7 +266,7 @@ function loop(){ draw(); requestAnimationFrame(loop); }
 requestAnimationFrame(loop);
 
 // ===== START =====
-layout(); loadMap(START_MAP,START_ENTRY);
+var _startMap=(retPos&&retPos.map)?retPos.map:START_MAP; setArea(_startMap); layout(); loadMap(_startMap,START_ENTRY);
 </script>
 </body>
 </html>
