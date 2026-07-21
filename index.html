@@ -9,7 +9,12 @@
   html,body{margin:0;height:100%;background:#07040f;overflow:hidden;font-family:Helvetica,Arial,sans-serif;}
   #stage{position:fixed;inset:0;background:#0a0512;}
   #cabImg{position:absolute;pointer-events:none;}
-  #screen{position:absolute;background:#000;touch-action:none;}
+  #screen{position:absolute;background:#000;touch-action:none;image-rendering:pixelated;filter:saturate(1.2) contrast(1.05);}
+  #fx{position:absolute;pointer-events:none;z-index:4;mix-blend-mode:multiply;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,0.14) 0 1px, transparent 1px 3px),
+               repeating-linear-gradient(90deg, rgba(0,0,0,0.08) 0 1px, transparent 1px 3px);}
+  #fx2{position:absolute;pointer-events:none;z-index:5;mix-blend-mode:screen;opacity:.16;
+    background:radial-gradient(circle at 30% 25%, #6ae0ff 0%, transparent 55%), radial-gradient(circle at 75% 80%, #ff6ad5 0%, transparent 55%);}
   #err{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#ffb3d1;background:#0d0a17;font-size:14px;padding:26px;text-align:center;line-height:1.6;z-index:9;}
   #dpad{position:absolute;}
   #dpad .dp{position:absolute;width:40%;height:40%;background:transparent;border:none;border-radius:12px;color:transparent;font-size:0;}
@@ -24,6 +29,8 @@
 <div id="stage">
   <img id="cabImg" alt="">
   <canvas id="screen"></canvas>
+  <div id="fx"></div>
+  <div id="fx2"></div>
   <div id="dpad"><div class="dp" id="up">▲</div><div class="dp" id="dn">▼</div><div class="dp" id="lf">◀</div><div class="dp" id="rt">▶</div></div>
   <div class="rbtn" id="aBtn"></div>
   <div class="rbtn" id="bBtn"></div>
@@ -121,7 +128,10 @@ function layout(){
   const scX=PF_SCREEN[0],scY=PF_SCREEN[1],scW=PF_SCREEN[2]-PF_SCREEN[0],scH=PF_SCREEN[3]-PF_SCREEN[1];
   const cl=ox+scX*rw, ct=oy+scY*rh, cw=scW*rw, ch=scH*rh;
   cv.style.left=cl+"px"; cv.style.top=ct+"px"; cv.style.width=cw+"px"; cv.style.height=ch+"px";
-  W=cw; H=ch; DPR=devicePixelRatio||1; cv.width=Math.max(80,Math.round(cw*DPR)); cv.height=Math.max(60,Math.round(ch*DPR)); x.setTransform(DPR,0,0,DPR,0,0);
+  var PIXEL=0.5;   // lower = chunkier pixels (0.4 GameBoy-ish, 0.6 DS-ish)
+  W=cw; H=ch; DPR=devicePixelRatio||1; cv.width=Math.max(64,Math.round(cw*PIXEL)); cv.height=Math.max(48,Math.round(ch*PIXEL)); x.setTransform(PIXEL,0,0,PIXEL,0,0);
+  var fx=document.getElementById("fx"), fx2=document.getElementById("fx2");
+  [fx,fx2].forEach(function(el){ if(el){ el.style.left=cl+"px"; el.style.top=ct+"px"; el.style.width=cw+"px"; el.style.height=ch+"px"; } });
   const dp=document.getElementById("dpad"), dsz=DP_SZ*rw;
   dp.style.left=(ox+DP_C[0]*rw-dsz/2)+"px"; dp.style.top=(oy+DP_C[1]*rh-dsz/2)+"px"; dp.style.width=dsz+"px"; dp.style.height=dsz+"px";
   const bd=0.15*rw; place(document.getElementById("aBtn"), ox+A_POS[0]*rw, oy+A_POS[1]*rh, bd); place(document.getElementById("bBtn"), ox+B_POS[0]*rw, oy+B_POS[1]*rh, bd);
