@@ -11,9 +11,10 @@
   #cabImg{position:absolute;pointer-events:none;}
   #screen{position:absolute;background:#000;touch-action:none;image-rendering:pixelated;filter:saturate(1.2) contrast(1.05);}
   #fx{position:absolute;pointer-events:none;z-index:4;mix-blend-mode:multiply;
-    background:repeating-linear-gradient(0deg, rgba(0,0,0,0.14) 0 1px, transparent 1px 3px),
-               repeating-linear-gradient(90deg, rgba(0,0,0,0.08) 0 1px, transparent 1px 3px);}
-  #fx2{position:absolute;pointer-events:none;z-index:5;mix-blend-mode:screen;opacity:.16;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 3px),
+               repeating-linear-gradient(90deg, rgba(0,0,0,0.12) 0 1px, transparent 1px 3px),
+               radial-gradient(ellipse at center, transparent 46%, rgba(0,0,0,0.6) 100%);}
+  #fx2{position:absolute;pointer-events:none;z-index:5;mix-blend-mode:screen;opacity:.34;
     background:radial-gradient(circle at 30% 25%, #6ae0ff 0%, transparent 55%), radial-gradient(circle at 75% 80%, #ff6ad5 0%, transparent 55%);}
   #err{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#ffb3d1;background:#0d0a17;font-size:14px;padding:26px;text-align:center;line-height:1.6;z-index:9;}
   #dpad{position:absolute;}
@@ -128,7 +129,7 @@ function layout(){
   const scX=PF_SCREEN[0],scY=PF_SCREEN[1],scW=PF_SCREEN[2]-PF_SCREEN[0],scH=PF_SCREEN[3]-PF_SCREEN[1];
   const cl=ox+scX*rw, ct=oy+scY*rh, cw=scW*rw, ch=scH*rh;
   cv.style.left=cl+"px"; cv.style.top=ct+"px"; cv.style.width=cw+"px"; cv.style.height=ch+"px";
-  var PIXEL=0.5;   // lower = chunkier pixels (0.4 GameBoy-ish, 0.6 DS-ish)
+  var PIXEL=0.4;   // lower = chunkier pixels (0.4 GameBoy-ish, 0.6 DS-ish)
   W=cw; H=ch; DPR=devicePixelRatio||1; cv.width=Math.max(64,Math.round(cw*PIXEL)); cv.height=Math.max(48,Math.round(ch*PIXEL)); x.setTransform(PIXEL,0,0,PIXEL,0,0);
   var fx=document.getElementById("fx"), fx2=document.getElementById("fx2");
   [fx,fx2].forEach(function(el){ if(el){ el.style.left=cl+"px"; el.style.top=ct+"px"; el.style.width=cw+"px"; el.style.height=ch+"px"; } });
@@ -166,6 +167,7 @@ function drawDialogue(){ var bh=Math.max(50,H*0.24); var by=H-bh-8; x.fillStyle=
   for(var j=0;j<lines.length;j++) x.fillText(lines[j], 20, by+12+j*18);
   x.fillStyle="#8affea"; x.font="11px sans-serif"; x.textAlign="right"; x.fillText("\u25B6 A", W-20, by+bh-16); }
 function roundRect(rx,ry,rw,rh,rad){ x.beginPath(); x.moveTo(rx+rad,ry); x.arcTo(rx+rw,ry,rx+rw,ry+rh,rad); x.arcTo(rx+rw,ry+rh,rx,ry+rh,rad); x.arcTo(rx,ry+rh,rx,ry,rad); x.arcTo(rx,ry,rx+rw,ry,rad); x.closePath(); }
+function shadow(cx,cy,rw,rh){ x.save(); x.filter="none"; x.globalAlpha=0.32; x.fillStyle="#000"; x.beginPath(); x.ellipse(cx,cy,rw,rh,0,0,7); x.fill(); x.restore(); }
 
 function drawWalk(){
   if(!M){ x.fillStyle="#0d0a17"; x.fillRect(0,0,W,H); return; }
@@ -182,11 +184,12 @@ function drawWalk(){
   const bounce=Math.max(0,1-(now-lastStepAt)/240), bounceY=-Math.sin(bounce*Math.PI)*sz*0.16, idleY=Math.sin(now/500)*sz*0.05*(1-bounce);
   orbit+=0.03;
   var hasComp=(companion!=null && companion!==-1);
-  if(hasComp){ var oa=orbit, ox2=pcx+Math.cos(oa)*sz*0.9, oy2=pcy+Math.sin(oa)*sz*0.5-sz*0.1; if(Math.sin(oa)<0){ drawCompanionSprite(ox2,oy2,sz*1.15); } }
+  if(hasComp){ var oa=orbit, ox2=pcx+Math.cos(oa)*sz*0.9, oy2=pcy+Math.sin(oa)*sz*0.5-sz*0.1; if(Math.sin(oa)<0){ shadow(ox2,oy2+sz*0.42,sz*0.3,sz*0.1); drawCompanionSprite(ox2,oy2,sz*1.15); } }
   const gim=guy[guyFace]; x.imageSmoothingEnabled=true;
+  shadow(pcx, ppy+sz-2, sz*0.36, sz*0.13);
   if(gim&&gim.complete&&gim.naturalWidth){ const pw2=sz*1.05, ph2=sz*1.5; x.drawImage(gim, ppx+sz/2-pw2/2, ppy+sz-ph2+sz*0.12+bounceY+idleY, pw2, ph2); }
   else { x.fillStyle="#8affea";x.strokeStyle="#0d0a17";x.lineWidth=Math.max(2,sz*0.06);x.beginPath();x.arc(pcx,pcy+bounceY+idleY,sz*0.3,0,7);x.fill();x.stroke(); }
-  if(hasComp){ var oa2=orbit, ox3=pcx+Math.cos(oa2)*sz*0.9, oy3=pcy+Math.sin(oa2)*sz*0.5-sz*0.1; if(Math.sin(oa2)>=0){ drawCompanionSprite(ox3,oy3,sz*1.15); } }
+  if(hasComp){ var oa2=orbit, ox3=pcx+Math.cos(oa2)*sz*0.9, oy3=pcy+Math.sin(oa2)*sz*0.5-sz*0.1; if(Math.sin(oa2)>=0){ shadow(ox3,oy3+sz*0.42,sz*0.3,sz*0.1); drawCompanionSprite(ox3,oy3,sz*1.15); } }
   updateLeaves(now,treeCells); drawLeaves(); updateMotes(now); drawMotes();
   x.fillStyle="rgba(13,10,23,.7)"; roundRect(6,6,222,22,7); x.fill(); x.fillStyle="#c9a0ff"; x.font="11px sans-serif"; x.textAlign="left"; x.textBaseline="middle"; x.fillText(area.name+" · "+areaCount()+"/"+(area.last-area.first+1)+" · B=Binder",12,18);
 }
@@ -222,8 +225,8 @@ function drawEncounter(){ if(!enc) return;
   if(enc.vidStarted && v && v.readyState>=2){ try{ x.imageSmoothingEnabled=true; x.drawImage(v,b.x,b.y,b.s,b.s); }catch(e){ encBg(b); } } else encBg(b);
   var psz=b.s*0.2, pcx=b.x+enc.px*b.s, pcy=b.y+enc.py*b.s, face=({U:"B",D:"F",L:"L",R:"R"})[enc.dir], gim=guy[face], bob=Math.sin(Date.now()/400)*psz*0.05;
   x.imageSmoothingEnabled=true;
-  if(gim&&gim.complete&&gim.naturalWidth){ var pw=psz*1.05, ph=psz*1.5; x.drawImage(gim,pcx-pw/2,pcy-ph+psz*0.5+bob,pw,ph); } else { x.fillStyle="#8affea"; x.beginPath(); x.arc(pcx,pcy+bob,psz*0.4,0,7); x.fill(); }
-  if(enc.grow>=0.9){ for(var i=0;i<enc.mons.length;i++){ var m=enc.mons[i]; if(m.fled) continue; var mx=b.x+m.x*b.s, my=b.y+m.y*b.s+Math.sin(Date.now()/500+m.ph)*psz*0.12; drawPix(m.num,mx,my,psz*1.7,m.t); x.filter="none"; drawDot(m.t,mx,my+psz*1.0); } }
+  if(gim&&gim.complete&&gim.naturalWidth){ shadow(pcx,pcy+psz*0.5+bob,psz*0.4,psz*0.14); var pw=psz*1.05, ph=psz*1.5; x.drawImage(gim,pcx-pw/2,pcy-ph+psz*0.5+bob,pw,ph); } else { x.fillStyle="#8affea"; x.beginPath(); x.arc(pcx,pcy+bob,psz*0.4,0,7); x.fill(); }
+  if(enc.grow>=0.9){ for(var i=0;i<enc.mons.length;i++){ var m=enc.mons[i]; if(m.fled) continue; var mx=b.x+m.x*b.s, my=b.y+m.y*b.s+Math.sin(Date.now()/500+m.ph)*psz*0.12; shadow(mx,my+psz*0.55,psz*0.42,psz*0.15); drawPix(m.num,mx,my,psz*1.7,m.t); x.filter="none"; drawDot(m.t,mx,my+psz*1.0); } }
   x.restore();
   x.fillStyle="#c9a0ff"; x.font="bold 12px sans-serif"; x.textAlign="center"; x.textBaseline="top";
   x.fillText((companion==null||companion===-1)?"Walk into one — free first pick!":"Walk into one to try collecting it",W/2,6);
