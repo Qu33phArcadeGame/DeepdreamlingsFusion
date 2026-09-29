@@ -1,8 +1,8 @@
 """
-Export the part of InceptionV3 that DeepDream needs (input -> mixed5) to
+Export the part of InceptionV3 that DeepDream needs (input -> mixed7) to
 TensorFlow.js format, so generator.html can run it in the browser.
 
-Output: models/inceptionv3/model.json + weight shards (~10 MB, float16)
+Output: models/inceptionv3/model.json + weight shards (~18 MB, float16)
 
 Setup (Python 3.9-3.11), once:
     python -m venv venv
@@ -19,8 +19,8 @@ import os
 import tensorflow as tf
 import tensorflowjs as tfjs
 
-# The generator's STYLES weight these four layers, in this order.
-LAYERS = ["mixed2", "mixed3", "mixed4", "mixed5"]
+# Layers the generator can amplify (Settings -> Inception layers). Your Colab uses mixed6 + mixed7.
+LAYERS = ["mixed2", "mixed3", "mixed4", "mixed5", "mixed6", "mixed7"]
 OUT_DIR = os.path.join("models", "inceptionv3")
 
 base = tf.keras.applications.InceptionV3(
