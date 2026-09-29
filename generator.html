@@ -22,7 +22,7 @@
   main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;}
   #card{display:block;touch-action:manipulation;}
   #statusWrap{min-height:36px;}
-  #status{font-size:13px;color:var(--lav);text-align:center;line-height:1.35;min-height:18px;}
+  #status{font-size:13px;color:var(--lav);text-align:center;line-height:1.35;min-height:18px;max-height:7.2em;overflow:auto;user-select:text;-webkit-user-select:text;word-break:break-word;}
   #status.err{color:#ffb3d1;}
   #bar{height:4px;border-radius:2px;background:#1d1233;margin-top:6px;overflow:hidden;visibility:hidden;}
   #bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--lav),var(--mint));transition:width .15s;}
@@ -249,13 +249,17 @@ async function activate(name){
   if(!(await tryBackend(name))) throw new Error(name+" unavailable");
   $("engineBtn").textContent="Engine: "+LABEL[name];
   setStatus("Loading InceptionV3 on "+LABEL[name]+"…"); setBar(0);
-  model=await tf.loadLayersModel(MODEL_URL,{onProgress:p=>setBar(p)});
+  try{ model=await tf.loadLayersModel(MODEL_URL,{onProgress:p=>setBar(p)}); }
+  catch(e){ throw new Error("loading the model failed: "+(e&&e.message||e)); }
   setStatus("Warming up the dream engine…"); setBar(null);
-  const t=tf.randomUniform([1,96,112,3],-1,1), s=dreamStep(t,0.01,0); await s.data(); t.dispose(); s.dispose();
+  try{ const t=tf.randomUniform([1,96,112,3],-1,1), s=dreamStep(t,0.01,0); await s.data(); t.dispose(); s.dispose(); }
+  catch(e){ throw new Error("the test dream failed: "+(e&&e.message||e)); }
 }
+let engineErrors=[];
 async function nextEngine(){
   while(++engineIdx<engineOrder.length){
-    try{ await activate(engineOrder[engineIdx]); return true; }catch(e){ console.warn(e); }
+    try{ await activate(engineOrder[engineIdx]); return true; }
+    catch(e){ console.warn(e); engineErrors.push(LABEL[engineOrder[engineIdx]]+": "+(e&&e.message||e)); }
   }
   return false;
 }
@@ -609,7 +613,7 @@ async function boot(){
   if(!found){ setStatus("Model not found at "+MODEL_URL+". Run tools/export_inceptionv3.py and upload the models/inceptionv3 folder (see DREAM_GENERATOR.md).",true); return; }
   try{ tf.enableProdMode(); }catch(e){}
   engineOrder=await pickEngines(); engineIdx=-1;
-  if(!(await nextEngine())){ setStatus("The dream engine couldn't start on this device.",true); $("engineBtn").textContent="Engine: none"; return; }
+  if(!(await nextEngine())){ setStatus("The dream engine couldn't start. "+(engineErrors.length?engineErrors[engineErrors.length-1]:"No engine was available."),true); console.warn(engineErrors); $("engineBtn").textContent="Engine: none"; return; }
   if(!QUALITY[quality]) quality=(engineOrder[engineIdx]==="webgpu"||engineOrder[engineIdx]==="webgl")?"normal":"fast";
   $("qualitySel").value=quality;
   ready=true; setStatus("Ready. Press Generate to dream a card."); updateUI();
