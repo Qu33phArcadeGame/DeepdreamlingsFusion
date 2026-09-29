@@ -182,7 +182,7 @@ GifEncoder.prototype.addFrame=function(rgba,delayCs){ var o=this.out, q=quantize
 GifEncoder.prototype.finish=function(){ this.out.byte(0x3B); return this.out.result(); };
 
 // =====================================================================
-//  DREAM GENERATOR — DeepDream trading cards with Colab-style zooms.
+//  DREAM GENERATOR — DeepDream trading cards with endless zooms.
 //  Runs InceptionV3 in the browser with TensorFlow.js on whichever engine
 //  benchmarks fastest on this device (WebGPU / WebGL = GPU, WASM / JS = CPU).
 //  Model files: models/inceptionv3/  (make them with tools/export_inceptionv3.py)
@@ -199,25 +199,29 @@ const AREAS = {   // must match AREAS in index.html
   "map":   { first:1,  last:11, name:"Dream Core" },
   "woods": { first:12, last:22, name:"Waking Woods" }
 };
-// Same maths as your Colab notebook: each frame crops by zoomFactor around a centre that moves along
-// the chosen path, resizes back up, then runs `steps` gradient-ascent steps at learning rate `lr`.
-const DEFAULTS = { path:"straight", frames:60, zoomFactor:0.98, steps:4, lr:0.015, range:0.08, segFrames:10, startSteps:10, layers:null, quality:"" };
+// Each zoom frame crops by zoomFactor around a centre that moves along the chosen path,
+// resizes back up, then runs `steps` gradient-ascent steps at learning rate `lr`.
+const DEFAULTS = { path:"straight", frames:60, zoomFactor:0.97, steps:8, lr:0.04, range:0.08, segFrames:10, startSteps:15, sharpen:0.35, layers:["mixed3","mixed4"], quality:"", heat:"balanced" };
 const PRESETS = [
-  { name:"Game default (quick dive)", s:{ path:"straight", frames:60,  zoomFactor:0.98,   steps:4,  lr:0.015,  startSteps:10 } },
-  { name:"Colab straight",            s:{ path:"straight", frames:330, zoomFactor:0.9999, steps:37, lr:0.067,  startSteps:0, layers:["mixed6","mixed7"] } },
-  { name:"Colab square",              s:{ path:"square",   frames:330, zoomFactor:0.9999, steps:33, lr:0.0998, range:0.011, segFrames:5,  startSteps:0, layers:["mixed6","mixed7"] } },
-  { name:"Colab square (lighter)",    s:{ path:"square",   frames:500, zoomFactor:0.999,  steps:7,  lr:0.0597, range:0.08,  segFrames:10, startSteps:0, layers:["mixed6","mixed7"] } },
-  { name:"Colab triangle",            s:{ path:"triangle", frames:100, zoomFactor:0.999,  steps:10, lr:0.01,   range:0.1,   segFrames:20, startSteps:0, layers:["mixed6","mixed7"] } }
+  // Tuned for phone-sized dreams: stronger pushes and faster zooms so the effect really shows.
+  { name:"Wild dive (straight)",      s:{ path:"straight", frames:60, zoomFactor:0.96,  steps:8,  lr:0.045, startSteps:15, sharpen:0.35, layers:["mixed3","mixed4"] } },
+  { name:"Eye storm (square)",        s:{ path:"square",   frames:80, zoomFactor:0.97,  steps:10, lr:0.05,  range:0.10, segFrames:8,  startSteps:20, sharpen:0.35, layers:["mixed4","mixed5"] } },
+  { name:"Triangle trip",             s:{ path:"triangle", frames:90, zoomFactor:0.97,  steps:8,  lr:0.045, range:0.12, segFrames:10, startSteps:15, sharpen:0.35, layers:["mixed3","mixed5"] } },
+  { name:"Swirl melt (fast, cool)",   s:{ path:"straight", frames:80, zoomFactor:0.95,  steps:4,  lr:0.06,  startSteps:10, sharpen:0.4,  layers:["mixed2","mixed3"] } },
+  { name:"Beast mode (slow, hot)",    s:{ path:"square",   frames:60, zoomFactor:0.975, steps:20, lr:0.06,  range:0.08, segFrames:10, startSteps:25, sharpen:0.3,  layers:["mixed5","mixed6"] } },
+  { name:"Slow drift (square, subtle)", s:{ path:"square", frames:120, zoomFactor:0.99, steps:6, lr:0.03, range:0.04, segFrames:15, startSteps:20, sharpen:0.3, layers:["mixed4","mixed5"] } }
 ];
 const FIELDS = [
-  { k:"frames",     label:"Frames per run",       min:1,    max:600,  step:1,      note:"How many frames each press of Zoom makes (your Colab num_frames)." },
+  { k:"frames",     label:"Frames per run",       min:1,    max:600,  step:1,      note:"How many frames each press of Zoom makes ." },
   { k:"zoomFactor", label:"Zoom factor",          min:0.9,  max:1,    step:0.0001, note:"Crop size each frame. 0.9999 barely moves, 0.98 dives fast." },
   { k:"steps",      label:"Steps per frame",      min:1,    max:50,   step:1,      note:"More steps = stronger dream, slower frames." },
   { k:"lr",         label:"Learning rate",        min:0.001,max:0.2,  step:0.0001, note:"How hard each step pushes the dream." },
   { k:"range",      label:"Movement range",       min:0,    max:0.3,  step:0.001,  paths:["square","triangle"], note:"How far the zoom centre drifts, as a fraction of the image." },
   { k:"segFrames",  label:"Frames per side",      min:1,    max:100,  step:1,      paths:["square","triangle"], note:"Frames spent on each side of the square or triangle." },
-  { k:"startSteps", label:"Starting dream steps", min:0,    max:40,   step:1,      note:"Dreams the card at 3 sizes before zooming. 0 = start zooming straight from the card." }
+  { k:"startSteps", label:"Starting dream steps", min:0,    max:40,   step:1,      note:"Dreams the card at 3 sizes before zooming. 0 = start zooming straight from the card." },
+  { k:"sharpen",    label:"Keep sharp",           min:0,    max:1,    step:0.05,   note:"Undoes the blur each zoom adds. 0 = off." }
 ];
+const HEAT_REST = { full:0, balanced:0.6, cool:1.5 };   // pause after each frame, as a multiple of its compute time
 const PATH_LABEL = { straight:"Straight zoom", square:"Square zoom", triangle:"Triangle zoom" };
 const TIER_RANK = { red:0, green:1, blue:2, purple:3 };
 const RARITY = {
@@ -225,7 +229,7 @@ const RARITY = {
   green: { label:"Rare",   sym:"◆", c1:"#5dff8f", c2:"#15603a" },
   blue:  { label:"Holo",   sym:"★", c1:"#5db4ff", c2:"#2b2a8e" }
 };
-const ENGINE_KEY="dreamgen_engine_v1", SETTINGS_KEY="dreamgen_settings_v2", COUNT_KEY="dreamgen_count";
+const ENGINE_KEY="dreamgen_engine_v1", SETTINGS_KEY="dreamgen_settings_v3", COUNT_KEY="dreamgen_count";
 const LABEL = { webgpu:"WebGPU (GPU)", webgl:"WebGL (GPU)", wasm:"WebAssembly (CPU)", cpu:"JavaScript (CPU)" };
 
 // ===== NAMES (same as the binder) =====
@@ -341,7 +345,7 @@ function dreamStep(img,lr){
     return img.add(g.div(std.add(1e-8)).mul(lr)).clipByValue(-1,1);
   });
 }
-// Zoom path offsets in pixels — ported from run_deep_dream_zoom_video in the Colab notebook.
+// Zoom path offsets in pixels: straight stays centred, square and triangle trace their shape.
 function pathOffset(n,w,h,s){
   const seg=Math.max(1,Math.round(s.segFrames)), sub=(n%seg)/seg;
   if(s.path==="square"){
@@ -358,14 +362,24 @@ function pathOffset(n,w,h,s){
   }
   return [0,0];
 }
-function zoomCrop(img,zf,ox,oy){
+function zoomCrop(img,zf,ox,oy,sharpen){
   return tf.tidy(()=>{
     const h=img.shape[1], w=img.shape[2], z=Math.max(0.5,Math.min(1,zf));
-    let cy=0.5+oy/h, cx=0.5+ox/w; cy=Math.max(z/2,Math.min(1-z/2,cy)); cx=Math.max(z/2,Math.min(1-z/2,cx));
-    if(z>=1 && !ox && !oy) return img.clone();
-    const box=[cy-z/2,cx-z/2,cy+z/2,cx+z/2];
-    try{ return tf.image.cropAndResize(img,tf.tensor2d([box]),tf.tensor1d([0],"int32"),[h,w],"bilinear"); }
-    catch(e){ const y0=Math.round(box[0]*h), x0=Math.round(box[1]*w), ch=Math.max(1,Math.round(z*h)), cw=Math.max(1,Math.round(z*w)); return tf.image.resizeBilinear(img.slice([0,Math.min(y0,h-ch),Math.min(x0,w-cw),0],[1,ch,cw,3]),[h,w]); }
+    const ch=Math.max(16,Math.round(h*z)), cw=Math.max(16,Math.round(w*z)), dy=Math.round(oy), dx=Math.round(ox);
+    if(ch===h && cw===w){
+      // Too small to zoom at this size: just pan by whole pixels (no resampling, so no blur).
+      if(!dx && !dy) return img.clone();
+      const p=Math.min(Math.max(Math.abs(dx),Math.abs(dy)),Math.min(h,w)-1);
+      return tf.mirrorPad(img,[[0,0],[p,p],[p,p],[0,0]],"reflect").slice([0,p+Math.max(-p,Math.min(p,dy)),p+Math.max(-p,Math.min(p,dx)),0],[1,h,w,3]);
+    }
+    const y0=Math.max(0,Math.min(h-ch,Math.round((h-ch)/2+oy))), x0=Math.max(0,Math.min(w-cw,Math.round((w-cw)/2+ox)));
+    let out=tf.image.resizeBilinear(img.slice([0,y0,x0,0],[1,ch,cw,3]),[h,w],false,true);
+    if(sharpen>0){   // unsharp mask to cancel the resize blur
+      const k=[1,2,1,2,4,2,1,2,1].map(v=>v/16), ker=tf.tensor4d([].concat(...k.map(v=>[v,v,v])),[3,3,3,1]);
+      const blur=tf.depthwiseConv2d(out,ker,1,"same");
+      out=out.add(out.sub(blur).mul(sharpen*2)).clipByValue(-1,1);
+    }
+    return out;
   });
 }
 function canvasToTensor(cv){ return tf.tidy(()=>tf.browser.fromPixels(cv).toFloat().div(127.5).sub(1).expandDims(0)); }
@@ -373,7 +387,7 @@ async function tensorToCanvas(img,cv){ const t=tf.tidy(()=>img.squeeze([0]).add(
 function noteStepTime(ms){ msPerStep=msPerStep==null?ms:msPerStep*0.8+ms*0.2; updateEstimate(); }
 function updateEstimate(){
   const el=$("estimate"); if(msPerStep==null){ el.textContent=""; return; }
-  const q=dims(), scale=(q.w*q.h)/((card?card.w*card.h:q.w*q.h)||1), perFrame=msPerStep*scale*settings.steps/1000, run=perFrame*settings.frames;
+  const q=dims(), scale=(q.w*q.h)/((card?card.w*card.h:q.w*q.h)||1), perFrame=msPerStep*scale*settings.steps/1000*(1+(HEAT_REST[settings.heat]||0)), run=perFrame*settings.frames;
   el.textContent="≈"+(perFrame<10?perFrame.toFixed(1):Math.round(perFrame))+"s/frame · run "+(run<90?Math.round(run)+"s":Math.round(run/60)+" min");
 }
 
@@ -447,7 +461,7 @@ function clearFrameCache(){ for(const bm of frameCache.values()) if(bm&&bm.close
 async function pushFrame(){ const b=await toBlob(artCv,"image/jpeg",0.92); card.frames.push(b); card.dirty=true; }
 function disposeCard(){ clearFrameCache(); lastArt=null; card=null; if(cur){ cur.dispose(); cur=null; } }
 
-// ===== DREAM (starting dream, then Colab-style zoom runs) =====
+// ===== DREAM (starting dream, then zoom runs) =====
 async function startDream(){
   if(!card||busy||!ready) return;
   busy=true; live=true; updateUI();
@@ -463,7 +477,9 @@ async function startDream(){
           const r=tf.image.resizeBilinear(img,[h,w]); img.dispose(); img=r;
           for(let i=0;i<steps;i++){ const t0=performance.now(); const n=dreamStep(img,Math.max(0.01,settings.lr)); img.dispose(); img=n; done++;
             setStatus("Dreaming… detail layer "+(OCTAVES-o)+" of "+OCTAVES); setBar(done/total);
-            await tensorToCanvas(img,artCv); if(o===0) noteStepTime(performance.now()-t0); }
+            if(i%3===2||i===steps-1) await tensorToCanvas(img,artCv); else await tf.nextFrame();
+            if(o===0) noteStepTime(performance.now()-t0);
+            const rest=HEAT_REST[settings.heat]||0; if(rest) await sleep((performance.now()-t0)*rest); }
         }
       }
       cur=img; break;
@@ -496,11 +512,12 @@ async function zoomRun(){
       await ensureCur();
       card.pathFrame=(card.pathFrame||0)+1;
       const off=pathOffset(card.pathFrame,card.w,card.h,settings);
-      const z=zoomCrop(cur,settings.zoomFactor,off[0],off[1]); cur.dispose(); cur=z;
+      const z=zoomCrop(cur,settings.zoomFactor,off[0],off[1],settings.sharpen||0); cur.dispose(); cur=z;
       const t0=performance.now();
       for(let i=0;i<settings.steps;i++){ const n=dreamStep(cur,settings.lr); cur.dispose(); cur=n; }
       await tensorToCanvas(cur,artCv); noteStepTime((performance.now()-t0)/Math.max(1,settings.steps));
       await pushFrame(); card.lastPng=null; made++;
+      const rest=HEAT_REST[settings.heat]||0; if(rest) await sleep((performance.now()-t0)*rest);
       setStatus(styleLabel()+"… frame "+made+" of "+want+" ("+card.frames.length+" on the card)"); setBar(made/want);
       await tf.nextFrame();
     }catch(e){
@@ -557,18 +574,20 @@ function drawBack(c,W,H,tms){
   c.fillStyle="#8affea"; c.font=(13*k)+"px Helvetica,Arial,sans-serif"; c.fillText(town.name+" dream generator",cx,H*0.74+26*k);
   c.restore();
 }
+let lastDraw=0;
 function tick(t){
+  requestAnimationFrame(tick);
+  if(t-lastDraw < ((busy||zooming)?66:33)) return; lastDraw=t;
   const W=cardCv.width, H=cardCv.height;
   if(card){ let art=null; const n=card.frames.length;
     if(live||!n) art=artCv;
     else { const i=Math.floor(Math.max(0,t-playStart)/1000*PLAY_FPS)%n; art=cachedFrame(i)||lastArt||artCv; lastArt=art; }
     try{ drawCard(cctx,W,H,card,art,t,n); }catch(e){ lastArt=null; try{ drawCard(cctx,W,H,card,artCv,t,n); }catch(e2){} }
   } else drawBack(cctx,W,H,t);
-  requestAnimationFrame(tick);
 }
 function layout(){
   const m=$("main"), aw=m.clientWidth, ah=m.clientHeight;
-  const hgt=Math.floor(Math.min(ah,aw*1.4)), wdt=Math.floor(hgt/1.4), dpr=Math.min(3,window.devicePixelRatio||1);
+  const hgt=Math.floor(Math.min(ah,aw*1.4)), wdt=Math.floor(hgt/1.4), dpr=Math.min(2,window.devicePixelRatio||1);
   cardCv.style.width=wdt+"px"; cardCv.style.height=hgt+"px"; cardCv.width=Math.round(wdt*dpr); cardCv.height=Math.round(hgt*dpr);
 }
 new ResizeObserver(layout).observe($("main"));
@@ -598,9 +617,9 @@ function buildSettings(){
   const addNote=(txt)=>{ const n=document.createElement("div"); n.className="note"; n.textContent=txt; return n; };
   // presets
   const pw=document.createElement("div"); pw.className="field";
-  pw.innerHTML='<label>Preset <span>from your Colab notebook</span></label>';
+  pw.innerHTML='<label>Preset <span>quick starting points</span></label>';
   const sel=document.createElement("select"); sel.innerHTML='<option value="">Choose a preset…</option>'+PRESETS.map((p,i)=>'<option value="'+i+'">'+p.name+'</option>').join("");
-  sel.onchange=()=>{ if(sel.value==="") return; const p=PRESETS[+sel.value]; settings=Object.assign({},settings,DEFAULTS,{quality:settings.quality},p.s); saveSettings(); buildSettings(); setStatus("Preset: "+p.name); };
+  sel.onchange=()=>{ if(sel.value==="") return; const p=PRESETS[+sel.value]; settings=Object.assign({},settings,DEFAULTS,{quality:settings.quality,heat:settings.heat},p.s); saveSettings(); buildSettings(); setStatus("Preset: "+p.name); };
   pw.appendChild(sel); body.appendChild(pw);
   // path
   const pf=document.createElement("div"); pf.className="field"; pf.innerHTML="<label>Zoom path</label>";
@@ -628,15 +647,20 @@ function buildSettings(){
     b.onclick=()=>{ let L=(model?activeLayers():(settings.layers||[])).slice(); const i=L.indexOf(n); if(i>=0){ if(L.length>1) L.splice(i,1); } else L.push(n); settings.layers=L; saveSettings(); buildSettings(); };
     chips.appendChild(b); });
   lf.appendChild(chips);
-  lf.appendChild(addNote("Low layers (mixed2–3) make swirls and textures; high layers (mixed6–7) make eyes, fur and creature faces — your Colab uses mixed6 + mixed7."+
+  lf.appendChild(addNote("Low layers (mixed2–3) make swirls and textures; high layers (mixed6–7) make eyes, fur and creature faces."+
     (model&&modelLayers.indexOf("mixed7")<0?" mixed6 and mixed7 need the updated model: re-run “Build DeepDream model” in GitHub Actions.":"")));
   body.appendChild(lf);
   // quality
   const qf=document.createElement("div"); qf.className="field"; qf.innerHTML="<label>Dream size <span>bigger = sharper but slower</span></label>";
   const qs=document.createElement("select"); qs.innerHTML=Object.keys(QUALITY).map(k=>'<option value="'+k+'">'+k[0].toUpperCase()+k.slice(1)+" ("+QUALITY[k].w+"×"+QUALITY[k].h+")</option>").join("");
   qs.value=QUALITY[settings.quality]?settings.quality:"normal"; qs.onchange=()=>{ settings.quality=qs.value; saveSettings(); };
-  qf.appendChild(qs); qf.appendChild(addNote("Applies to the next card you pick. Your Colab runs at 1080×1920 on a big GPU — a phone needs much smaller sizes.")); body.appendChild(qf);
-  const reset=document.createElement("button"); reset.textContent="Reset to defaults"; reset.onclick=()=>{ settings=Object.assign({},DEFAULTS,{quality:settings.quality}); saveSettings(); buildSettings(); };
+  qf.appendChild(qs); qf.appendChild(addNote("Applies to the next card you pick. Bigger sizes look sharper but run slower and hotter.")); body.appendChild(qf);
+  const hf=document.createElement("div"); hf.className="field"; hf.innerHTML="<label>Heat saver <span>rests between frames</span></label>";
+  const hs=document.createElement("div"); hs.className="seg";
+  [["full","Off"],["balanced","Balanced"],["cool","Cool"]].forEach(([v,t])=>{ const b=document.createElement("button"); b.textContent=t; b.className=(settings.heat||"balanced")===v?"on":""; b.onclick=()=>{ settings.heat=v; saveSettings(); buildSettings(); }; hs.appendChild(b); });
+  hf.appendChild(hs); hf.appendChild(addNote("Your phone heats up because the dream keeps its GPU at 100%. Balanced rests about a third of the time; Cool rests more than half. Lower Steps per frame and Dream size also help a lot."));
+  body.appendChild(hf);
+  const reset=document.createElement("button"); reset.textContent="Reset to defaults"; reset.onclick=()=>{ settings=Object.assign({},DEFAULTS,{quality:settings.quality,heat:settings.heat}); saveSettings(); buildSettings(); };
   body.appendChild(reset);
   updateEstimate();
 }

@@ -2,8 +2,8 @@
 
 Every town has a Dream Generator building. Walk into it and press A to step inside.
 Your newest card pops up (fusions first): the creature in front of its dream photo,
-just like in the binder. Dream it, then zoom into it with the same maths as the Colab
-notebook: straight, square or triangle paths, with every number adjustable in Settings.
+just like in the binder. Dream it, then zoom into it along a straight, square or triangle path, with every
+number adjustable in Settings.
 
 ## Town changes
 
@@ -17,26 +17,26 @@ notebook: straight, square or triangle paths, with every number adjustable in Se
 
 The generator loads `models/inceptionv3/model.json`. Build it on GitHub: open the
 **Actions** tab, pick **Build DeepDream model**, press **Run workflow**. The export now
-includes layers mixed2 to mixed7 (your Colab uses mixed6 + mixed7), about 18 MB.
+includes layers mixed2 to mixed7, about 18 MB.
 If you built the model before this update, run the workflow again to unlock mixed6/mixed7.
 
 ## Settings (all saved on the device)
 
-| Setting | Colab name | What it does |
-| --- | --- | --- |
-| Zoom path | `zoom_type` | Straight, square or triangle. |
-| Frames per run | `num_frames` | Frames made per press of Zoom. |
-| Zoom factor | `zoom_factor` | Crop size per frame. 0.9999 barely moves; 0.98 dives. |
-| Steps per frame | `steps_per_frame` | Dream strength per frame. |
-| Learning rate | `learning_rate` | How hard each step pushes. |
-| Movement range | `*_movement_range_factor` | How far the zoom centre drifts (square/triangle). |
-| Frames per side | `*_pattern_segment_frames` | Frames per side of the square/triangle. |
-| Starting dream steps | (none) | Optional dream before zooming; 0 matches the Colab. |
-| Inception layers | `names` | Which layers to amplify. |
-| Dream size | `target_size` | Much smaller than Colab's 1080×1920 so phones can keep up. |
+| Setting | What it does |
+| --- | --- |
+| Zoom path | Straight, square or triangle. |
+| Frames per run | Frames made per press of Zoom. |
+| Zoom factor | Crop size per frame. 0.9999 barely moves; 0.98 dives. |
+| Steps per frame | Dream strength per frame. |
+| Learning rate | How hard each step pushes. |
+| Movement range | How far the zoom centre drifts (square/triangle). |
+| Frames per side | Frames per side of the square/triangle. |
+| Starting dream steps | Optional dream before zooming; 0 starts zooming straight from the card. |
+| Inception layers | Which layers to amplify. |
+| Dream size | Bigger is sharper but slower and hotter. |
 
-Presets copy the values from your Colab cells. The footer estimates seconds per frame
-on your device, so you can see what a 330-frame, 37-step run will cost before starting.
+Presets are quick starting points. The footer estimates seconds per frame
+on your device, so you can see what a long, heavy run will cost before starting.
 
 ## Where cards are kept
 
