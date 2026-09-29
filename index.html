@@ -65,7 +65,8 @@ let area=AREAS[START_MAP]||DEFAULT_AREA;
 // ===== RARITY (town-side, tiers) =====
 const TAG_VAL={red:15,green:35,blue:55};
 const TAG_COLOR={red:"#ff5555",green:"#5dff8f",blue:"#5db4ff"};
-function rollRarity(){ var r=Math.random()*100; return r<77?"red":(r<95?"green":"blue"); }   // 77 / 18 / 5
+const RARITY_ODDS={ red:50, green:35, blue:15 };   // % chance per slot (was 77 / 18 / 5)
+function rollRarity(){ var r=Math.random()*100; return r<RARITY_ODDS.red?"red":(r<RARITY_ODDS.red+RARITY_ODDS.green?"green":"blue"); }
 
 // ===== SAVE: game-compatible + tier map =====
 if(localStorage.getItem("town_ver")!=="2"){ ["qu33phDLDex","qu33phDLHeld","qu33phDLFusions","qu33phDLRare","town_tier","town_companion","town2_col","town2_comp","town2_visited","town2_ver","dl_town1_boss","dl_town1_v1"].forEach(function(k){ try{localStorage.removeItem(k);}catch(e){} }); try{localStorage.setItem("town_ver","2");}catch(e){} }
@@ -282,7 +283,48 @@ function startEncounter(){
         slots:slots, spinT:0, msg:"", pendingPrompt:null };
   mode="encounter";
 }
-function boxRect(){ var bs=Math.min(W,H)*0.8*(0.3+0.7*enc.grow); return {x:W/2-bs/2, y:H/2-bs/2, s:bs}; }
+function boxRect(){ var bs=Math.min(W,H)*0.96*(0.3+0.7*enc.grow); return {x:W/2-bs/2, y:H/2-bs/2, s:bs}; }
+// Slot reels layout (bigger reels, easier to see)
+function slotGeom(b){ var mw=b.s*0.92, mh=b.s*0.54, mx0=b.x+b.s/2-mw/2, my0=b.y+b.s*0.08, gap=mw*0.025, rw=(mw-gap*4)/3, rh=mh-gap*2, ry=my0+gap, reels=[];
+  for(var i=0;i<3;i++) reels.push({x:mx0+gap+i*(rw+gap), y:ry, w:rw, h:rh, cx:mx0+gap+i*(rw+gap)+rw/2, cy:ry+rh/2});
+  return {mx0:mx0,my0:my0,mw:mw,mh:mh,reels:reels,csz:Math.min(rw,rh)*0.92}; }
+// A fused creature: every component sprite layered on top of the first (same idea as the binder)
+function drawFusedPix(comp,tags,cx,cy,size){ var op=comp.length<=2?0.62:0.5; for(var i=0;i<comp.length;i++){ x.save(); x.globalAlpha=(i===0?1:op); drawPix(comp[i],cx,cy,size,(tags&&tags[i])||"red"); x.restore(); } x.globalAlpha=1; }
+const FUSE_FRAMES=150;
+function easeOut(t){ return 1-Math.pow(1-t,3); }
+function drawFusionAnim(b,g){
+  var f=enc.fuseT/FUSE_FRAMES, cx=b.x+b.s/2, cy=b.y+b.s*0.34, comp=enc.fused.comp, tags=enc.slots.map(function(s){return s.t;});
+  var bestT=tags.indexOf("blue")>=0?"blue":(tags.indexOf("green")>=0?"green":"red"), col=TAG_COLOR[bestT];
+  x.save();
+  if(f<0.78){
+    // 1) creatures lift out of the reels, 2) orbit and spiral together, faster and faster
+    var lift=easeOut(Math.min(1,f/0.25)), spiral=Math.max(0,(f-0.2)/0.58), R=b.s*0.3*(1-easeOut(spiral)*0.92), spin=spiral*spiral*14;
+    var glow=x.createRadialGradient(cx,cy,0,cx,cy,b.s*0.45); glow.addColorStop(0,"rgba(255,255,255,"+(0.1+0.5*spiral)+")"); glow.addColorStop(0.4,col); glow.addColorStop(1,"rgba(0,0,0,0)");
+    x.globalAlpha=0.25+0.5*spiral; x.fillStyle=glow; x.beginPath(); x.arc(cx,cy,b.s*0.45,0,7); x.fill(); x.globalAlpha=1;
+    for(var i=0;i<3;i++){ var r=g.reels[i], a=spin+i*Math.PI*2/3-Math.PI/2;
+      var tx=cx+Math.cos(a)*R, ty=cy+Math.sin(a)*R*0.8, px2=r.cx+(tx-r.cx)*lift, py2=r.cy+(ty-r.cy)*lift, sz=g.csz*(1-0.35*spiral);
+      // light trail
+      x.strokeStyle=TAG_COLOR[tags[i]]; x.globalAlpha=0.35*spiral; x.lineWidth=sz*0.12; x.beginPath(); x.arc(cx,cy,Math.max(1,R),a-0.9,a); x.stroke(); x.globalAlpha=1;
+      drawPix(comp[i],px2,py2,sz,tags[i]); }
+  }
+  // 3) flash
+  if(f>=0.7 && f<0.9){ var fl=1-Math.abs((f-0.78)/0.1); x.globalAlpha=Math.max(0,fl); x.fillStyle="#fff"; x.fillRect(b.x,b.y,b.s,b.s);
+    x.strokeStyle=col; x.lineWidth=b.s*0.03; x.beginPath(); x.arc(cx,cy,b.s*0.6*(f-0.7)/0.2,0,7); x.stroke(); x.globalAlpha=1; }
+  // 4) the fused creature pops out with rays
+  if(f>=0.78){ drawFusedReveal(b,Math.min(1,(f-0.78)/0.22)); }
+  x.restore();
+}
+function drawFusedReveal(b,p){
+  var cx=b.x+b.s/2, cy=b.y+b.s*0.34, tags=enc.slots.map(function(s){return s.t;}), bestT=tags.indexOf("blue")>=0?"blue":(tags.indexOf("green")>=0?"green":"red"), col=TAG_COLOR[bestT], now=Date.now();
+  var pop=p<0.6?easeOut(p/0.6)*1.18:1.18-0.18*((p-0.6)/0.4), sz=b.s*0.5*pop;
+  x.save(); x.translate(cx,cy); x.rotate(now/1600);
+  for(var k=0;k<12;k++){ x.rotate(Math.PI/6); x.fillStyle=(k%2?col:"rgba(255,255,255,0.8)"); x.globalAlpha=0.22; x.beginPath(); x.moveTo(0,0); x.lineTo(-b.s*0.05,-b.s*0.55); x.lineTo(b.s*0.05,-b.s*0.55); x.closePath(); x.fill(); }
+  x.restore(); x.globalAlpha=1;
+  var gl=x.createRadialGradient(cx,cy,0,cx,cy,sz*0.8); gl.addColorStop(0,"rgba(255,255,255,0.55)"); gl.addColorStop(1,"rgba(0,0,0,0)"); x.fillStyle=gl; x.beginPath(); x.arc(cx,cy,sz*0.8,0,7); x.fill();
+  drawFusedPix(enc.fused.comp,tags,cx,cy+Math.sin(now/400)*sz*0.03,sz);
+  for(var s=0;s<10;s++){ var a=s*0.63+now/900, rr=sz*(0.55+0.15*Math.sin(now/300+s)); x.globalAlpha=0.5+0.5*Math.sin(now/200+s*2); x.fillStyle="#fff"; x.beginPath(); x.arc(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr*0.8,Math.max(1.5,b.s*0.008),0,7); x.fill(); }
+  x.globalAlpha=1;
+}
 function drawMapBg(){ if(!M){ x.fillStyle="#0d0a17"; x.fillRect(0,0,W,H); return; }
   const s=Math.max(0.45,Math.min(2.6,W/(22*T))), sz=T*s; let camx=(px+0.5)*T-W/(2*s), camy=(py+0.5)*T-H/(2*s);
   const c0=Math.max(0,Math.floor(camx/T)),r0=Math.max(0,Math.floor(camy/T)),c1=Math.min(M.cols-1,Math.floor((camx+W/s)/T)),r1=Math.min(M.rows-1,Math.floor((camy+H/s)/T));
@@ -304,45 +346,19 @@ function fuseRareFromSlots(slots){ var allRare=true, anyRare=false; for(var i=0;
 function fuseTagsFromSlots(slots){ var seen={}, out=[]; for(var i=0;i<slots.length;i++){ if(!seen[slots[i].t]){ seen[slots[i].t]=1; out.push(slots[i].t); } } return out; }
 function rareTierOf(f){ return f.rare==="full"?"blue":(f.rare==="half"?"green":"red"); }
 function resolveSpin(){
-  enc.phase="result";
-  if(enc.first){
-    var s=enc.slots, match=(s[0].num===s[1].num && s[1].num===s[2].num);
-    if(match){
-      var num=s[0].num, t=s[0].t;
-      var isNew=(dmDex.indexOf(num)<0); if(isNew) dmDex.push(num); dmHeld.push(num);
-      if(!tier[num] || TAG_VAL[t]>TAG_VAL[tier[num]]) tier[num]=t;
-      if(!tiers[num]) tiers[num]=[]; if(tiers[num].indexOf(t)<0) tiers[num].push(t);
-      if(t!=="red" && dmRare.indexOf(num)<0) dmRare.push(num);
-      companion=num; compImg=null; try{localStorage.removeItem("town_companion_img");}catch(e){}
-      saveGame();
-      enc.msg="Triple match — collected #"+num+"!";
-      if(!localStorage.getItem("town_tut")){ try{localStorage.setItem("town_tut","1");}catch(e){} setTimeout(function(){ say("Nice — that dreamling now circles you! Hold the RED button to run around faster."); },50); }
-    } else {
-      enc.msg="No match — the slots settle, nothing caught.";
-    }
-    return;
-  }
-  // fuse mode: always fuse the 3 rolled dreamlings
+  // Every spin fuses the three rolled dreamlings together, and you always keep the fusion.
   var comp=[enc.slots[0].num, enc.slots[1].num, enc.slots[2].num];
   var power=comp[0]+comp[1]+comp[2];
   var rare=fuseRareFromSlots(enc.slots), tags=fuseTagsFromSlots(enc.slots);
-  var best=null;
-  for(var i=0;i<dmFusions.length;i++){ var f=dmFusions[i]; var fp=(f.power!=null)?f.power:0; if(fp>power && (!best||fp>best.power)) best=f; }
-  if(!best){
-    enc.msg="Fused into power "+power+" — none of your fusions are strong enough to attempt a capture!";
-  } else {
-    var chance=TAG_VAL[rareTierOf(best)]/100;
-    if(Math.random()<chance){
-      var ent={comp:comp, power:power, rare:rare, tags:tags, name:"Fusion #"+power};
-      dmFusions.push(ent);
-      for(var k=0;k<comp.length;k++){ var n=comp[k], t=enc.slots[k].t; if(dmDex.indexOf(n)<0) dmDex.push(n); if(!tier[n]||TAG_VAL[t]>TAG_VAL[tier[n]]) tier[n]=t; if(!tiers[n])tiers[n]=[]; if(tiers[n].indexOf(t)<0) tiers[n].push(t); if(t!=="red" && dmRare.indexOf(n)<0) dmRare.push(n); }
-      saveGame();
-      enc.msg="Captured! New fusion — power "+power+"!";
-      enc.pendingPrompt={comp:comp, t:rareTierOf({rare:rare})};
-    } else {
-      enc.msg="Fused into power "+power+" — it broke free before you could catch it!";
-    }
-  }
+  var ent={comp:comp, power:power, rare:rare, tags:tags, name:"Fusion #"+power};
+  dmFusions.push(ent);
+  for(var k=0;k<comp.length;k++){ var n=comp[k], t=enc.slots[k].t; if(dmDex.indexOf(n)<0) dmDex.push(n); if(!tier[n]||TAG_VAL[t]>TAG_VAL[tier[n]]) tier[n]=t; if(!tiers[n])tiers[n]=[]; if(tiers[n].indexOf(t)<0) tiers[n].push(t); if(t!=="red" && dmRare.indexOf(n)<0) dmRare.push(n); }
+  saveGame();
+  enc.fused=ent; enc.fuseT=0; enc.phase="fusing";
+  var label=rare==="full"?"a full-rare ":(rare==="half"?"a rare ":"a ");
+  enc.msg="They fused into "+label+"Tri-being — power "+power+"! Try it in the Dream Generator.";
+  enc.pendingPrompt={comp:comp, t:rareTierOf({rare:rare})};
+  if(!localStorage.getItem("town_tut")){ try{localStorage.setItem("town_tut","1");}catch(e){} setTimeout(function(){ say("Nice! Fusions can circle you as a companion. Hold the RED button to run faster."); },50); }
 }
 function drawEncounter(){ if(!enc) return;
   enc.holdT++; var HOLD=0;
@@ -354,26 +370,31 @@ function drawEncounter(){ if(!enc) return;
   if(enc.vidStarted && v && v.readyState>=2){ try{ x.imageSmoothingEnabled=true; x.drawImage(v,b.x,b.y,b.s,b.s); }catch(e){ encBg(b); } } else encBg(b);
   var pcx=b.x+0.5*b.s, pcy=b.y+0.78*b.s, psz=b.s*0.2, face=({U:"B",D:"F",L:"L",R:"R"})[enc.dir], gim=guy[face], bob=Math.sin(Date.now()/400)*psz*0.05;
   x.imageSmoothingEnabled=true;
-  if(gim&&gim.complete&&gim.naturalWidth){ shadow(pcx,pcy+psz*0.5+bob,psz*0.4,psz*0.14); var pw=psz*1.05, ph=psz*1.5; x.drawImage(gim,pcx-pw/2,pcy-ph+psz*0.5+bob,pw,ph); } else { x.fillStyle="#8affea"; x.beginPath(); x.arc(pcx,pcy+bob,psz*0.4,0,7); x.fill(); }
-  if(enc.grow>=0.95 && enc.phase!=="video"){
-    var mw=b.s*0.82, mh=b.s*0.4, mx0=b.x+b.s/2-mw/2, my0=b.y+b.s*0.12;
-    x.fillStyle="rgba(20,8,36,0.88)"; roundRect(mx0,my0,mw,mh,10); x.fill();
-    x.strokeStyle="#c9a0ff"; x.lineWidth=2; roundRect(mx0,my0,mw,mh,10); x.stroke();
-    var rw=mw*0.27, gap=(mw-rw*3)/4, ry=my0+mh*0.12, rh=mh*0.76;
-    for(var i=0;i<3;i++){ var s=enc.slots[i], rx=mx0+gap+i*(rw+gap);
-      x.fillStyle="rgba(6,3,14,0.9)"; roundRect(rx,ry,rw,rh,7); x.fill();
-      x.save(); roundRect(rx,ry,rw,rh,7); x.clip();
+  var hideGuy=(enc.phase==="fusing"&&enc.fuseT>FUSE_FRAMES*0.6)||enc.phase==="result";
+  if(hideGuy){ }
+  else if(gim&&gim.complete&&gim.naturalWidth){ shadow(pcx,pcy+psz*0.5+bob,psz*0.4,psz*0.14); var pw=psz*1.05, ph=psz*1.5; x.drawImage(gim,pcx-pw/2,pcy-ph+psz*0.5+bob,pw,ph); } else { x.fillStyle="#8affea"; x.beginPath(); x.arc(pcx,pcy+bob,psz*0.4,0,7); x.fill(); }
+  if(enc.grow>=0.95 && (enc.phase==="ready"||enc.phase==="spinning")){
+    var g=slotGeom(b);
+    x.fillStyle="rgba(20,8,36,0.88)"; roundRect(g.mx0,g.my0,g.mw,g.mh,10); x.fill();
+    x.strokeStyle="#c9a0ff"; x.lineWidth=2; roundRect(g.mx0,g.my0,g.mw,g.mh,10); x.stroke();
+    for(var i=0;i<3;i++){ var s=enc.slots[i], r=g.reels[i];
+      x.fillStyle="rgba(6,3,14,0.9)"; roundRect(r.x,r.y,r.w,r.h,8); x.fill();
+      x.save(); roundRect(r.x,r.y,r.w,r.h,8); x.clip();
       var showNum=(enc.phase==="ready")?s.num:s.show, showT=s.stopped?s.t:(enc.phase==="ready"?s.t:"red");
-      drawPix(showNum,rx+rw/2,ry+rh/2,Math.min(rw,rh)*0.85,showT);
+      var blur=(!s.stopped && enc.phase==="spinning")?Math.sin(enc.spinT*1.3)*r.h*0.06:0;
+      drawPix(showNum,r.cx,r.cy+blur,g.csz,showT);
       x.restore();
-      x.strokeStyle=s.stopped?TAG_COLOR[s.t]:"#5a4a7a"; x.lineWidth=2; roundRect(rx,ry,rw,rh,7); x.stroke();
+      x.strokeStyle=s.stopped?TAG_COLOR[s.t]:"#5a4a7a"; x.lineWidth=s.stopped?3:2; roundRect(r.x,r.y,r.w,r.h,8); x.stroke();
     }
   }
+  if(enc.phase==="fusing"){ enc.fuseT++; drawFusionAnim(b,slotGeom(b)); if(enc.fuseT>=FUSE_FRAMES) enc.phase="result"; }
+  else if(enc.phase==="result" && enc.fused){ drawFusedReveal(b,1); }
   x.restore();
   ux.fillStyle="#c9a0ff"; ux.font="bold 13px sans-serif"; ux.textAlign="center"; ux.textBaseline="top";
-  var topMsg = enc.phase==="ready" ? (enc.first?"Press A to spin — match 3 to win it free!":"Press A to spin — one spin per encounter!")
+  var topMsg = enc.phase==="ready" ? "Press A to spin — all three will fuse!"
              : enc.phase==="spinning" ? "Spinning..."
-             : (enc.first?"Press A to continue":"Press A to continue");
+             : enc.phase==="fusing" ? "Fusing!"
+             : "Press A to continue";
   ux.fillText(topMsg,W/2,6);
   if(enc.msg && enc.phase==="result"){ ux.fillStyle="#8affea"; ux.font="bold 13px sans-serif"; ux.textBaseline="bottom"; var words=enc.msg.split(" "),line="",maxw=W-30,lines=[]; for(var wI=0;wI<words.length;wI++){ var test=line+words[wI]+" "; if(ux.measureText(test).width>maxw && line){ lines.push(line); line=words[wI]+" "; } else line=test; } lines.push(line); for(var lI=0;lI<lines.length;lI++) ux.fillText(lines[lI],W/2,H-8-(lines.length-1-lI)*16); }
 }

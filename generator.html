@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Dreamlings · Dream Generator</title>
 <style>
-  :root{ --bg:#07040f; --panel:#120a22; --ink:#f1e9ff; --lav:#c9a0ff; --mint:#8affea; --pink:#ff8fbf; --dim:#7d6b9e; }
+  :root{ --bg:#07040f; --panel:#120a22; --ink:#f1e9ff; --lav:#c9a0ff; --mint:#8affea; --pink:#ff8fbf; --dim:#8a78ad; }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Helvetica,Arial,sans-serif;overflow:hidden;}
   body{padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
@@ -17,7 +17,7 @@
   button{font:inherit;color:var(--ink);background:#22143d;border:1px solid #3a2766;border-radius:12px;padding:10px 12px;cursor:pointer;user-select:none;}
   button:active{transform:translateY(1px);background:#2d1a52;}
   button:disabled{opacity:.38;cursor:default;transform:none;}
-  button:focus-visible{outline:2px solid var(--mint);outline-offset:2px;}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--mint);outline-offset:2px;}
   header button{font-size:13px;padding:8px 10px;white-space:nowrap;}
   main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;}
   #card{display:block;touch-action:manipulation;}
@@ -28,20 +28,37 @@
   #bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--lav),var(--mint));transition:width .15s;}
   #primary{width:100%;font-size:18px;font-weight:bold;padding:14px;border:none;color:#12081f;background:linear-gradient(135deg,var(--mint),var(--lav));}
   #primary.stop{background:linear-gradient(135deg,var(--pink),#ffb36b);}
-  #row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
-  #row button{font-size:14px;padding:10px 4px;}
+  #row{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+  #row button{font-size:13px;padding:10px 2px;}
   footer{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--dim);gap:8px;}
   footer button{background:none;border:none;color:var(--dim);padding:2px 0;font-size:12px;text-decoration:underline dotted;}
-  select{font:inherit;font-size:12px;color:var(--ink);background:#1a1030;border:1px solid #3a2766;border-radius:8px;padding:3px 6px;}
-  .sheet{position:fixed;inset:0;z-index:20;background:rgba(5,2,12,.92);display:none;flex-direction:column;padding:calc(12px + env(safe-area-inset-top,0)) 14px calc(12px + env(safe-area-inset-bottom,0));}
+  #estimate{text-align:right;}
+  .sheet{position:fixed;inset:0;z-index:20;background:rgba(5,2,12,.95);display:none;flex-direction:column;padding:calc(12px + env(safe-area-inset-top,0)) 14px calc(12px + env(safe-area-inset-bottom,0));}
   .sheet.open{display:flex;}
-  .sheet .top{display:flex;align-items:center;justify-content:space-between;max-width:560px;width:100%;margin:0 auto 10px;}
+  .sheet .top{display:flex;align-items:center;justify-content:space-between;max-width:560px;width:100%;margin:0 auto 10px;gap:10px;}
   .sheet h2{margin:0;font-size:17px;color:var(--lav);}
-  #grid{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;max-width:560px;width:100%;margin:0 auto;align-content:start;}
+  .grid{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px;max-width:560px;width:100%;margin:0 auto;align-content:start;}
+  .grid h3{grid-column:1/-1;margin:6px 0 0;font-size:14px;color:var(--mint);font-weight:normal;}
   .tile{position:relative;background:none;border:none;padding:0;}
   .tile canvas{width:100%;height:auto;display:block;}
+  .tile.sel canvas{outline:3px solid var(--mint);outline-offset:2px;border-radius:10px;}
   .tile .del{position:absolute;top:4px;right:4px;width:26px;height:26px;padding:0;border-radius:50%;font-size:13px;line-height:24px;background:rgba(10,5,20,.8);}
-  #empty{color:var(--dim);text-align:center;margin-top:40px;font-size:14px;}
+  .empty{grid-column:1/-1;color:var(--dim);text-align:center;margin-top:30px;font-size:14px;line-height:1.5;}
+  #settingsBody{flex:1;overflow:auto;max-width:560px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:14px;padding-bottom:10px;}
+  .seg{display:flex;gap:6px;}
+  .seg button{flex:1;font-size:14px;padding:9px 4px;}
+  .seg button.on{background:var(--lav);color:#12081f;border-color:var(--lav);font-weight:bold;}
+  .field label{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;margin-bottom:4px;}
+  .field label span{color:var(--dim);font-size:12px;}
+  .field .ctl{display:flex;gap:10px;align-items:center;}
+  .field input[type=range]{flex:1;accent-color:#c9a0ff;}
+  .field input[type=number]{width:92px;font:inherit;font-size:14px;color:var(--ink);background:#1a1030;border:1px solid #3a2766;border-radius:8px;padding:6px;}
+  .field.hide{display:none;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .chips button{font-size:13px;padding:7px 10px;border-radius:18px;}
+  .chips button.on{background:var(--mint);color:#08120e;border-color:var(--mint);font-weight:bold;}
+  .note{font-size:12px;color:var(--dim);line-height:1.45;}
+  select{font:inherit;font-size:14px;color:var(--ink);background:#1a1030;border:1px solid #3a2766;border-radius:8px;padding:7px;width:100%;}
   #result{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;}
   #result img,#result video{max-width:100%;max-height:100%;border-radius:12px;}
   #resultBtns{display:flex;gap:10px;max-width:560px;width:100%;margin:12px auto 0;}
@@ -56,26 +73,37 @@
   <header>
     <button id="backBtn" aria-label="Back to town">◀ Town</button>
     <h1>Dream Generator<small id="townName">&nbsp;</small></h1>
-    <button id="galBtn">My cards</button>
+    <button id="galBtn">Gallery</button>
   </header>
   <main id="main"><canvas id="card" aria-label="Dream trading card"></canvas></main>
   <div id="statusWrap"><div id="status" role="status">Starting up…</div><div id="bar"><i></i></div></div>
-  <button id="primary" disabled>Generate</button>
+  <button id="primary" disabled>Dream this card</button>
   <div id="row">
-    <button id="newBtn" disabled>New</button>
+    <button id="pickBtn">Card</button>
+    <button id="setBtn">Settings</button>
     <button id="keepBtn" disabled>Keep</button>
     <button id="gifBtn" disabled>GIF</button>
     <button id="vidBtn" disabled>Video</button>
   </div>
   <footer>
     <button id="engineBtn" title="Re-test which engine is fastest on this device">Engine: detecting…</button>
-    <label>Quality <select id="qualitySel"><option value="fast">Fast</option><option value="normal">Normal</option><option value="high">High</option></select></label>
+    <span id="estimate"></span>
   </footer>
 </div>
 
+<div class="sheet" id="picker">
+  <div class="top"><h2>Pick a card to dream</h2><button id="pickClose">Close</button></div>
+  <div class="grid" id="pickGrid"></div>
+</div>
+
+<div class="sheet" id="settings">
+  <div class="top"><h2>Dream settings</h2><button id="setClose">Done</button></div>
+  <div id="settingsBody"></div>
+</div>
+
 <div class="sheet" id="gallery">
-  <div class="top"><h2>My dream cards</h2><button id="galClose">Close</button></div>
-  <div id="grid"></div>
+  <div class="top"><h2>Kept dream cards</h2><button id="galClose">Close</button></div>
+  <div class="grid" id="grid"></div>
 </div>
 
 <div class="sheet" id="resultSheet">
@@ -154,7 +182,7 @@ GifEncoder.prototype.addFrame=function(rgba,delayCs){ var o=this.out, q=quantize
 GifEncoder.prototype.finish=function(){ this.out.byte(0x3B); return this.out.result(); };
 
 // =====================================================================
-//  DREAM GENERATOR — DeepDream trading cards with an infinite zoom.
+//  DREAM GENERATOR — DeepDream trading cards with Colab-style zooms.
 //  Runs InceptionV3 in the browser with TensorFlow.js on whichever engine
 //  benchmarks fastest on this device (WebGPU / WebGL = GPU, WASM / JS = CPU).
 //  Model files: models/inceptionv3/  (make them with tools/export_inceptionv3.py)
@@ -164,38 +192,50 @@ GifEncoder.prototype.finish=function(){ this.out.byte(0x3B); return this.out.res
 const MODEL_URL = "models/inceptionv3/model.json";
 const WASM_PATH = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/";
 const TOWN_FILE = "index.html?ret=1";
-// Output order of the exported model (see tools/export_inceptionv3.py)
-const LAYERS = ["mixed2","mixed3","mixed4","mixed5"];
-// Dream sizes (art is 4:5). Lower = faster, especially on phones without a strong GPU.
-const QUALITY = { fast:{w:192,h:240}, normal:{w:256,h:320}, high:{w:320,h:400} };
-const OCTAVES = 3, OCTAVE_SCALE = 1.35, STEP_SIZE = 0.02, JITTER = 24;
-// Zoom: each new frame crops the centre by ZOOM, then dreams ZOOM_STEPS more steps into it.
-const ZOOM = 1.05, ZOOM_STEPS = 4, ZOOM_STEP_SIZE = 0.016, MAX_FRAMES = 300, PLAY_FPS = 12;
-const GIF_W = 300, VIDEO_W = 540;
-// Must match AREAS in index.html
-const AREAS = {
+const QUALITY = { fast:{w:192,h:240}, normal:{w:256,h:320}, high:{w:320,h:400}, max:{w:432,h:540} };
+const OCTAVES = 3, OCTAVE_SCALE = 1.35, JITTER = 16;
+const MAX_FRAMES = 600, PLAY_FPS = 12, GIF_W = 300, VIDEO_W = 540;
+const AREAS = {   // must match AREAS in index.html
   "map":   { first:1,  last:11, name:"Dream Core" },
   "woods": { first:12, last:22, name:"Waking Woods" }
 };
-// Each style weights the four Inception layers differently: early layers = swirls & textures, later = eyes, fur, faces.
-const STYLES = [
-  { name:"Swirl weave",   w:[1.0,0.4,0.0,0.0] },
-  { name:"Pagoda drift",  w:[0.0,1.0,0.3,0.0] },
-  { name:"Eye bloom",     w:[0.0,0.2,0.6,1.0] },
-  { name:"Deep beasts",   w:[0.0,0.0,0.5,1.0] },
-  { name:"Fever lattice", w:[0.6,0.6,0.6,0.6] }
+// Same maths as your Colab notebook: each frame crops by zoomFactor around a centre that moves along
+// the chosen path, resizes back up, then runs `steps` gradient-ascent steps at learning rate `lr`.
+const DEFAULTS = { path:"straight", frames:60, zoomFactor:0.98, steps:4, lr:0.015, range:0.08, segFrames:10, startSteps:10, layers:null, quality:"" };
+const PRESETS = [
+  { name:"Game default (quick dive)", s:{ path:"straight", frames:60,  zoomFactor:0.98,   steps:4,  lr:0.015,  startSteps:10 } },
+  { name:"Colab straight",            s:{ path:"straight", frames:330, zoomFactor:0.9999, steps:37, lr:0.067,  startSteps:0, layers:["mixed6","mixed7"] } },
+  { name:"Colab square",              s:{ path:"square",   frames:330, zoomFactor:0.9999, steps:33, lr:0.0998, range:0.011, segFrames:5,  startSteps:0, layers:["mixed6","mixed7"] } },
+  { name:"Colab square (lighter)",    s:{ path:"square",   frames:500, zoomFactor:0.999,  steps:7,  lr:0.0597, range:0.08,  segFrames:10, startSteps:0, layers:["mixed6","mixed7"] } },
+  { name:"Colab triangle",            s:{ path:"triangle", frames:100, zoomFactor:0.999,  steps:10, lr:0.01,   range:0.1,   segFrames:20, startSteps:0, layers:["mixed6","mixed7"] } }
 ];
-// Same tiers + odds as the town (77 / 18 / 5). Rarer cards dream harder and get fancier frames.
+const FIELDS = [
+  { k:"frames",     label:"Frames per run",       min:1,    max:600,  step:1,      note:"How many frames each press of Zoom makes (your Colab num_frames)." },
+  { k:"zoomFactor", label:"Zoom factor",          min:0.9,  max:1,    step:0.0001, note:"Crop size each frame. 0.9999 barely moves, 0.98 dives fast." },
+  { k:"steps",      label:"Steps per frame",      min:1,    max:50,   step:1,      note:"More steps = stronger dream, slower frames." },
+  { k:"lr",         label:"Learning rate",        min:0.001,max:0.2,  step:0.0001, note:"How hard each step pushes the dream." },
+  { k:"range",      label:"Movement range",       min:0,    max:0.3,  step:0.001,  paths:["square","triangle"], note:"How far the zoom centre drifts, as a fraction of the image." },
+  { k:"segFrames",  label:"Frames per side",      min:1,    max:100,  step:1,      paths:["square","triangle"], note:"Frames spent on each side of the square or triangle." },
+  { k:"startSteps", label:"Starting dream steps", min:0,    max:40,   step:1,      note:"Dreams the card at 3 sizes before zooming. 0 = start zooming straight from the card." }
+];
+const PATH_LABEL = { straight:"Straight zoom", square:"Square zoom", triangle:"Triangle zoom" };
+const TIER_RANK = { red:0, green:1, blue:2, purple:3 };
 const RARITY = {
-  red:   { label:"Common", sym:"●", steps:10, c1:"#ff5555", c2:"#6e1a2b" },
-  green: { label:"Rare",   sym:"◆", steps:14, c1:"#5dff8f", c2:"#15603a" },
-  blue:  { label:"Holo",   sym:"★", steps:18, c1:"#5db4ff", c2:"#2b2a8e" }
+  red:   { label:"Common", sym:"●", c1:"#ff5555", c2:"#6e1a2b" },
+  green: { label:"Rare",   sym:"◆", c1:"#5dff8f", c2:"#15603a" },
+  blue:  { label:"Holo",   sym:"★", c1:"#5db4ff", c2:"#2b2a8e" }
 };
-function rollRarity(){ const r=Math.random()*100; return r<77?"red":(r<95?"green":"blue"); }
-const ENGINE_KEY = "dreamgen_engine_v1", QUALITY_KEY = "dreamgen_quality", COUNT_KEY = "dreamgen_count";
+const ENGINE_KEY="dreamgen_engine_v1", SETTINGS_KEY="dreamgen_settings_v2", COUNT_KEY="dreamgen_count";
 const LABEL = { webgpu:"WebGPU (GPU)", webgl:"WebGL (GPU)", wasm:"WebAssembly (CPU)", cpu:"JavaScript (CPU)" };
 
-// ===== DOM =====
+// ===== NAMES (same as the binder) =====
+const DL_SYL1=["oo","vex","mo","glo","zu","fer","wis","kra","ny","sha","bl","gru","um","ith","qua","zel","pho","dra","ee","aur","tza","mir","ob","syl"];
+const DL_SYL2=["na","tl","phi","ox","ba","ren","du","mo","sk","va","lo","th","ex","ir","um","al","oz","en","ix","ar","is","oon","el","yx"];
+function dlRng(seed){ var s=(seed*2654435761)%2147483647; if(s<=0)s+=2147483646; return function(){ s=(s*16807)%2147483647; return (s-1)/2147483646; }; }
+function dreamlingName(id){ var r=dlRng(id*131+5); var a=DL_SYL1[Math.floor(r()*DL_SYL1.length)], b=DL_SYL2[Math.floor(r()*DL_SYL2.length)]; var nm=a+b+(r()<0.45?DL_SYL1[Math.floor(r()*DL_SYL1.length)]:""); return nm.charAt(0).toUpperCase()+nm.slice(1); }
+function fusNameArr(comp){ var nm=""; for(var i=0;i<comp.length;i++){ var nn=dreamlingName(comp[i]); nm+=(i===0)?nn.slice(0,Math.ceil(nn.length/2)):nn.slice(Math.floor(nn.length/2)).toLowerCase(); } if(nm.length>20) nm=nm.slice(0,20); return nm.charAt(0).toUpperCase()+nm.slice(1); }
+
+// ===== DOM / STATE =====
 const $ = id => document.getElementById(id);
 const cardCv=$("card"), cctx=cardCv.getContext("2d");
 const artCv=document.createElement("canvas"), seedCv=document.createElement("canvas"), tmpCv=document.createElement("canvas");
@@ -203,16 +243,19 @@ const params=new URLSearchParams(location.search);
 const townKey=AREAS[params.get("town")]?params.get("town"):"map", town=AREAS[townKey];
 $("townName").textContent=town.name;
 
-let model=null, grads={}, engineOrder=[], engineIdx=0, ready=false, busy=false, zooming=false, live=false;
-let card=null, cur=null, quality=localStorage.getItem(QUALITY_KEY)||"";
-let cardCssW=0, cardCssH=0, DPR=1;
+let model=null, modelLayers=[], grads={}, engineOrder=[], engineIdx=-1, engineErrors=[], ready=false, busy=false, zooming=false, live=false;
+let card=null, cur=null, settings=loadSettings(), msPerStep=null;
+let playStart=performance.now(), lastArt=null;
 
+function loadSettings(){ let s={}; try{ s=JSON.parse(localStorage.getItem(SETTINGS_KEY)||"{}")||{}; }catch(e){} return Object.assign({},DEFAULTS,s); }
+function saveSettings(){ try{ localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings)); }catch(e){} updateEstimate(); }
 function setStatus(t,err){ const s=$("status"); s.textContent=t; s.className=err?"err":""; }
 function setBar(p){ const b=$("bar"); if(p==null){ b.style.visibility="hidden"; return; } b.style.visibility="visible"; b.firstChild.style.width=Math.round(Math.max(0,Math.min(1,p))*100)+"%"; }
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const pick=a=>a[Math.floor(Math.random()*a.length)];
+function dims(){ return QUALITY[settings.quality]||QUALITY.normal; }
 
-// ===== ENGINE SELECTION (benchmarks GPU vs CPU backends, remembers the winner) =====
+// ===== ENGINE SELECTION =====
 let wasmPathSet=false;
 async function tryBackend(name){
   try{
@@ -229,10 +272,8 @@ async function bench(name){
     const a=tf.randomNormal([1,96,96,48]), f=tf.randomNormal([3,3,48,48]);
     const gf=tf.grad(z=>tf.conv2d(z,f,1,"same").relu().mean());
     const run=async()=>{ const g=gf(a); await g.data(); g.dispose(); };
-    await run();                                  // warm-up (shader compile etc.)
-    const t0=performance.now(); for(let i=0;i<3;i++) await run();
-    a.dispose(); f.dispose();
-    return (performance.now()-t0)/3;
+    await run(); const t0=performance.now(); for(let i=0;i<3;i++) await run();
+    a.dispose(); f.dispose(); return (performance.now()-t0)/3;
   }catch(e){ console.warn("Benchmark failed on "+name,e); return Infinity; }
 }
 async function pickEngines(){
@@ -240,9 +281,17 @@ async function pickEngines(){
   const cands=["webgpu","webgl","wasm"], times={};
   for(const n of cands){ setStatus("Testing "+LABEL[n]+"…"); times[n]=await bench(n); }
   const order=cands.filter(n=>isFinite(times[n])).sort((a,b)=>times[a]-times[b]); order.push("cpu");
-  console.log("Dream engine benchmark (ms, lower is better):",times);
   try{ localStorage.setItem(ENGINE_KEY,JSON.stringify({order:order,times:times})); }catch(e){}
   return order;
+}
+// InceptionV3's batch-norm layers have no "scale" (gamma) weight; TF.js gradients crash on that
+// ("reading 'dataId'"). A gamma of all ones changes nothing in the maths and fixes it.
+function patchBatchNorm(m){
+  for(const l of m.layers){
+    if(l.getClassName()!=="BatchNormalization" || l.scale || l.gamma) continue;
+    const c=l.movingMean.shape[l.movingMean.shape.length-1];
+    l.gamma=l.addWeight("gamma",[c],"float32",tf.initializers.ones(),null,false); l.scale=true;
+  }
 }
 async function activate(name){
   if(model){ model.dispose(); model=null; } grads={}; if(cur){ cur.dispose(); cur=null; }
@@ -252,23 +301,10 @@ async function activate(name){
   try{ model=await tf.loadLayersModel(MODEL_URL,{onProgress:p=>setBar(p)}); }
   catch(e){ throw new Error("loading the model failed: "+(e&&e.message||e)); }
   patchBatchNorm(model);
+  modelLayers=(model.outputNames&&model.outputNames.length)?model.outputNames.slice():model.outputs.map(o=>o.sourceLayer.name);
   setStatus("Warming up the dream engine…"); setBar(null);
-  try{ const t=tf.randomUniform([1,96,112,3],-1,1), s=dreamStep(t,0.01,0); await s.data(); t.dispose(); s.dispose(); }
+  try{ const t=tf.randomUniform([1,96,112,3],-1,1), s=dreamStep(t,0.01); await s.data(); t.dispose(); s.dispose(); }
   catch(e){ throw new Error("the test dream failed: "+(e&&e.message||e)); }
-}
-let engineErrors=[];
-// InceptionV3's batch-norm layers have no "scale" (gamma) weight. TF.js can run them forward,
-// but its gradient code crashes on the missing weight ("reading 'dataId'"). Adding a gamma of
-// all ones changes nothing in the maths and makes the gradients work.
-function patchBatchNorm(m){
-  let n=0;
-  for(const l of m.layers){
-    if(l.getClassName()!=="BatchNormalization" || l.scale || l.gamma) continue;
-    const c=l.movingMean.shape[l.movingMean.shape.length-1];
-    l.gamma=l.addWeight("gamma",[c],"float32",tf.initializers.ones(),null,false);
-    l.scale=true; n++;
-  }
-  console.log("Patched "+n+" batch-norm layers for gradients");
 }
 async function nextEngine(){
   while(++engineIdx<engineOrder.length){
@@ -279,124 +315,193 @@ async function nextEngine(){
 }
 
 // ===== DEEPDREAM CORE =====
-function getGrad(styleIdx){
-  if(grads[styleIdx]) return grads[styleIdx];
-  const w=STYLES[styleIdx].w;
-  return grads[styleIdx]=tf.grad(img=>{
+function activeLayers(){
+  const want=(settings.layers&&settings.layers.length)?settings.layers:null;
+  let use=want?modelLayers.filter(n=>want.indexOf(n)>=0):[];
+  if(!use.length){ const pref=["mixed6","mixed7"].filter(n=>modelLayers.indexOf(n)>=0); use=pref.length?pref:modelLayers.slice(-2); }
+  return use;
+}
+function getGrad(){
+  const use=activeLayers(), key=use.join("+");
+  if(grads[key]) return grads[key];
+  const idx=use.map(n=>modelLayers.indexOf(n));
+  return grads[key]=tf.grad(img=>{
     let outs=model.apply(img,{training:false}); if(!Array.isArray(outs)) outs=[outs];
-    let loss=null;
-    for(let i=0;i<outs.length;i++){ const wi=(w[i]!=null)?w[i]:(i===outs.length-1?1:0); if(!wi) continue; const l=tf.mean(outs[i]).mul(wi); loss=loss?loss.add(l):l; }
-    return loss||tf.mean(outs[outs.length-1]);
+    let loss=null; for(const i of idx){ const l=tf.mean(outs[i]); loss=loss?loss.add(l):l; }
+    return loss;
   });
 }
 function roll(t,shift,axis){ const n=t.shape[axis]; shift=((shift%n)+n)%n; if(!shift) return t; const p=tf.split(t,[n-shift,shift],axis); return tf.concat([p[1],p[0]],axis); }
-function dreamStep(img,size,styleIdx){
+function dreamStep(img,lr){
   return tf.tidy(()=>{
     const sy=Math.floor((Math.random()*2-1)*JITTER), sx=Math.floor((Math.random()*2-1)*JITTER);
-    const shifted=roll(roll(img,sy,1),sx,2);                 // random shift hides tiling seams
-    let g=getGrad(styleIdx)(shifted);
+    let g=getGrad()(roll(roll(img,sy,1),sx,2));
     g=roll(roll(g,-sy,1),-sx,2);
     const std=tf.moments(g).variance.sqrt();
-    return img.add(g.div(std.add(1e-8)).mul(size)).clipByValue(-1,1);
+    return img.add(g.div(std.add(1e-8)).mul(lr)).clipByValue(-1,1);
   });
 }
-function zoomIn(img,z){
+// Zoom path offsets in pixels — ported from run_deep_dream_zoom_video in the Colab notebook.
+function pathOffset(n,w,h,s){
+  const seg=Math.max(1,Math.round(s.segFrames)), sub=(n%seg)/seg;
+  if(s.path==="square"){
+    const rx=w*s.range/2, ry=h*s.range/2, ph=Math.floor((n%(4*seg))/seg);
+    if(ph===0) return [-rx+2*rx*sub, -ry];
+    if(ph===1) return [rx, -ry+2*ry*sub];
+    if(ph===2) return [rx-2*rx*sub, ry];
+    return [-rx, ry-2*ry*sub];
+  }
+  if(s.path==="triangle"){
+    const rx=w*s.range/2, ry=h*s.range/2, ph=Math.floor((n%(3*seg))/seg);
+    const v=[[0,-ry],[rx*Math.sqrt(3)/2,ry/2],[-rx*Math.sqrt(3)/2,ry/2]], a=v[ph], b=v[(ph+1)%3];
+    return [a[0]+(b[0]-a[0])*sub, a[1]+(b[1]-a[1])*sub];
+  }
+  return [0,0];
+}
+function zoomCrop(img,zf,ox,oy){
   return tf.tidy(()=>{
-    const h=img.shape[1], w=img.shape[2], m=(1-1/z)/2;
-    try{ return tf.image.cropAndResize(img,tf.tensor2d([[m,m,1-m,1-m]]),tf.tensor1d([0],"int32"),[h,w],"bilinear"); }
-    catch(e){ const ch=Math.round(h/z), cw=Math.round(w/z); return tf.image.resizeBilinear(img.slice([0,Math.floor((h-ch)/2),Math.floor((w-cw)/2),0],[1,ch,cw,3]),[h,w]); }
+    const h=img.shape[1], w=img.shape[2], z=Math.max(0.5,Math.min(1,zf));
+    let cy=0.5+oy/h, cx=0.5+ox/w; cy=Math.max(z/2,Math.min(1-z/2,cy)); cx=Math.max(z/2,Math.min(1-z/2,cx));
+    if(z>=1 && !ox && !oy) return img.clone();
+    const box=[cy-z/2,cx-z/2,cy+z/2,cx+z/2];
+    try{ return tf.image.cropAndResize(img,tf.tensor2d([box]),tf.tensor1d([0],"int32"),[h,w],"bilinear"); }
+    catch(e){ const y0=Math.round(box[0]*h), x0=Math.round(box[1]*w), ch=Math.max(1,Math.round(z*h)), cw=Math.max(1,Math.round(z*w)); return tf.image.resizeBilinear(img.slice([0,Math.min(y0,h-ch),Math.min(x0,w-cw),0],[1,ch,cw,3]),[h,w]); }
   });
 }
 function canvasToTensor(cv){ return tf.tidy(()=>tf.browser.fromPixels(cv).toFloat().div(127.5).sub(1).expandDims(0)); }
 async function tensorToCanvas(img,cv){ const t=tf.tidy(()=>img.squeeze([0]).add(1).div(2).clipByValue(0,1)); await tf.browser.toPixels(t,cv); t.dispose(); }
+function noteStepTime(ms){ msPerStep=msPerStep==null?ms:msPerStep*0.8+ms*0.2; updateEstimate(); }
+function updateEstimate(){
+  const el=$("estimate"); if(msPerStep==null){ el.textContent=""; return; }
+  const q=dims(), scale=(q.w*q.h)/((card?card.w*card.h:q.w*q.h)||1), perFrame=msPerStep*scale*settings.steps/1000, run=perFrame*settings.frames;
+  el.textContent="≈"+(perFrame<10?perFrame.toFixed(1):Math.round(perFrame))+"s/frame · run "+(run<90?Math.round(run)+"s":Math.round(run/60)+" min");
+}
 
-// ===== SEED IMAGE (a dreamling from this town, sometimes with a fractal mixed in) =====
-function loadImg(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error("Couldn't load "+src)); im.src=src; }); }
+// ===== CARD ART FROM YOUR COLLECTION (creature in front of its dream photo) =====
+const imgCache={};
+function loadImg(src){ if(imgCache[src]) return imgCache[src]; return imgCache[src]=new Promise(res=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; }); }
 function coverDraw(ctx,im,w,h,alpha){ const s=Math.max(w/im.naturalWidth,h/im.naturalHeight), dw=im.naturalWidth*s, dh=im.naturalHeight*s; ctx.globalAlpha=alpha; ctx.drawImage(im,(w-dw)/2,(h-dh)/2,dw,dh); ctx.globalAlpha=1; }
-async function buildSeed(c){
-  seedCv.width=c.w; seedCv.height=c.h; const sx=seedCv.getContext("2d");
-  const g=sx.createRadialGradient(c.w/2,c.h/2,4,c.w/2,c.h/2,c.w); g.addColorStop(0,"#6a3aa8"); g.addColorStop(1,"#10081f"); sx.fillStyle=g; sx.fillRect(0,0,c.w,c.h);
-  try{ coverDraw(sx,await loadImg("dreamling"+c.seed+".png"),c.w,c.h,1); }catch(e){ console.warn(e); }
-  if(c.fractal){ try{ sx.globalCompositeOperation="overlay"; coverDraw(sx,await loadImg("fractal"+c.fractal+".png"),c.w,c.h,0.55); }catch(e){} sx.globalCompositeOperation="source-over"; }
+function tierFilter(t){ const hue={green:40,blue:135,purple:215}[t]; return hue==null?"none":"invert(1) hue-rotate("+hue+"deg) saturate(165%)"; }
+async function creatureLayer(num){   // pixel sprite with its deepdream texture, like the binder; photo blob if no sprite
+  const N=256, oc=document.createElement("canvas"); oc.width=oc.height=N; const o=oc.getContext("2d");
+  const pix=await loadImg("dreamlingP"+num+".png"), dd=await loadImg("dreamling"+num+".png");
+  if(pix){ o.imageSmoothingEnabled=false; o.drawImage(pix,0,0,N,N);
+    if(dd){ o.imageSmoothingEnabled=true; o.globalCompositeOperation="overlay"; o.globalAlpha=0.62; o.drawImage(dd,0,0,N,N);
+      o.globalCompositeOperation="source-atop"; o.globalAlpha=0.22; o.drawImage(dd,0,0,N,N);
+      o.globalCompositeOperation="destination-in"; o.globalAlpha=1; o.drawImage(pix,0,0,N,N); o.globalCompositeOperation="source-over"; }
+  } else if(dd){ coverDraw(o,dd,N,N,1); o.globalCompositeOperation="destination-in"; const g=o.createRadialGradient(N/2,N/2,N*0.2,N/2,N/2,N*0.48); g.addColorStop(0,"#000"); g.addColorStop(1,"rgba(0,0,0,0)"); o.fillStyle=g; o.fillRect(0,0,N,N); o.globalCompositeOperation="source-over"; }
+  else return null;
+  return oc;
 }
-function pickSeed(){
-  let dex=[]; try{ dex=JSON.parse(localStorage.getItem("qu33phDLDex")||"[]"); }catch(e){}
-  const all=[]; for(let i=town.first;i<=town.last;i++) all.push(i);
-  const mine=all.filter(n=>dex.indexOf(n)>=0);
-  return pick(mine.length?mine:all);
+async function renderSeedArt(seed,cv,w,h){
+  cv.width=w; cv.height=h; const c=cv.getContext("2d");
+  c.fillStyle="#0a0620"; c.fillRect(0,0,w,h);
+  for(let j=0;j<seed.comp.length;j++){ const im=await loadImg("dreamling"+seed.comp[j]+".png"); if(im) coverDraw(c,im,w,h,j===0?1:0.6); }
+  c.fillStyle="rgba(6,4,20,0.2)"; c.fillRect(0,0,w,h);
+  const op=seed.comp.length<=2?0.62:0.5, S=Math.min(w,h)*0.86;
+  for(let j=0;j<seed.comp.length;j++){ const L=await creatureLayer(seed.comp[j]); if(!L) continue;
+    c.save(); c.globalAlpha=j===0?1:op; if(seed.kind==="dex") c.filter=tierFilter(seed.tier); c.imageSmoothingEnabled=false;
+    c.drawImage(L,(w-S)/2,h*0.5-S/2,S,S); c.restore(); }
 }
-const SYL1=["Zo","Mi","Glo","Ve","Lu","Dra","Ni","Quo","Ska","Be","Oo","Phi","Ky","Mor","Sel","Tae","Wu","Fen"];
-const SYL2=["rb","ll","sh","v","nd","m","z","th","r","x","lv","gg"];
-const SYL3=["ling","eye","bloom","morph","ra","dream","ix","oo","wisp","spire","mire","glint"];
-function makeName(){ return pick(SYL1)+pick(SYL2)+pick(SYL3); }
+function readCollection(){
+  const get=(k,d)=>{ try{ return JSON.parse(localStorage.getItem(k)||d)||JSON.parse(d); }catch(e){ return JSON.parse(d); } };
+  const fus=get("qu33phDLFusions","[]"), dex=get("qu33phDLDex","[]"), tier=get("town_tier","{}");
+  const out=[];
+  for(let i=fus.length-1;i>=0;i--){ const f=fus[i], comp=f.comp||[f.a,f.b]; if(!comp||!comp.length) continue;
+    const tags=f.tags||[], best=tags.reduce((a,t)=>TIER_RANK[t]>TIER_RANK[a]?t:a,"red"), rr=f.rare==="full"?"blue":(f.rare==="half"?"green":"red");
+    const top=TIER_RANK[best]>=TIER_RANK[rr]?best:rr;
+    out.push({ kind:"fus", key:"f"+i+":"+comp.join("-"), comp:comp.slice(), name:fusNameArr(comp), rarity:top==="purple"?"blue":top, label:(comp.length>=4?"Deepdreamling":comp.length===3?"Tri-being":"Fusion")+" #"+comp.reduce((a,b)=>a+b,0) }); }
+  dex.slice().sort((a,b)=>a-b).forEach(n=>{ const t=tier[n]||"red"; out.push({ kind:"dex", key:"d"+n, comp:[n], tier:t, name:dreamlingName(n), rarity:t==="purple"?"blue":t, label:"Dreamling #"+n }); });
+  return out;
+}
+function wildSeed(){ const n=town.first+Math.floor(Math.random()*(town.last-town.first+1)); return { kind:"dex", key:"w"+n, comp:[n], tier:"red", name:dreamlingName(n), rarity:"red", label:"Wild dreamling #"+n }; }
 function nextNumber(){ let n=parseInt(localStorage.getItem(COUNT_KEY)||"0",10)+1; try{ localStorage.setItem(COUNT_KEY,String(n)); }catch(e){} return n; }
+function styleLabel(){ return PATH_LABEL[settings.path]||"Zoom"; }
+function layersLabel(){ return model?activeLayers().join(" + "):""; }
 
-// ===== FRAMES =====
-function toBlob(cv,type,q){ return new Promise(r=>cv.toBlob(r,type,q)); }
-function blobToImg(b){ return loadImg(URL.createObjectURL(b)); }
-async function pushFrame(){ const b=await toBlob(artCv,"image/jpeg",0.92); card.frames.push({blob:b,img:await blobToImg(b)}); card.dirty=true; }
-function disposeCard(){ if(card){ card.frames.forEach(f=>{ try{ URL.revokeObjectURL(f.img.src); }catch(e){} }); } card=null; if(cur){ cur.dispose(); cur=null; } }
-
-// ===== GENERATE =====
-async function generate(){
-  if(busy||!ready) return;
-  if(card && card.dirty && !confirm("Start a new card? This one isn't kept yet.")) return;
-  busy=true; updateUI();
+async function useSeed(seed){
+  if(card && card.dirty && card.frames.length && !confirm("Switch cards? This dream isn't kept yet.")) return false;
   disposeCard();
-  const q=QUALITY[quality]||QUALITY.normal, rarity=rollRarity();
-  card={ id:"dc"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), no:nextNumber(), name:makeName(), town:townKey, townName:town.name,
-         rarity:rarity, styleIdx:Math.floor(Math.random()*STYLES.length), seed:pickSeed(), fractal:Math.random()<0.35?1+Math.floor(Math.random()*20):0,
-         w:q.w, h:q.h, created:Date.now(), frames:[], dirty:true, saved:false };
-  card.style=STYLES[card.styleIdx].name;
-  setStatus("Loading the seed dreamling…");
-  await buildSeed(card);
-  artCv.width=card.w; artCv.height=card.h; artCv.getContext("2d").drawImage(seedCv,0,0); live=true;
-  const steps=RARITY[rarity].steps, total=steps*OCTAVES;
+  const q=dims();
+  card={ id:"dc"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), no:0, name:seed.name, town:townKey, townName:town.name,
+         rarity:seed.rarity||"red", style:styleLabel(), detail:seed.label, seedKey:seed.key, w:q.w, h:q.h, created:Date.now(),
+         frames:[], pathFrame:0, dirty:false, saved:false };
+  await renderSeedArt(seed,seedCv,q.w,q.h);
+  artCv.width=q.w; artCv.height=q.h; artCv.getContext("2d").drawImage(seedCv,0,0);
+  live=true; updateUI(); return true;
+}
+
+// ===== FRAMES (stored as JPEG blobs, decoded on demand so long zooms don't eat memory) =====
+function toBlob(cv,type,q){ return new Promise(r=>cv.toBlob(r,type,q)); }
+async function decodeBlob(b){ if(window.createImageBitmap){ try{ return await createImageBitmap(b); }catch(e){} } const u=URL.createObjectURL(b); const im=await loadImgFresh(u); URL.revokeObjectURL(u); return im; }
+function loadImgFresh(src){ return new Promise(res=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; }); }
+const frameCache=new Map(); let decoding=new Set();
+function cachedFrame(i){
+  if(!card) return null;
+  const hit=frameCache.get(i);
+  for(let k=1;k<=4;k++){ const j=(i+k)%card.frames.length; if(!frameCache.has(j) && !decoding.has(j)){ decoding.add(j); const cid=card.id; decodeBlob(card.frames[j]).then(bm=>{ decoding.delete(j); if(card && card.id===cid) frameCache.set(j,bm); }); } }
+  for(const k of Array.from(frameCache.keys())){ const d=(k-i+card.frames.length)%card.frames.length; if(d>6 && k!==0){ const bm=frameCache.get(k); if(bm===lastArt) continue; if(bm&&bm.close) bm.close(); frameCache.delete(k); } }
+  return hit||null;
+}
+function clearFrameCache(){ for(const bm of frameCache.values()) if(bm&&bm.close) bm.close(); frameCache.clear(); decoding=new Set(); }
+async function pushFrame(){ const b=await toBlob(artCv,"image/jpeg",0.92); card.frames.push(b); card.dirty=true; }
+function disposeCard(){ clearFrameCache(); lastArt=null; card=null; if(cur){ cur.dispose(); cur=null; } }
+
+// ===== DREAM (starting dream, then Colab-style zoom runs) =====
+async function startDream(){
+  if(!card||busy||!ready) return;
+  busy=true; live=true; updateUI();
+  if(!card.no) card.no=nextNumber();
+  card.style=styleLabel()+" · "+layersLabel(); card.layers=activeLayers();
+  const steps=Math.round(settings.startSteps), total=Math.max(1,steps*OCTAVES);
   for(;;){
     try{
-      let img=tf.tidy(()=>canvasToTensor(seedCv).add(tf.randomUniform([1,card.h,card.w,3],-0.06,0.06)).clipByValue(-1,1));
-      let done=0;
-      for(let o=OCTAVES-1;o>=0;o--){
-        const s=Math.pow(OCTAVE_SCALE,-o), h=Math.max(96,Math.round(card.h*s)), w=Math.max(96,Math.round(card.w*s));
-        const r=tf.image.resizeBilinear(img,[h,w]); img.dispose(); img=r;
-        for(let i=0;i<steps;i++){
-          const n=dreamStep(img,STEP_SIZE,card.styleIdx); img.dispose(); img=n; done++;
-          setStatus("Dreaming… layer "+(OCTAVES-o)+" of "+OCTAVES); setBar(done/total);
-          await tensorToCanvas(img,artCv);
+      let img=tf.tidy(()=>canvasToTensor(seedCv).add(tf.randomUniform([1,card.h,card.w,3],-0.04,0.04)).clipByValue(-1,1));
+      if(steps>0){ let done=0;
+        for(let o=OCTAVES-1;o>=0;o--){
+          const s=Math.pow(OCTAVE_SCALE,-o), h=Math.max(96,Math.round(card.h*s)), w=Math.max(96,Math.round(card.w*s));
+          const r=tf.image.resizeBilinear(img,[h,w]); img.dispose(); img=r;
+          for(let i=0;i<steps;i++){ const t0=performance.now(); const n=dreamStep(img,Math.max(0.01,settings.lr)); img.dispose(); img=n; done++;
+            setStatus("Dreaming… detail layer "+(OCTAVES-o)+" of "+OCTAVES); setBar(done/total);
+            await tensorToCanvas(img,artCv); if(o===0) noteStepTime(performance.now()-t0); }
         }
       }
       cur=img; break;
     }catch(e){
       console.error(e);
-      if(!(await nextEngine())){ setStatus("Dreaming failed on every engine: "+(e&&e.message||e),true); setBar(null); live=false; busy=false; disposeCard(); updateUI(); return; }
+      if(!(await nextEngine())){ setStatus("Dreaming failed on every engine: "+(e&&e.message||e),true); setBar(null); busy=false; updateUI(); return; }
       setStatus("Switched to "+LABEL[engineOrder[engineIdx]]+" — trying again…");
     }
   }
   await tensorToCanvas(cur,artCv); await pushFrame();
-  live=false; busy=false; setBar(null);
-  setStatus(card.name+" is ready. Zoom deeper to fall into the card.");
+  busy=false; live=false; setBar(null); playStart=performance.now();
+  setStatus(card.name+" is dreaming. Press Zoom to fall in ("+styleLabel().toLowerCase()+", "+settings.frames+" frames).");
   updateUI();
 }
-
-// ===== ZOOM =====
 async function ensureCur(){
   if(cur) return;
-  const src=card.lastPng?await blobToImg(card.lastPng):card.frames[card.frames.length-1].img;
+  const src=card.lastPng?await decodeBlob(card.lastPng):await decodeBlob(card.frames[card.frames.length-1]);
   tmpCv.width=card.w; tmpCv.height=card.h; const t=tmpCv.getContext("2d"); t.clearRect(0,0,card.w,card.h); t.drawImage(src,0,0,card.w,card.h);
-  if(card.lastPng) URL.revokeObjectURL(src.src);
+  if(src&&src.close) src.close();
   cur=canvasToTensor(tmpCv);
 }
-async function zoomLoop(){
-  if(!card||busy||zooming) return;
-  zooming=true; live=true; let failed=false; updateUI();
+async function zoomRun(){
+  if(!card||busy||zooming||!card.frames.length) return;
+  zooming=true; live=true; let failed=false, made=0; updateUI();
   artCv.width=card.w; artCv.height=card.h;
-  while(zooming && card.frames.length<MAX_FRAMES){
+  const want=Math.max(1,Math.round(settings.frames));
+  card.style=styleLabel()+" · "+layersLabel();
+  while(zooming && made<want && card.frames.length<MAX_FRAMES){
     try{
       await ensureCur();
-      const z=zoomIn(cur,ZOOM); cur.dispose(); cur=z;
-      for(let i=0;i<ZOOM_STEPS;i++){ const n=dreamStep(cur,ZOOM_STEP_SIZE,card.styleIdx); cur.dispose(); cur=n; }
-      await tensorToCanvas(cur,artCv); await pushFrame(); card.lastPng=null;
-      setStatus("Zooming… frame "+card.frames.length+" · depth ×"+depthOf(card)); setBar(card.frames.length/MAX_FRAMES);
+      card.pathFrame=(card.pathFrame||0)+1;
+      const off=pathOffset(card.pathFrame,card.w,card.h,settings);
+      const z=zoomCrop(cur,settings.zoomFactor,off[0],off[1]); cur.dispose(); cur=z;
+      const t0=performance.now();
+      for(let i=0;i<settings.steps;i++){ const n=dreamStep(cur,settings.lr); cur.dispose(); cur=n; }
+      await tensorToCanvas(cur,artCv); noteStepTime((performance.now()-t0)/Math.max(1,settings.steps));
+      await pushFrame(); card.lastPng=null; made++;
+      setStatus(styleLabel()+"… frame "+made+" of "+want+" ("+card.frames.length+" on the card)"); setBar(made/want);
       await tf.nextFrame();
     }catch(e){
       console.error(e); if(cur){ cur.dispose(); cur=null; }
@@ -404,46 +509,39 @@ async function zoomLoop(){
       setStatus("Switched to "+LABEL[engineOrder[engineIdx]]+" — carrying on…");
     }
   }
-  if(card.frames.length>=MAX_FRAMES) setStatus("That's as deep as a card can hold ("+MAX_FRAMES+" frames). Keep it or export it!");
-  else if(!failed) setStatus(card.frames.length+" frames deep. Zoom again to keep falling.");
+  if(!failed){ if(card.frames.length>=MAX_FRAMES) setStatus("The card is full ("+MAX_FRAMES+" frames). Keep it or export it!"); else setStatus(card.frames.length+" frames on the card. Zoom again to keep falling, or tweak Settings first."); }
   zooming=false; live=false; setBar(null); playStart=performance.now(); updateUI();
 }
-function depthOf(c){ const d=Math.pow(ZOOM,Math.max(0,c.frames.length-1)); return d<10?d.toFixed(1):Math.round(d).toString(); }
 
 // ===== CARD RENDERING =====
 function rr(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
-function fitText(c,t,maxW){ if(c.measureText(t).width<=maxW) return t; while(t.length>1 && c.measureText(t+"…").width>maxW) t=t.slice(0,-1); return t+"…"; }
+function fitText(c,t,maxW){ t=String(t||""); if(c.measureText(t).width<=maxW) return t; while(t.length>1 && c.measureText(t+"…").width>maxW) t=t.slice(0,-1); return t+"…"; }
 function drawCard(c,W,H,cd,art,tms,frameCount){
-  const k=W/360, R=RARITY[cd.rarity], F="Helvetica,Arial,sans-serif";
+  const k=W/360, R=RARITY[cd.rarity]||RARITY.red, F="Helvetica,Arial,sans-serif";
   c.save(); c.clearRect(0,0,W,H);
-  // frame
-  rr(c,0,0,W,H,16*k);
-  let g=c.createLinearGradient(0,0,W,H);
+  rr(c,0,0,W,H,16*k); let g=c.createLinearGradient(0,0,W,H);
   if(cd.rarity==="blue"){ const o=(tms/40)%360; for(let i=0;i<=6;i++) g.addColorStop(i/6,"hsl("+((o+i*60)%360)+",85%,62%)"); }
   else { g.addColorStop(0,R.c1); g.addColorStop(0.5,R.c2); g.addColorStop(1,R.c1); }
   c.fillStyle=g; c.fill();
   const b=11*k; rr(c,b,b,W-2*b,H-2*b,11*k); c.fillStyle="#0d0a17"; c.fill();
-  // name bar
   c.textBaseline="middle"; c.textAlign="right"; c.font="bold "+(11*k)+"px "+F; c.fillStyle=R.c1;
   const rl=R.sym+" "+R.label; c.fillText(rl,W-b-10*k,b+19*k); const rlw=c.measureText(rl).width;
   c.textAlign="left"; c.font="bold "+(18*k)+"px "+F; c.fillStyle="#fff"; c.fillText(fitText(c,cd.name,W-2*b-rlw-34*k),b+10*k,b+19*k);
-  // art window (4:5)
   const ax=b+8*k, ay=b+36*k, aw=W-2*ax, ah=aw*1.25;
   c.save(); rr(c,ax,ay,aw,ah,6*k); c.clip(); c.fillStyle="#05020a"; c.fillRect(ax,ay,aw,ah);
   if(art){ c.imageSmoothingEnabled=true; c.imageSmoothingQuality="high"; c.drawImage(art,ax,ay,aw,ah); }
-  if(cd.rarity!=="red"){ const p=((tms/2600)%1)*1.6-0.3, sg=c.createLinearGradient(ax,ay,ax+aw,ay+ah);
-    const cl=v=>Math.min(1,Math.max(0,v)); sg.addColorStop(cl(p-0.15),"rgba(255,255,255,0)"); sg.addColorStop(cl(p),"rgba(255,255,255,"+(cd.rarity==="blue"?0.28:0.16)+")"); sg.addColorStop(cl(p+0.15),"rgba(255,255,255,0)");
+  if(cd.rarity!=="red"){ const p=((tms/2600)%1)*1.6-0.3, sg=c.createLinearGradient(ax,ay,ax+aw,ay+ah), cl=v=>Math.min(1,Math.max(0,v));
+    sg.addColorStop(cl(p-0.15),"rgba(255,255,255,0)"); sg.addColorStop(cl(p),"rgba(255,255,255,"+(cd.rarity==="blue"?0.28:0.16)+")"); sg.addColorStop(cl(p+0.15),"rgba(255,255,255,0)");
     c.globalCompositeOperation="overlay"; c.fillStyle=sg; c.fillRect(ax,ay,aw,ah); c.globalCompositeOperation="source-over"; }
-  if(frameCount>1){ const t="Depth ×"+depthOf({frames:{length:frameCount}}); c.font="bold "+(11*k)+"px "+F; const tw=c.measureText(t).width+14*k;
+  if(frameCount>1){ const t=frameCount+" frames"; c.font="bold "+(11*k)+"px "+F; const tw=c.measureText(t).width+14*k;
     rr(c,ax+7*k,ay+7*k,tw,20*k,10*k); c.fillStyle="rgba(8,4,18,.72)"; c.fill(); c.fillStyle="#8affea"; c.textAlign="left"; c.fillText(t,ax+14*k,ay+17.5*k); }
   c.restore();
   c.strokeStyle=R.c1; c.lineWidth=2*k; rr(c,ax,ay,aw,ah,6*k); c.stroke();
-  // info
   const y1=ay+ah+15*k, y2=y1+17*k;
-  c.textAlign="left"; c.font="bold "+(12.5*k)+"px "+F; c.fillStyle="#c9a0ff"; c.fillText(cd.style,ax+2*k,y1);
-  c.textAlign="right"; c.fillText("Seed #"+cd.seed+(cd.fractal?" + fractal":""),W-ax-2*k,y1);
-  c.font=(10.5*k)+"px "+F; c.fillStyle="#8affea"; c.textAlign="left"; c.fillText(cd.townName+" generator",ax+2*k,y2);
-  c.textAlign="right"; c.fillText("No. "+String(cd.no||0).padStart(4,"0"),W-ax-2*k,y2);
+  c.textAlign="left"; c.font="bold "+(12*k)+"px "+F; c.fillStyle="#c9a0ff"; c.fillText(fitText(c,cd.detail||"",aw*0.6),ax+2*k,y1);
+  c.textAlign="right"; c.font=(10.5*k)+"px "+F; c.fillText(fitText(c,cd.style||"",aw*0.4),W-ax-2*k,y1);
+  c.fillStyle="#8affea"; c.textAlign="left"; c.fillText(cd.townName+" generator",ax+2*k,y2);
+  c.textAlign="right"; c.fillText(cd.no?"No. "+String(cd.no).padStart(4,"0"):"Not dreamed yet",W-ax-2*k,y2);
   c.restore();
 }
 function drawBack(c,W,H,tms){
@@ -459,68 +557,135 @@ function drawBack(c,W,H,tms){
   c.fillStyle="#8affea"; c.font=(13*k)+"px Helvetica,Arial,sans-serif"; c.fillText(town.name+" dream generator",cx,H*0.74+26*k);
   c.restore();
 }
-let playStart=performance.now();
 function tick(t){
   const W=cardCv.width, H=cardCv.height;
-  if(card){ let art=null, n=card.frames.length;
-    if(live) art=artCv; else if(n){ art=card.frames[Math.floor(Math.max(0,t-playStart)/1000*PLAY_FPS)%n].img; }
-    drawCard(cctx,W,H,card,art,t,n);
+  if(card){ let art=null; const n=card.frames.length;
+    if(live||!n) art=artCv;
+    else { const i=Math.floor(Math.max(0,t-playStart)/1000*PLAY_FPS)%n; art=cachedFrame(i)||lastArt||artCv; lastArt=art; }
+    try{ drawCard(cctx,W,H,card,art,t,n); }catch(e){ lastArt=null; try{ drawCard(cctx,W,H,card,artCv,t,n); }catch(e2){} }
   } else drawBack(cctx,W,H,t);
   requestAnimationFrame(tick);
 }
 function layout(){
   const m=$("main"), aw=m.clientWidth, ah=m.clientHeight;
-  cardCssH=Math.floor(Math.min(ah,aw*1.4)); cardCssW=Math.floor(cardCssH/1.4);
-  DPR=Math.min(3,window.devicePixelRatio||1);
-  cardCv.style.width=cardCssW+"px"; cardCv.style.height=cardCssH+"px";
-  cardCv.width=Math.round(cardCssW*DPR); cardCv.height=Math.round(cardCssH*DPR);
+  const hgt=Math.floor(Math.min(ah,aw*1.4)), wdt=Math.floor(hgt/1.4), dpr=Math.min(3,window.devicePixelRatio||1);
+  cardCv.style.width=wdt+"px"; cardCv.style.height=hgt+"px"; cardCv.width=Math.round(wdt*dpr); cardCv.height=Math.round(hgt*dpr);
 }
 new ResizeObserver(layout).observe($("main"));
+
+// ===== CARD PICKER =====
+async function openPicker(){
+  if(busy||zooming) return;
+  const grid=$("pickGrid"); grid.innerHTML=""; $("picker").classList.add("open");
+  const all=readCollection(), fus=all.filter(s=>s.kind==="fus"), dex=all.filter(s=>s.kind==="dex");
+  const section=(title,list)=>{ if(!list.length) return; const h=document.createElement("h3"); h.textContent=title; grid.appendChild(h); list.forEach(addTile); };
+  const addTile=seed=>{
+    const tile=document.createElement("button"); tile.className="tile"+(card&&card.seedKey===seed.key?" sel":""); tile.setAttribute("aria-label","Dream "+seed.name);
+    const cv=document.createElement("canvas"); cv.width=220; cv.height=308; tile.appendChild(cv); grid.appendChild(tile);
+    const pseudo={name:seed.name,rarity:seed.rarity,detail:seed.label,style:"",townName:town.name,no:0};
+    drawCard(cv.getContext("2d"),220,308,pseudo,null,0,0);
+    const art=document.createElement("canvas"); renderSeedArt(seed,art,160,200).then(()=>drawCard(cv.getContext("2d"),220,308,pseudo,art,0,0));
+    tile.onclick=async()=>{ if(await useSeed(seed)){ closePicker(); setStatus(seed.name+" is ready. Press Dream this card."); } };
+  };
+  section("Fusions",fus); section("Dreamlings",dex);
+  if(!all.length){ const e=document.createElement("div"); e.className="empty"; e.textContent="No dreamlings caught yet. Spin some slots in town, or dream a wild one:"; grid.appendChild(e); addTile(wildSeed()); }
+}
+function closePicker(){ $("picker").classList.remove("open"); }
+
+// ===== SETTINGS SHEET =====
+function buildSettings(){
+  const body=$("settingsBody"); body.innerHTML="";
+  const addNote=(txt)=>{ const n=document.createElement("div"); n.className="note"; n.textContent=txt; return n; };
+  // presets
+  const pw=document.createElement("div"); pw.className="field";
+  pw.innerHTML='<label>Preset <span>from your Colab notebook</span></label>';
+  const sel=document.createElement("select"); sel.innerHTML='<option value="">Choose a preset…</option>'+PRESETS.map((p,i)=>'<option value="'+i+'">'+p.name+'</option>').join("");
+  sel.onchange=()=>{ if(sel.value==="") return; const p=PRESETS[+sel.value]; settings=Object.assign({},settings,DEFAULTS,{quality:settings.quality},p.s); saveSettings(); buildSettings(); setStatus("Preset: "+p.name); };
+  pw.appendChild(sel); body.appendChild(pw);
+  // path
+  const pf=document.createElement("div"); pf.className="field"; pf.innerHTML="<label>Zoom path</label>";
+  const seg=document.createElement("div"); seg.className="seg";
+  ["straight","square","triangle"].forEach(p=>{ const b=document.createElement("button"); b.textContent=p[0].toUpperCase()+p.slice(1); b.className=settings.path===p?"on":""; b.onclick=()=>{ settings.path=p; saveSettings(); buildSettings(); }; seg.appendChild(b); });
+  pf.appendChild(seg); body.appendChild(pf);
+  // numbers
+  FIELDS.forEach(f=>{
+    const d=document.createElement("div"); d.className="field"+(f.paths&&f.paths.indexOf(settings.path)<0?" hide":"");
+    const lab=document.createElement("label"); lab.textContent=f.label; d.appendChild(lab);
+    const ctl=document.createElement("div"); ctl.className="ctl";
+    const rg=document.createElement("input"); rg.type="range"; rg.min=f.min; rg.max=f.max; rg.step=f.step; rg.value=settings[f.k]; rg.setAttribute("aria-label",f.label);
+    const nb=document.createElement("input"); nb.type="number"; nb.min=f.min; nb.max=f.max; nb.step=f.step; nb.value=settings[f.k]; nb.inputMode="decimal"; nb.setAttribute("aria-label",f.label+" value");
+    const setV=v=>{ v=parseFloat(v); if(isNaN(v)) return; v=Math.max(f.min,Math.min(f.max,v)); settings[f.k]=v; saveSettings(); };
+    rg.oninput=()=>{ nb.value=rg.value; setV(rg.value); };
+    nb.onchange=()=>{ setV(nb.value); nb.value=settings[f.k]; rg.value=settings[f.k]; };
+    ctl.appendChild(rg); ctl.appendChild(nb); d.appendChild(ctl); d.appendChild(addNote(f.note)); body.appendChild(d);
+  });
+  // layers
+  const lf=document.createElement("div"); lf.className="field"; lf.innerHTML="<label>Inception layers <span>which features to amplify</span></label>";
+  const chips=document.createElement("div"); chips.className="chips";
+  const allNames=["mixed2","mixed3","mixed4","mixed5","mixed6","mixed7"], active=model?activeLayers():(settings.layers||[]);
+  allNames.forEach(n=>{ const b=document.createElement("button"); b.textContent=n; const have=!model||modelLayers.indexOf(n)>=0;
+    b.disabled=!have; b.className=active.indexOf(n)>=0&&have?"on":"";
+    b.onclick=()=>{ let L=(model?activeLayers():(settings.layers||[])).slice(); const i=L.indexOf(n); if(i>=0){ if(L.length>1) L.splice(i,1); } else L.push(n); settings.layers=L; saveSettings(); buildSettings(); };
+    chips.appendChild(b); });
+  lf.appendChild(chips);
+  lf.appendChild(addNote("Low layers (mixed2–3) make swirls and textures; high layers (mixed6–7) make eyes, fur and creature faces — your Colab uses mixed6 + mixed7."+
+    (model&&modelLayers.indexOf("mixed7")<0?" mixed6 and mixed7 need the updated model: re-run “Build DeepDream model” in GitHub Actions.":"")));
+  body.appendChild(lf);
+  // quality
+  const qf=document.createElement("div"); qf.className="field"; qf.innerHTML="<label>Dream size <span>bigger = sharper but slower</span></label>";
+  const qs=document.createElement("select"); qs.innerHTML=Object.keys(QUALITY).map(k=>'<option value="'+k+'">'+k[0].toUpperCase()+k.slice(1)+" ("+QUALITY[k].w+"×"+QUALITY[k].h+")</option>").join("");
+  qs.value=QUALITY[settings.quality]?settings.quality:"normal"; qs.onchange=()=>{ settings.quality=qs.value; saveSettings(); };
+  qf.appendChild(qs); qf.appendChild(addNote("Applies to the next card you pick. Your Colab runs at 1080×1920 on a big GPU — a phone needs much smaller sizes.")); body.appendChild(qf);
+  const reset=document.createElement("button"); reset.textContent="Reset to defaults"; reset.onclick=()=>{ settings=Object.assign({},DEFAULTS,{quality:settings.quality}); saveSettings(); buildSettings(); };
+  body.appendChild(reset);
+  updateEstimate();
+}
+function openSettings(){ if(zooming) return; buildSettings(); $("settings").classList.add("open"); }
+function closeSettings(){ $("settings").classList.remove("open"); if(card) { card.style=styleLabel()+(model?" · "+layersLabel():""); } updateUI(); }
 
 // ===== KEEP (IndexedDB) =====
 const DB_NAME="deepdreamlings_generator", STORE="cards";
 function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME,1); r.onupgradeneeded=()=>{ r.result.createObjectStore(STORE,{keyPath:"id"}); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 async function idbDo(mode,fn){ const db=await idb(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,mode), st=tx.objectStore(STORE); const r=fn(st); tx.oncomplete=()=>res(r&&r.result); tx.onerror=()=>rej(tx.error); tx.onabort=()=>rej(tx.error); }); }
-function cardRecord(c){ return { id:c.id, no:c.no, name:c.name, town:c.town, townName:c.townName, rarity:c.rarity, styleIdx:c.styleIdx, style:c.style, seed:c.seed, fractal:c.fractal, w:c.w, h:c.h, created:c.created, frames:c.frames.map(f=>f.blob), lastPng:c.lastPng||null }; }
+function cardRecord(c){ return { id:c.id, no:c.no, name:c.name, town:c.town, townName:c.townName, rarity:c.rarity, style:c.style, detail:c.detail, seedKey:c.seedKey, w:c.w, h:c.h, created:c.created, pathFrame:c.pathFrame||0, frames:c.frames.slice(), lastPng:c.lastPng||null }; }
 async function keepCard(){
-  if(!card||busy||zooming) return;
+  if(!card||busy||zooming||!card.frames.length) return;
   busy=true; updateUI(); setStatus("Keeping "+card.name+"…");
   try{
     if(cur){ tmpCv.width=card.w; tmpCv.height=card.h; await tensorToCanvas(cur,tmpCv); card.lastPng=await toBlob(tmpCv,"image/png"); }
     await idbDo("readwrite",st=>st.put(cardRecord(card)));
-    card.saved=true; card.dirty=false; setStatus(card.name+" is in My cards.");
-  }catch(e){ console.error(e); setStatus("Couldn't keep the card: "+(e&&e.message||e)+". Your browser storage may be full — try exporting instead.",true); }
+    card.saved=true; card.dirty=false; setStatus(card.name+" is in your Gallery.");
+  }catch(e){ console.error(e); setStatus("Couldn't keep the card: "+(e&&e.message||e)+". Browser storage may be full — try exporting instead.",true); }
   busy=false; updateUI();
 }
 
 // ===== GALLERY =====
-let galUrls=[];
 async function openGallery(){
   if(busy||zooming) return;
   const grid=$("grid"); grid.innerHTML=""; $("gallery").classList.add("open");
-  let recs=[]; try{ recs=await idbDo("readonly",st=>st.getAll()) || []; }catch(e){ console.error(e); }
+  let recs=[]; try{ recs=await idbDo("readonly",st=>st.getAll())||[]; }catch(e){ console.error(e); }
   recs.sort((a,b)=>b.created-a.created);
-  if(!recs.length){ grid.innerHTML='<div id="empty">No kept cards yet. Generate one and press Keep.</div>'; return; }
+  if(!recs.length){ grid.innerHTML='<div class="empty">No kept cards yet. Dream one and press Keep.</div>'; return; }
   for(const r of recs){
+    if(!r.detail && r.seed) r.detail="Seed #"+r.seed;
     const tile=document.createElement("button"); tile.className="tile"; tile.setAttribute("aria-label","Open "+r.name);
-    const cv=document.createElement("canvas"); cv.width=240; cv.height=336; tile.appendChild(cv);
+    const cv=document.createElement("canvas"); cv.width=220; cv.height=308; tile.appendChild(cv);
     const del=document.createElement("button"); del.className="del"; del.textContent="✕"; del.setAttribute("aria-label","Delete "+r.name); tile.appendChild(del);
     grid.appendChild(tile);
-    drawCard(cv.getContext("2d"),240,336,r,null,0,r.frames.length);
-    if(r.frames.length){ const u=URL.createObjectURL(r.frames[0]); galUrls.push(u); loadImg(u).then(im=>drawCard(cv.getContext("2d"),240,336,r,im,0,r.frames.length)); }
-    tile.onclick=()=>openCard(r);
+    drawCard(cv.getContext("2d"),220,308,r,null,0,r.frames.length);
+    if(r.frames.length) decodeBlob(r.frames[0]).then(im=>{ if(im) drawCard(cv.getContext("2d"),220,308,r,im,0,r.frames.length); });
+    tile.onclick=()=>openKept(r);
     del.onclick=async e=>{ e.stopPropagation(); if(!confirm("Delete "+r.name+"?")) return; await idbDo("readwrite",st=>st.delete(r.id)); if(card&&card.id===r.id) card.saved=false; openGallery(); };
   }
 }
-function closeGallery(){ $("gallery").classList.remove("open"); galUrls.forEach(u=>URL.revokeObjectURL(u)); galUrls=[]; }
-async function openCard(r){
-  if(card && card.dirty && card.id!==r.id && !confirm("Open "+r.name+"? The current card isn't kept yet.")) return;
-  closeGallery(); busy=true; updateUI(); setStatus("Opening "+r.name+"…");
-  disposeCard();
-  const c=Object.assign({},r,{frames:[],dirty:false,saved:true});
-  for(const b of r.frames) c.frames.push({blob:b,img:await blobToImg(b)});
-  card=c; playStart=performance.now(); busy=false;
-  setStatus(card.name+" · "+card.frames.length+" frames. Zoom deeper to keep going.");
+function closeGallery(){ $("gallery").classList.remove("open"); }
+async function openKept(r){
+  if(card && card.dirty && card.frames.length && card.id!==r.id && !confirm("Open "+r.name+"? The current dream isn't kept yet.")) return;
+  closeGallery(); disposeCard();
+  card=Object.assign({},r,{frames:r.frames.slice(),dirty:false,saved:true});
+  const first=await decodeBlob(card.frames[0]); artCv.width=card.w; artCv.height=card.h; if(first){ artCv.getContext("2d").drawImage(first,0,0,card.w,card.h); }
+  live=false; playStart=performance.now();
+  setStatus(card.name+" · "+card.frames.length+" frames. Zoom to keep going.");
   updateUI();
 }
 
@@ -543,16 +708,17 @@ async function exportGif(){
   busy=true; updateUI();
   try{
     const W=GIF_W, H=Math.round(GIF_W*1.4), cv=document.createElement("canvas"); cv.width=W; cv.height=H; const c=cv.getContext("2d",{willReadFrequently:true});
-    const enc=new GifEncoder(W,H), n=card.frames.length, delay=Math.round(100/PLAY_FPS);
-    const count=Math.max(n, n===1?24:0);           // a single frame still gets its holo shimmer
+    const enc=new GifEncoder(W,H), n=card.frames.length, delay=Math.round(100/PLAY_FPS), count=Math.max(n,n===1?24:0);
+    let im=null;
     for(let i=0;i<count;i++){
-      drawCard(c,W,H,card,card.frames[i%n].img,i*1000/PLAY_FPS,n);
+      if(i<n){ if(im&&im.close) im.close(); im=await decodeBlob(card.frames[i]); }
+      drawCard(c,W,H,card,im,i*1000/PLAY_FPS,n);
       enc.addFrame(c.getImageData(0,0,W,H).data,delay);
       setStatus("Making GIF… "+(i+1)+" / "+count); setBar((i+1)/count);
       if(i%2===1) await sleep(0);
     }
-    showResult(new Blob([enc.finish()],{type:"image/gif"}),fileBase()+".gif","gif");
-    setStatus("GIF ready.");
+    if(im&&im.close) im.close();
+    showResult(new Blob([enc.finish()],{type:"image/gif"}),fileBase()+".gif","gif"); setStatus("GIF ready.");
   }catch(e){ console.error(e); setStatus("GIF export failed: "+(e&&e.message||e),true); }
   setBar(null); busy=false; updateUI();
 }
@@ -563,23 +729,23 @@ async function exportVideo(){
   busy=true; updateUI();
   try{
     const cv=$("exportCv"), W=VIDEO_W, H=Math.round(VIDEO_W*1.4); cv.width=W; cv.height=H; const c=cv.getContext("2d");
-    const n=card.frames.length, count=Math.max(n,PLAY_FPS*3);     // at least 3 seconds
-    drawCard(c,W,H,card,card.frames[0].img,0,n);
+    const n=card.frames.length, count=Math.max(n,PLAY_FPS*3);
+    const imgs=[]; for(let i=0;i<Math.min(n,count);i++){ imgs.push(await decodeBlob(card.frames[i])); setStatus("Preparing video… "+(i+1)+" / "+n); setBar((i+1)/n/2); if(i%10===9) await sleep(0); }
+    drawCard(c,W,H,card,imgs[0],0,n);
     const stream=cv.captureStream(30), chunks=[];
     const rec=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:5000000}:{videoBitsPerSecond:5000000});
     rec.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
-    const stopped=new Promise(r=>rec.onstop=r);
-    rec.start(250);
+    const stopped=new Promise(r=>rec.onstop=r); rec.start(250);
     const t0=performance.now();
     for(let i=0;i<count;i++){
-      drawCard(c,W,H,card,card.frames[i%n].img,i*1000/PLAY_FPS,n);
-      setStatus("Recording video… "+(i+1)+" / "+count); setBar((i+1)/count);
-      const wait=t0+(i+1)*1000/PLAY_FPS-performance.now(); await sleep(Math.max(0,wait));
+      drawCard(c,W,H,card,imgs[i%n],i*1000/PLAY_FPS,n);
+      setStatus("Recording video… "+(i+1)+" / "+count); setBar(0.5+(i+1)/count/2);
+      await sleep(Math.max(0,t0+(i+1)*1000/PLAY_FPS-performance.now()));
     }
     await sleep(120); rec.stop(); await stopped; stream.getTracks().forEach(t=>t.stop());
+    imgs.forEach(im=>{ if(im&&im.close) im.close(); });
     const type=(rec.mimeType||mime||"video/webm").split(";")[0], ext=type.indexOf("mp4")>=0?"mp4":"webm";
-    showResult(new Blob(chunks,{type:type}),fileBase()+"."+ext,"video");
-    setStatus("Video ready.");
+    showResult(new Blob(chunks,{type:type}),fileBase()+"."+ext,"video"); setStatus("Video ready.");
   }catch(e){ console.error(e); setStatus("Video export failed: "+(e&&e.message||e),true); }
   setBar(null); busy=false; updateUI();
 }
@@ -592,28 +758,26 @@ function updateUI(){
   const p=$("primary"), has=!!(card&&card.frames.length);
   p.classList.toggle("stop",zooming);
   if(zooming){ p.textContent="Stop zooming"; p.disabled=false; }
-  else if(has){ p.textContent=card.frames.length>=MAX_FRAMES?"Card is full":"Zoom deeper"; p.disabled=busy||!ready||card.frames.length>=MAX_FRAMES; }
-  else { p.textContent="Generate"; p.disabled=busy||!ready; }
+  else if(has){ p.textContent=card.frames.length>=MAX_FRAMES?"Card is full":"Zoom ("+styleLabel().toLowerCase()+")"; p.disabled=busy||!ready||card.frames.length>=MAX_FRAMES; }
+  else { p.textContent=card?"Dream this card":"Pick a card"; p.disabled=busy||(card&&!ready); }
   const idle=has&&!busy&&!zooming;
-  $("newBtn").disabled=!ready||busy||zooming||!has;
+  $("pickBtn").disabled=busy||zooming; $("setBtn").disabled=zooming;
   $("keepBtn").disabled=!idle||(card.saved&&!card.dirty); $("keepBtn").textContent=(has&&card.saved)?(card.dirty?"Update":"Kept"):"Keep";
   $("gifBtn").disabled=!idle; $("vidBtn").disabled=!idle;
-  $("galBtn").disabled=busy||zooming; $("qualitySel").disabled=busy||zooming||!ready; $("engineBtn").disabled=busy||zooming;
+  $("galBtn").disabled=busy||zooming; $("engineBtn").disabled=busy||zooming;
 }
-$("primary").onclick=()=>{ if(zooming){ zooming=false; setStatus("Finishing this frame…"); } else if(card&&card.frames.length) zoomLoop(); else generate(); };
-$("newBtn").onclick=generate;
-$("keepBtn").onclick=keepCard;
-$("gifBtn").onclick=exportGif;
-$("vidBtn").onclick=exportVideo;
-$("galBtn").onclick=openGallery;
-$("galClose").onclick=closeGallery;
-$("qualitySel").onchange=e=>{ quality=e.target.value; try{ localStorage.setItem(QUALITY_KEY,quality); }catch(err){} setStatus("New cards will dream at "+QUALITY[quality].w+"×"+QUALITY[quality].h+"."); };
-$("engineBtn").onclick=()=>{ if(busy||zooming) return; if(card&&card.dirty&&!confirm("Re-test engines? This reloads the page and the current card isn't kept yet.")) return; try{ localStorage.removeItem(ENGINE_KEY); }catch(e){} location.reload(); };
+$("primary").onclick=()=>{ if(zooming){ zooming=false; setStatus("Finishing this frame…"); } else if(card&&card.frames.length) zoomRun(); else if(card) startDream(); else openPicker(); };
+$("pickBtn").onclick=openPicker; $("pickClose").onclick=closePicker;
+$("setBtn").onclick=openSettings; $("setClose").onclick=closeSettings;
+$("keepBtn").onclick=keepCard; $("gifBtn").onclick=exportGif; $("vidBtn").onclick=exportVideo;
+$("galBtn").onclick=openGallery; $("galClose").onclick=closeGallery;
+$("engineBtn").onclick=()=>{ if(busy||zooming) return; if(card&&card.dirty&&!confirm("Re-test engines? This reloads the page and the current dream isn't kept yet.")) return; try{ localStorage.removeItem(ENGINE_KEY); }catch(e){} location.reload(); };
 function goTown(){ if(card&&card.dirty&&card.frames.length&&!confirm("Leave without keeping "+card.name+"?")) return; zooming=false; location.href=TOWN_FILE; }
 $("backBtn").onclick=goTown;
 addEventListener("keydown",e=>{
-  if(e.target&&e.target.tagName==="SELECT") return;
-  if($("gallery").classList.contains("open")||$("resultSheet").classList.contains("open")){ if(e.key==="Escape"||e.key==="b"){ closeGallery(); $("resultClose").onclick(); } return; }
+  const t=e.target&&e.target.tagName; if(t==="INPUT"||t==="SELECT") return;
+  const open=["picker","settings","gallery","resultSheet"].filter(id=>$(id).classList.contains("open"));
+  if(open.length){ if(e.key==="Escape"||e.key==="b"){ closePicker(); closeGallery(); if($("settings").classList.contains("open")) closeSettings(); $("resultClose").onclick(); } return; }
   if(e.key==="a"||e.key==="Enter"||e.key===" "){ if(document.activeElement&&document.activeElement.tagName==="BUTTON"&&e.key!=="a") return; e.preventDefault(); if(!$("primary").disabled) $("primary").onclick(); }
   else if(e.key==="b"||e.key==="Escape"){ goTown(); }
 });
@@ -621,16 +785,19 @@ addEventListener("keydown",e=>{
 // ===== BOOT =====
 async function boot(){
   layout(); requestAnimationFrame(tick); updateUI();
+  // Show the newest card from your collection straight away (fusions first).
+  const col=readCollection(); await useSeed(col.length?col[0]:wildSeed());
+  setStatus(card.name+" popped out of your collection. Loading the dream engine…");
   if(typeof tf==="undefined"){ setStatus("Couldn't load TensorFlow.js. Check your internet connection and reload.",true); return; }
-  setStatus("Looking for the InceptionV3 model…");
   let found=false; try{ const r=await fetch(MODEL_URL,{cache:"no-cache"}); found=r.ok; }catch(e){}
-  if(!found){ setStatus("Model not found at "+MODEL_URL+". Run tools/export_inceptionv3.py and upload the models/inceptionv3 folder (see DREAM_GENERATOR.md).",true); return; }
+  if(!found){ setStatus("Model not found at "+MODEL_URL+". Run “Build DeepDream model” in GitHub Actions (see DREAM_GENERATOR.md).",true); return; }
   try{ tf.enableProdMode(); }catch(e){}
   engineOrder=await pickEngines(); engineIdx=-1;
-  if(!(await nextEngine())){ setStatus("The dream engine couldn't start. "+(engineErrors.length?engineErrors[engineErrors.length-1]:"No engine was available."),true); console.warn(engineErrors); $("engineBtn").textContent="Engine: none"; return; }
-  if(!QUALITY[quality]) quality=(engineOrder[engineIdx]==="webgpu"||engineOrder[engineIdx]==="webgl")?"normal":"fast";
-  $("qualitySel").value=quality;
-  ready=true; setStatus("Ready. Press Generate to dream a card."); updateUI();
+  if(!(await nextEngine())){ setStatus("The dream engine couldn't start. "+(engineErrors.length?engineErrors[engineErrors.length-1]:"No engine was available."),true); $("engineBtn").textContent="Engine: none"; return; }
+  if(!QUALITY[settings.quality]){ settings.quality=(engineOrder[engineIdx]==="webgpu"||engineOrder[engineIdx]==="webgl")?"normal":"fast"; saveSettings(); }
+  ready=true; card.style=styleLabel()+" · "+layersLabel();
+  setStatus("Ready. "+card.name+" is loaded — press Dream this card, or pick another with Card.");
+  updateUI();
 }
 boot();
 </script>
