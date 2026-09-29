@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Dreamlings · Dream Generator</title>
+<style>
+  :root{ --bg:#07040f; --panel:#120a22; --ink:#f1e9ff; --lav:#c9a0ff; --mint:#8affea; --pink:#ff8fbf; --dim:#7d6b9e; }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Helvetica,Arial,sans-serif;overflow:hidden;}
+  body{padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
+    background:radial-gradient(ellipse at 50% 40%, #1c0f38 0%, var(--bg) 70%);}
+  #app{height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto;padding:10px 14px 12px;gap:8px;}
+  header{display:flex;align-items:center;gap:10px;}
+  header h1{flex:1;margin:0;text-align:center;font-size:17px;letter-spacing:.02em;color:var(--lav);line-height:1.15;}
+  header h1 small{display:block;font-size:12px;font-weight:normal;color:var(--mint);}
+  button{font:inherit;color:var(--ink);background:#22143d;border:1px solid #3a2766;border-radius:12px;padding:10px 12px;cursor:pointer;user-select:none;}
+  button:active{transform:translateY(1px);background:#2d1a52;}
+  button:disabled{opacity:.38;cursor:default;transform:none;}
+  button:focus-visible{outline:2px solid var(--mint);outline-offset:2px;}
+  header button{font-size:13px;padding:8px 10px;white-space:nowrap;}
+  main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;}
+  #card{display:block;touch-action:manipulation;}
+  #statusWrap{min-height:36px;}
+  #status{font-size:13px;color:var(--lav);text-align:center;line-height:1.35;min-height:18px;}
+  #status.err{color:#ffb3d1;}
+  #bar{height:4px;border-radius:2px;background:#1d1233;margin-top:6px;overflow:hidden;visibility:hidden;}
+  #bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--lav),var(--mint));transition:width .15s;}
+  #primary{width:100%;font-size:18px;font-weight:bold;padding:14px;border:none;color:#12081f;background:linear-gradient(135deg,var(--mint),var(--lav));}
+  #primary.stop{background:linear-gradient(135deg,var(--pink),#ffb36b);}
+  #row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  #row button{font-size:14px;padding:10px 4px;}
+  footer{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--dim);gap:8px;}
+  footer button{background:none;border:none;color:var(--dim);padding:2px 0;font-size:12px;text-decoration:underline dotted;}
+  select{font:inherit;font-size:12px;color:var(--ink);background:#1a1030;border:1px solid #3a2766;border-radius:8px;padding:3px 6px;}
+  .sheet{position:fixed;inset:0;z-index:20;background:rgba(5,2,12,.92);display:none;flex-direction:column;padding:calc(12px + env(safe-area-inset-top,0)) 14px calc(12px + env(safe-area-inset-bottom,0));}
+  .sheet.open{display:flex;}
+  .sheet .top{display:flex;align-items:center;justify-content:space-between;max-width:560px;width:100%;margin:0 auto 10px;}
+  .sheet h2{margin:0;font-size:17px;color:var(--lav);}
+  #grid{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;max-width:560px;width:100%;margin:0 auto;align-content:start;}
+  .tile{position:relative;background:none;border:none;padding:0;}
+  .tile canvas{width:100%;height:auto;display:block;}
+  .tile .del{position:absolute;top:4px;right:4px;width:26px;height:26px;padding:0;border-radius:50%;font-size:13px;line-height:24px;background:rgba(10,5,20,.8);}
+  #empty{color:var(--dim);text-align:center;margin-top:40px;font-size:14px;}
+  #result{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;}
+  #result img,#result video{max-width:100%;max-height:100%;border-radius:12px;}
+  #resultBtns{display:flex;gap:10px;max-width:560px;width:100%;margin:12px auto 0;}
+  #resultBtns button{flex:1;font-size:15px;}
+  #resultHint{text-align:center;font-size:12px;color:var(--dim);margin-top:8px;}
+  #exportCv{position:fixed;left:-10000px;top:0;pointer-events:none;}
+  @media (prefers-reduced-motion: reduce){ #bar i{transition:none;} }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="backBtn" aria-label="Back to town">◀ Town</button>
+    <h1>Dream Generator<small id="townName">&nbsp;</small></h1>
+    <button id="galBtn">My cards</button>
+  </header>
+  <main id="main"><canvas id="card" aria-label="Dream trading card"></canvas></main>
+  <div id="statusWrap"><div id="status" role="status">Starting up…</div><div id="bar"><i></i></div></div>
+  <button id="primary" disabled>Generate</button>
+  <div id="row">
+    <button id="newBtn" disabled>New</button>
+    <button id="keepBtn" disabled>Keep</button>
+    <button id="gifBtn" disabled>GIF</button>
+    <button id="vidBtn" disabled>Video</button>
+  </div>
+  <footer>
+    <button id="engineBtn" title="Re-test which engine is fastest on this device">Engine: detecting…</button>
+    <label>Quality <select id="qualitySel"><option value="fast">Fast</option><option value="normal">Normal</option><option value="high">High</option></select></label>
+  </footer>
+</div>
+
+<div class="sheet" id="gallery">
+  <div class="top"><h2>My dream cards</h2><button id="galClose">Close</button></div>
+  <div id="grid"></div>
+</div>
+
+<div class="sheet" id="resultSheet">
+  <div class="top"><h2 id="resultTitle">Export</h2><button id="resultClose">Close</button></div>
+  <div id="result"></div>
+  <div id="resultBtns"><button id="dlBtn">Download</button><button id="shareBtn">Share</button></div>
+  <div id="resultHint">On a phone you can also long-press the GIF to save it to your photos.</div>
+</div>
+<canvas id="exportCv"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.22.0/dist/tf-backend-webgpu.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/tf-backend-wasm.min.js"></script>
+<script>
+// ===== GIF ENCODER (median-cut palette per frame + LZW) =====
+function ByteOut(){ this.buf=new Uint8Array(1<<16); this.n=0; }
+ByteOut.prototype.grow=function(k){ if(this.n+k<=this.buf.length) return; var nb=new Uint8Array(Math.max(this.buf.length*2,this.n+k)); nb.set(this.buf.subarray(0,this.n)); this.buf=nb; };
+ByteOut.prototype.byte=function(b){ this.grow(1); this.buf[this.n++]=b&255; };
+ByteOut.prototype.u16=function(v){ this.byte(v&255); this.byte((v>>8)&255); };
+ByteOut.prototype.str=function(s){ for(var i=0;i<s.length;i++) this.byte(s.charCodeAt(i)); };
+ByteOut.prototype.arr=function(a,len){ len=len==null?a.length:len; this.grow(len); for(var i=0;i<len;i++) this.buf[this.n++]=a[i]; };
+ByteOut.prototype.result=function(){ return this.buf.slice(0,this.n); };
+
+function quantize(rgba){
+  var n=rgba.length>>2, keys=new Uint16Array(n), hist=new Uint32Array(32768);
+  for(var i=0,j=0;i<n;i++,j+=4){ var k=((rgba[j]>>3)<<10)|((rgba[j+1]>>3)<<5)|(rgba[j+2]>>3); keys[i]=k; hist[k]++; }
+  var bins=[]; for(var k2=0;k2<32768;k2++) if(hist[k2]) bins.push(k2);
+  function comp(k,a){ return a===0?(k>>10)&31:(a===1?(k>>5)&31:k&31); }
+  function mkBox(list){ var mn=[31,31,31],mx=[0,0,0],cnt=0; for(var i=0;i<list.length;i++){ var k=list[i]; cnt+=hist[k]; for(var a=0;a<3;a++){ var v=comp(k,a); if(v<mn[a])mn[a]=v; if(v>mx[a])mx[a]=v; } }
+    var ax=0,rg=-1; for(var a2=0;a2<3;a2++){ var r=mx[a2]-mn[a2]; if(r>rg){rg=r;ax=a2;} } return {list:list,cnt:cnt,axis:ax,range:rg}; }
+  var boxes=[mkBox(bins)];
+  while(boxes.length<256){
+    var bi=-1,best=0; for(var b=0;b<boxes.length;b++){ var bx=boxes[b]; if(bx.list.length<2||bx.range<=0) continue; var sc=bx.range*bx.cnt; if(sc>best){best=sc;bi=b;} }
+    if(bi<0) break;
+    var box=boxes[bi], ax=box.axis; box.list.sort(function(p,q){ return comp(p,ax)-comp(q,ax); });
+    var half=box.cnt/2, acc=0, cut=1; for(var m=0;m<box.list.length-1;m++){ acc+=hist[box.list[m]]; if(acc>=half){ cut=m+1; break; } cut=m+1; }
+    boxes.splice(bi,1,mkBox(box.list.slice(0,cut)),mkBox(box.list.slice(cut)));
+  }
+  var pal=new Uint8Array(768), lut=new Uint8Array(32768);
+  for(var p=0;p<boxes.length;p++){ var L=boxes[p].list, sr=0,sg=0,sb=0,c=0;
+    for(var q=0;q<L.length;q++){ var kk=L[q], h=hist[kk]; sr+=comp(kk,0)*h; sg+=comp(kk,1)*h; sb+=comp(kk,2)*h; c+=h; lut[kk]=p; }
+    pal[p*3]=Math.round(sr/c*255/31); pal[p*3+1]=Math.round(sg/c*255/31); pal[p*3+2]=Math.round(sb/c*255/31); }
+  var idx=new Uint8Array(n); for(var t=0;t<n;t++) idx[t]=lut[keys[t]];
+  return {palette:pal, indices:idx};
+}
+
+function lzw(out,indices,minCode){
+  out.byte(minCode);
+  var clear=1<<minCode, eoi=clear+1, size=minCode+1, next=eoi+1, dict=new Map();
+  var cur=0, bits=0, blk=new Uint8Array(255), bl=0;
+  function emit(code){ cur|=code<<bits; bits+=size; while(bits>=8){ blk[bl++]=cur&255; cur>>>=8; bits-=8; if(bl===255){ out.byte(255); out.arr(blk,255); bl=0; } } }
+  emit(clear);
+  var prefix=indices[0];
+  for(var i=1;i<indices.length;i++){
+    var k=indices[i], key=(prefix<<8)|k, v=dict.get(key);
+    if(v!==undefined){ prefix=v; continue; }
+    emit(prefix);
+    if(next===4096){ emit(clear); dict.clear(); next=eoi+1; size=minCode+1; }
+    else { if(next>=(1<<size)) size++; dict.set(key,next++); }
+    prefix=k;
+  }
+  emit(prefix); emit(eoi);
+  if(bits>0){ blk[bl++]=cur&255; }
+  if(bl){ out.byte(bl); out.arr(blk,bl); }
+  out.byte(0);
+}
+
+function GifEncoder(w,h){ this.w=w; this.h=h; this.out=new ByteOut(); var o=this.out;
+  o.str("GIF89a"); o.u16(w); o.u16(h); o.byte(0x70); o.byte(0); o.byte(0);           // no global table
+  o.byte(0x21); o.byte(0xFF); o.byte(11); o.str("NETSCAPE2.0"); o.byte(3); o.byte(1); o.u16(0); o.byte(0); // loop forever
+}
+GifEncoder.prototype.addFrame=function(rgba,delayCs){ var o=this.out, q=quantize(rgba);
+  o.byte(0x21); o.byte(0xF9); o.byte(4); o.byte(0x04); o.u16(delayCs); o.byte(0); o.byte(0);   // GCE: disposal=1 (leave)
+  o.byte(0x2C); o.u16(0); o.u16(0); o.u16(this.w); o.u16(this.h); o.byte(0x87);             // local table, 256 colours
+  o.arr(q.palette,768); lzw(o,q.indices,8); };
+GifEncoder.prototype.finish=function(){ this.out.byte(0x3B); return this.out.result(); };
+
+// =====================================================================
+//  DREAM GENERATOR — DeepDream trading cards with an infinite zoom.
+//  Runs InceptionV3 in the browser with TensorFlow.js on whichever engine
+//  benchmarks fastest on this device (WebGPU / WebGL = GPU, WASM / JS = CPU).
+//  Model files: models/inceptionv3/  (make them with tools/export_inceptionv3.py)
+// =====================================================================
+
+// ===== CONFIG =====
+const MODEL_URL = "models/inceptionv3/model.json";
+const WASM_PATH = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/";
+const TOWN_FILE = "index.html?ret=1";
+// Output order of the exported model (see tools/export_inceptionv3.py)
+const LAYERS = ["mixed2","mixed3","mixed4","mixed5"];
+// Dream sizes (art is 4:5). Lower = faster, especially on phones without a strong GPU.
+const QUALITY = { fast:{w:192,h:240}, normal:{w:256,h:320}, high:{w:320,h:400} };
+const OCTAVES = 3, OCTAVE_SCALE = 1.35, STEP_SIZE = 0.02, JITTER = 24;
+// Zoom: each new frame crops the centre by ZOOM, then dreams ZOOM_STEPS more steps into it.
+const ZOOM = 1.05, ZOOM_STEPS = 4, ZOOM_STEP_SIZE = 0.016, MAX_FRAMES = 300, PLAY_FPS = 12;
+const GIF_W = 300, VIDEO_W = 540;
+// Must match AREAS in index.html
+const AREAS = {
+  "map":   { first:1,  last:11, name:"Dream Core" },
+  "woods": { first:12, last:22, name:"Waking Woods" }
+};
+// Each style weights the four Inception layers differently: early layers = swirls & textures, later = eyes, fur, faces.
+const STYLES = [
+  { name:"Swirl weave",   w:[1.0,0.4,0.0,0.0] },
+  { name:"Pagoda drift",  w:[0.0,1.0,0.3,0.0] },
+  { name:"Eye bloom",     w:[0.0,0.2,0.6,1.0] },
+  { name:"Deep beasts",   w:[0.0,0.0,0.5,1.0] },
+  { name:"Fever lattice", w:[0.6,0.6,0.6,0.6] }
+];
+// Same tiers + odds as the town (77 / 18 / 5). Rarer cards dream harder and get fancier frames.
+const RARITY = {
+  red:   { label:"Common", sym:"●", steps:10, c1:"#ff5555", c2:"#6e1a2b" },
+  green: { label:"Rare",   sym:"◆", steps:14, c1:"#5dff8f", c2:"#15603a" },
+  blue:  { label:"Holo",   sym:"★", steps:18, c1:"#5db4ff", c2:"#2b2a8e" }
+};
+function rollRarity(){ const r=Math.random()*100; return r<77?"red":(r<95?"green":"blue"); }
+const ENGINE_KEY = "dreamgen_engine_v1", QUALITY_KEY = "dreamgen_quality", COUNT_KEY = "dreamgen_count";
+const LABEL = { webgpu:"WebGPU (GPU)", webgl:"WebGL (GPU)", wasm:"WebAssembly (CPU)", cpu:"JavaScript (CPU)" };
+
+// ===== DOM =====
+const $ = id => document.getElementById(id);
+const cardCv=$("card"), cctx=cardCv.getContext("2d");
+const artCv=document.createElement("canvas"), seedCv=document.createElement("canvas"), tmpCv=document.createElement("canvas");
+const params=new URLSearchParams(location.search);
+const townKey=AREAS[params.get("town")]?params.get("town"):"map", town=AREAS[townKey];
+$("townName").textContent=town.name;
+
+let model=null, grads={}, engineOrder=[], engineIdx=0, ready=false, busy=false, zooming=false, live=false;
+let card=null, cur=null, quality=localStorage.getItem(QUALITY_KEY)||"";
+let cardCssW=0, cardCssH=0, DPR=1;
+
+function setStatus(t,err){ const s=$("status"); s.textContent=t; s.className=err?"err":""; }
+function setBar(p){ const b=$("bar"); if(p==null){ b.style.visibility="hidden"; return; } b.style.visibility="visible"; b.firstChild.style.width=Math.round(Math.max(0,Math.min(1,p))*100)+"%"; }
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+// ===== ENGINE SELECTION (benchmarks GPU vs CPU backends, remembers the winner) =====
+let wasmPathSet=false;
+async function tryBackend(name){
+  try{
+    if(!(name in tf.engine().registryFactory)) return false;
+    if(name==="wasm" && !wasmPathSet && tf.wasm && tf.wasm.setWasmPaths){ tf.wasm.setWasmPaths(WASM_PATH); wasmPathSet=true; }
+    if(name==="webgpu" && !navigator.gpu) return false;
+    const ok=await tf.setBackend(name); if(!ok) return false; await tf.ready();
+    return tf.getBackend()===name;
+  }catch(e){ console.warn("Backend "+name+" unavailable:",e); return false; }
+}
+async function bench(name){
+  if(!(await tryBackend(name))) return Infinity;
+  try{
+    const a=tf.randomNormal([1,96,96,48]), f=tf.randomNormal([3,3,48,48]);
+    const gf=tf.grad(z=>tf.conv2d(z,f,1,"same").relu().mean());
+    const run=async()=>{ const g=gf(a); await g.data(); g.dispose(); };
+    await run();                                  // warm-up (shader compile etc.)
+    const t0=performance.now(); for(let i=0;i<3;i++) await run();
+    a.dispose(); f.dispose();
+    return (performance.now()-t0)/3;
+  }catch(e){ console.warn("Benchmark failed on "+name,e); return Infinity; }
+}
+async function pickEngines(){
+  try{ const c=JSON.parse(localStorage.getItem(ENGINE_KEY)||"null"); if(c && Array.isArray(c.order) && c.order.length) return c.order; }catch(e){}
+  const cands=["webgpu","webgl","wasm"], times={};
+  for(const n of cands){ setStatus("Testing "+LABEL[n]+"…"); times[n]=await bench(n); }
+  const order=cands.filter(n=>isFinite(times[n])).sort((a,b)=>times[a]-times[b]); order.push("cpu");
+  console.log("Dream engine benchmark (ms, lower is better):",times);
+  try{ localStorage.setItem(ENGINE_KEY,JSON.stringify({order:order,times:times})); }catch(e){}
+  return order;
+}
+async function activate(name){
+  if(model){ model.dispose(); model=null; } grads={}; if(cur){ cur.dispose(); cur=null; }
+  if(!(await tryBackend(name))) throw new Error(name+" unavailable");
+  $("engineBtn").textContent="Engine: "+LABEL[name];
+  setStatus("Loading InceptionV3 on "+LABEL[name]+"…"); setBar(0);
+  model=await tf.loadLayersModel(MODEL_URL,{onProgress:p=>setBar(p)});
+  setStatus("Warming up the dream engine…"); setBar(null);
+  const t=tf.randomUniform([1,96,112,3],-1,1), s=dreamStep(t,0.01,0); await s.data(); t.dispose(); s.dispose();
+}
+async function nextEngine(){
+  while(++engineIdx<engineOrder.length){
+    try{ await activate(engineOrder[engineIdx]); return true; }catch(e){ console.warn(e); }
+  }
+  return false;
+}
+
+// ===== DEEPDREAM CORE =====
+function getGrad(styleIdx){
+  if(grads[styleIdx]) return grads[styleIdx];
+  const w=STYLES[styleIdx].w;
+  return grads[styleIdx]=tf.grad(img=>{
+    let outs=model.apply(img,{training:false}); if(!Array.isArray(outs)) outs=[outs];
+    let loss=null;
+    for(let i=0;i<outs.length;i++){ const wi=(w[i]!=null)?w[i]:(i===outs.length-1?1:0); if(!wi) continue; const l=tf.mean(outs[i]).mul(wi); loss=loss?loss.add(l):l; }
+    return loss||tf.mean(outs[outs.length-1]);
+  });
+}
+function roll(t,shift,axis){ const n=t.shape[axis]; shift=((shift%n)+n)%n; if(!shift) return t; const p=tf.split(t,[n-shift,shift],axis); return tf.concat([p[1],p[0]],axis); }
+function dreamStep(img,size,styleIdx){
+  return tf.tidy(()=>{
+    const sy=Math.floor((Math.random()*2-1)*JITTER), sx=Math.floor((Math.random()*2-1)*JITTER);
+    const shifted=roll(roll(img,sy,1),sx,2);                 // random shift hides tiling seams
+    let g=getGrad(styleIdx)(shifted);
+    g=roll(roll(g,-sy,1),-sx,2);
+    const std=tf.moments(g).variance.sqrt();
+    return img.add(g.div(std.add(1e-8)).mul(size)).clipByValue(-1,1);
+  });
+}
+function zoomIn(img,z){
+  return tf.tidy(()=>{
+    const h=img.shape[1], w=img.shape[2], m=(1-1/z)/2;
+    try{ return tf.image.cropAndResize(img,tf.tensor2d([[m,m,1-m,1-m]]),tf.tensor1d([0],"int32"),[h,w],"bilinear"); }
+    catch(e){ const ch=Math.round(h/z), cw=Math.round(w/z); return tf.image.resizeBilinear(img.slice([0,Math.floor((h-ch)/2),Math.floor((w-cw)/2),0],[1,ch,cw,3]),[h,w]); }
+  });
+}
+function canvasToTensor(cv){ return tf.tidy(()=>tf.browser.fromPixels(cv).toFloat().div(127.5).sub(1).expandDims(0)); }
+async function tensorToCanvas(img,cv){ const t=tf.tidy(()=>img.squeeze([0]).add(1).div(2).clipByValue(0,1)); await tf.browser.toPixels(t,cv); t.dispose(); }
+
+// ===== SEED IMAGE (a dreamling from this town, sometimes with a fractal mixed in) =====
+function loadImg(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error("Couldn't load "+src)); im.src=src; }); }
+function coverDraw(ctx,im,w,h,alpha){ const s=Math.max(w/im.naturalWidth,h/im.naturalHeight), dw=im.naturalWidth*s, dh=im.naturalHeight*s; ctx.globalAlpha=alpha; ctx.drawImage(im,(w-dw)/2,(h-dh)/2,dw,dh); ctx.globalAlpha=1; }
+async function buildSeed(c){
+  seedCv.width=c.w; seedCv.height=c.h; const sx=seedCv.getContext("2d");
+  const g=sx.createRadialGradient(c.w/2,c.h/2,4,c.w/2,c.h/2,c.w); g.addColorStop(0,"#6a3aa8"); g.addColorStop(1,"#10081f"); sx.fillStyle=g; sx.fillRect(0,0,c.w,c.h);
+  try{ coverDraw(sx,await loadImg("dreamling"+c.seed+".png"),c.w,c.h,1); }catch(e){ console.warn(e); }
+  if(c.fractal){ try{ sx.globalCompositeOperation="overlay"; coverDraw(sx,await loadImg("fractal"+c.fractal+".png"),c.w,c.h,0.55); }catch(e){} sx.globalCompositeOperation="source-over"; }
+}
+function pickSeed(){
+  let dex=[]; try{ dex=JSON.parse(localStorage.getItem("qu33phDLDex")||"[]"); }catch(e){}
+  const all=[]; for(let i=town.first;i<=town.last;i++) all.push(i);
+  const mine=all.filter(n=>dex.indexOf(n)>=0);
+  return pick(mine.length?mine:all);
+}
+const SYL1=["Zo","Mi","Glo","Ve","Lu","Dra","Ni","Quo","Ska","Be","Oo","Phi","Ky","Mor","Sel","Tae","Wu","Fen"];
+const SYL2=["rb","ll","sh","v","nd","m","z","th","r","x","lv","gg"];
+const SYL3=["ling","eye","bloom","morph","ra","dream","ix","oo","wisp","spire","mire","glint"];
+function makeName(){ return pick(SYL1)+pick(SYL2)+pick(SYL3); }
+function nextNumber(){ let n=parseInt(localStorage.getItem(COUNT_KEY)||"0",10)+1; try{ localStorage.setItem(COUNT_KEY,String(n)); }catch(e){} return n; }
+
+// ===== FRAMES =====
+function toBlob(cv,type,q){ return new Promise(r=>cv.toBlob(r,type,q)); }
+function blobToImg(b){ return loadImg(URL.createObjectURL(b)); }
+async function pushFrame(){ const b=await toBlob(artCv,"image/jpeg",0.92); card.frames.push({blob:b,img:await blobToImg(b)}); card.dirty=true; }
+function disposeCard(){ if(card){ card.frames.forEach(f=>{ try{ URL.revokeObjectURL(f.img.src); }catch(e){} }); } card=null; if(cur){ cur.dispose(); cur=null; } }
+
+// ===== GENERATE =====
+async function generate(){
+  if(busy||!ready) return;
+  if(card && card.dirty && !confirm("Start a new card? This one isn't kept yet.")) return;
+  busy=true; updateUI();
+  disposeCard();
+  const q=QUALITY[quality]||QUALITY.normal, rarity=rollRarity();
+  card={ id:"dc"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), no:nextNumber(), name:makeName(), town:townKey, townName:town.name,
+         rarity:rarity, styleIdx:Math.floor(Math.random()*STYLES.length), seed:pickSeed(), fractal:Math.random()<0.35?1+Math.floor(Math.random()*20):0,
+         w:q.w, h:q.h, created:Date.now(), frames:[], dirty:true, saved:false };
+  card.style=STYLES[card.styleIdx].name;
+  setStatus("Loading the seed dreamling…");
+  await buildSeed(card);
+  artCv.width=card.w; artCv.height=card.h; artCv.getContext("2d").drawImage(seedCv,0,0); live=true;
+  const steps=RARITY[rarity].steps, total=steps*OCTAVES;
+  for(;;){
+    try{
+      let img=tf.tidy(()=>canvasToTensor(seedCv).add(tf.randomUniform([1,card.h,card.w,3],-0.06,0.06)).clipByValue(-1,1));
+      let done=0;
+      for(let o=OCTAVES-1;o>=0;o--){
+        const s=Math.pow(OCTAVE_SCALE,-o), h=Math.max(96,Math.round(card.h*s)), w=Math.max(96,Math.round(card.w*s));
+        const r=tf.image.resizeBilinear(img,[h,w]); img.dispose(); img=r;
+        for(let i=0;i<steps;i++){
+          const n=dreamStep(img,STEP_SIZE,card.styleIdx); img.dispose(); img=n; done++;
+          setStatus("Dreaming… layer "+(OCTAVES-o)+" of "+OCTAVES); setBar(done/total);
+          await tensorToCanvas(img,artCv);
+        }
+      }
+      cur=img; break;
+    }catch(e){
+      console.error(e);
+      if(!(await nextEngine())){ setStatus("Dreaming failed on every engine: "+(e&&e.message||e),true); setBar(null); live=false; busy=false; disposeCard(); updateUI(); return; }
+      setStatus("Switched to "+LABEL[engineOrder[engineIdx]]+" — trying again…");
+    }
+  }
+  await tensorToCanvas(cur,artCv); await pushFrame();
+  live=false; busy=false; setBar(null);
+  setStatus(card.name+" is ready. Zoom deeper to fall into the card.");
+  updateUI();
+}
+
+// ===== ZOOM =====
+async function ensureCur(){
+  if(cur) return;
+  const src=card.lastPng?await blobToImg(card.lastPng):card.frames[card.frames.length-1].img;
+  tmpCv.width=card.w; tmpCv.height=card.h; const t=tmpCv.getContext("2d"); t.clearRect(0,0,card.w,card.h); t.drawImage(src,0,0,card.w,card.h);
+  if(card.lastPng) URL.revokeObjectURL(src.src);
+  cur=canvasToTensor(tmpCv);
+}
+async function zoomLoop(){
+  if(!card||busy||zooming) return;
+  zooming=true; live=true; let failed=false; updateUI();
+  artCv.width=card.w; artCv.height=card.h;
+  while(zooming && card.frames.length<MAX_FRAMES){
+    try{
+      await ensureCur();
+      const z=zoomIn(cur,ZOOM); cur.dispose(); cur=z;
+      for(let i=0;i<ZOOM_STEPS;i++){ const n=dreamStep(cur,ZOOM_STEP_SIZE,card.styleIdx); cur.dispose(); cur=n; }
+      await tensorToCanvas(cur,artCv); await pushFrame(); card.lastPng=null;
+      setStatus("Zooming… frame "+card.frames.length+" · depth ×"+depthOf(card)); setBar(card.frames.length/MAX_FRAMES);
+      await tf.nextFrame();
+    }catch(e){
+      console.error(e); if(cur){ cur.dispose(); cur=null; }
+      if(!(await nextEngine())){ setStatus("Zoom failed: "+(e&&e.message||e),true); failed=true; break; }
+      setStatus("Switched to "+LABEL[engineOrder[engineIdx]]+" — carrying on…");
+    }
+  }
+  if(card.frames.length>=MAX_FRAMES) setStatus("That's as deep as a card can hold ("+MAX_FRAMES+" frames). Keep it or export it!");
+  else if(!failed) setStatus(card.frames.length+" frames deep. Zoom again to keep falling.");
+  zooming=false; live=false; setBar(null); playStart=performance.now(); updateUI();
+}
+function depthOf(c){ const d=Math.pow(ZOOM,Math.max(0,c.frames.length-1)); return d<10?d.toFixed(1):Math.round(d).toString(); }
+
+// ===== CARD RENDERING =====
+function rr(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+function fitText(c,t,maxW){ if(c.measureText(t).width<=maxW) return t; while(t.length>1 && c.measureText(t+"…").width>maxW) t=t.slice(0,-1); return t+"…"; }
+function drawCard(c,W,H,cd,art,tms,frameCount){
+  const k=W/360, R=RARITY[cd.rarity], F="Helvetica,Arial,sans-serif";
+  c.save(); c.clearRect(0,0,W,H);
+  // frame
+  rr(c,0,0,W,H,16*k);
+  let g=c.createLinearGradient(0,0,W,H);
+  if(cd.rarity==="blue"){ const o=(tms/40)%360; for(let i=0;i<=6;i++) g.addColorStop(i/6,"hsl("+((o+i*60)%360)+",85%,62%)"); }
+  else { g.addColorStop(0,R.c1); g.addColorStop(0.5,R.c2); g.addColorStop(1,R.c1); }
+  c.fillStyle=g; c.fill();
+  const b=11*k; rr(c,b,b,W-2*b,H-2*b,11*k); c.fillStyle="#0d0a17"; c.fill();
+  // name bar
+  c.textBaseline="middle"; c.textAlign="right"; c.font="bold "+(11*k)+"px "+F; c.fillStyle=R.c1;
+  const rl=R.sym+" "+R.label; c.fillText(rl,W-b-10*k,b+19*k); const rlw=c.measureText(rl).width;
+  c.textAlign="left"; c.font="bold "+(18*k)+"px "+F; c.fillStyle="#fff"; c.fillText(fitText(c,cd.name,W-2*b-rlw-34*k),b+10*k,b+19*k);
+  // art window (4:5)
+  const ax=b+8*k, ay=b+36*k, aw=W-2*ax, ah=aw*1.25;
+  c.save(); rr(c,ax,ay,aw,ah,6*k); c.clip(); c.fillStyle="#05020a"; c.fillRect(ax,ay,aw,ah);
+  if(art){ c.imageSmoothingEnabled=true; c.imageSmoothingQuality="high"; c.drawImage(art,ax,ay,aw,ah); }
+  if(cd.rarity!=="red"){ const p=((tms/2600)%1)*1.6-0.3, sg=c.createLinearGradient(ax,ay,ax+aw,ay+ah);
+    const cl=v=>Math.min(1,Math.max(0,v)); sg.addColorStop(cl(p-0.15),"rgba(255,255,255,0)"); sg.addColorStop(cl(p),"rgba(255,255,255,"+(cd.rarity==="blue"?0.28:0.16)+")"); sg.addColorStop(cl(p+0.15),"rgba(255,255,255,0)");
+    c.globalCompositeOperation="overlay"; c.fillStyle=sg; c.fillRect(ax,ay,aw,ah); c.globalCompositeOperation="source-over"; }
+  if(frameCount>1){ const t="Depth ×"+depthOf({frames:{length:frameCount}}); c.font="bold "+(11*k)+"px "+F; const tw=c.measureText(t).width+14*k;
+    rr(c,ax+7*k,ay+7*k,tw,20*k,10*k); c.fillStyle="rgba(8,4,18,.72)"; c.fill(); c.fillStyle="#8affea"; c.textAlign="left"; c.fillText(t,ax+14*k,ay+17.5*k); }
+  c.restore();
+  c.strokeStyle=R.c1; c.lineWidth=2*k; rr(c,ax,ay,aw,ah,6*k); c.stroke();
+  // info
+  const y1=ay+ah+15*k, y2=y1+17*k;
+  c.textAlign="left"; c.font="bold "+(12.5*k)+"px "+F; c.fillStyle="#c9a0ff"; c.fillText(cd.style,ax+2*k,y1);
+  c.textAlign="right"; c.fillText("Seed #"+cd.seed+(cd.fractal?" + fractal":""),W-ax-2*k,y1);
+  c.font=(10.5*k)+"px "+F; c.fillStyle="#8affea"; c.textAlign="left"; c.fillText(cd.townName+" generator",ax+2*k,y2);
+  c.textAlign="right"; c.fillText("No. "+String(cd.no||0).padStart(4,"0"),W-ax-2*k,y2);
+  c.restore();
+}
+function drawBack(c,W,H,tms){
+  const k=W/360; c.save(); c.clearRect(0,0,W,H);
+  rr(c,0,0,W,H,16*k); const g=c.createLinearGradient(0,0,W,H); g.addColorStop(0,"#3a2466"); g.addColorStop(1,"#150b2b"); c.fillStyle=g; c.fill();
+  c.strokeStyle="#c9a0ff"; c.lineWidth=2*k; rr(c,11*k,11*k,W-22*k,H-22*k,11*k); c.stroke();
+  const cx=W/2, cy=H*0.45, hue=(tms/25)%360;
+  const eg=c.createRadialGradient(cx,cy,0,cx,cy,90*k); eg.addColorStop(0,"#05020a"); eg.addColorStop(0.3,"#05020a"); eg.addColorStop(0.34,"hsl("+hue+",100%,60%)"); eg.addColorStop(0.65,"hsl("+((hue+90)%360)+",100%,55%)"); eg.addColorStop(1,"rgba(10,6,20,0)");
+  c.fillStyle=eg; c.beginPath(); c.arc(cx,cy,90*k,0,7); c.fill();
+  c.strokeStyle="rgba(255,255,255,.3)"; c.lineWidth=1.5*k;
+  for(let i=0;i<7;i++){ const a0=tms/900+i*0.9; c.beginPath(); c.arc(cx,cy,(34+i*9)*k,a0,a0+1.5); c.stroke(); }
+  c.fillStyle="#f1e9ff"; c.textAlign="center"; c.textBaseline="middle"; c.font="bold "+(22*k)+"px Helvetica,Arial,sans-serif"; c.fillText("Deepdreamlings",cx,H*0.74);
+  c.fillStyle="#8affea"; c.font=(13*k)+"px Helvetica,Arial,sans-serif"; c.fillText(town.name+" dream generator",cx,H*0.74+26*k);
+  c.restore();
+}
+let playStart=performance.now();
+function tick(t){
+  const W=cardCv.width, H=cardCv.height;
+  if(card){ let art=null, n=card.frames.length;
+    if(live) art=artCv; else if(n){ art=card.frames[Math.floor(Math.max(0,t-playStart)/1000*PLAY_FPS)%n].img; }
+    drawCard(cctx,W,H,card,art,t,n);
+  } else drawBack(cctx,W,H,t);
+  requestAnimationFrame(tick);
+}
+function layout(){
+  const m=$("main"), aw=m.clientWidth, ah=m.clientHeight;
+  cardCssH=Math.floor(Math.min(ah,aw*1.4)); cardCssW=Math.floor(cardCssH/1.4);
+  DPR=Math.min(3,window.devicePixelRatio||1);
+  cardCv.style.width=cardCssW+"px"; cardCv.style.height=cardCssH+"px";
+  cardCv.width=Math.round(cardCssW*DPR); cardCv.height=Math.round(cardCssH*DPR);
+}
+new ResizeObserver(layout).observe($("main"));
+
+// ===== KEEP (IndexedDB) =====
+const DB_NAME="deepdreamlings_generator", STORE="cards";
+function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME,1); r.onupgradeneeded=()=>{ r.result.createObjectStore(STORE,{keyPath:"id"}); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbDo(mode,fn){ const db=await idb(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,mode), st=tx.objectStore(STORE); const r=fn(st); tx.oncomplete=()=>res(r&&r.result); tx.onerror=()=>rej(tx.error); tx.onabort=()=>rej(tx.error); }); }
+function cardRecord(c){ return { id:c.id, no:c.no, name:c.name, town:c.town, townName:c.townName, rarity:c.rarity, styleIdx:c.styleIdx, style:c.style, seed:c.seed, fractal:c.fractal, w:c.w, h:c.h, created:c.created, frames:c.frames.map(f=>f.blob), lastPng:c.lastPng||null }; }
+async function keepCard(){
+  if(!card||busy||zooming) return;
+  busy=true; updateUI(); setStatus("Keeping "+card.name+"…");
+  try{
+    if(cur){ tmpCv.width=card.w; tmpCv.height=card.h; await tensorToCanvas(cur,tmpCv); card.lastPng=await toBlob(tmpCv,"image/png"); }
+    await idbDo("readwrite",st=>st.put(cardRecord(card)));
+    card.saved=true; card.dirty=false; setStatus(card.name+" is in My cards.");
+  }catch(e){ console.error(e); setStatus("Couldn't keep the card: "+(e&&e.message||e)+". Your browser storage may be full — try exporting instead.",true); }
+  busy=false; updateUI();
+}
+
+// ===== GALLERY =====
+let galUrls=[];
+async function openGallery(){
+  if(busy||zooming) return;
+  const grid=$("grid"); grid.innerHTML=""; $("gallery").classList.add("open");
+  let recs=[]; try{ recs=await idbDo("readonly",st=>st.getAll()) || []; }catch(e){ console.error(e); }
+  recs.sort((a,b)=>b.created-a.created);
+  if(!recs.length){ grid.innerHTML='<div id="empty">No kept cards yet. Generate one and press Keep.</div>'; return; }
+  for(const r of recs){
+    const tile=document.createElement("button"); tile.className="tile"; tile.setAttribute("aria-label","Open "+r.name);
+    const cv=document.createElement("canvas"); cv.width=240; cv.height=336; tile.appendChild(cv);
+    const del=document.createElement("button"); del.className="del"; del.textContent="✕"; del.setAttribute("aria-label","Delete "+r.name); tile.appendChild(del);
+    grid.appendChild(tile);
+    drawCard(cv.getContext("2d"),240,336,r,null,0,r.frames.length);
+    if(r.frames.length){ const u=URL.createObjectURL(r.frames[0]); galUrls.push(u); loadImg(u).then(im=>drawCard(cv.getContext("2d"),240,336,r,im,0,r.frames.length)); }
+    tile.onclick=()=>openCard(r);
+    del.onclick=async e=>{ e.stopPropagation(); if(!confirm("Delete "+r.name+"?")) return; await idbDo("readwrite",st=>st.delete(r.id)); if(card&&card.id===r.id) card.saved=false; openGallery(); };
+  }
+}
+function closeGallery(){ $("gallery").classList.remove("open"); galUrls.forEach(u=>URL.revokeObjectURL(u)); galUrls=[]; }
+async function openCard(r){
+  if(card && card.dirty && card.id!==r.id && !confirm("Open "+r.name+"? The current card isn't kept yet.")) return;
+  closeGallery(); busy=true; updateUI(); setStatus("Opening "+r.name+"…");
+  disposeCard();
+  const c=Object.assign({},r,{frames:[],dirty:false,saved:true});
+  for(const b of r.frames) c.frames.push({blob:b,img:await blobToImg(b)});
+  card=c; playStart=performance.now(); busy=false;
+  setStatus(card.name+" · "+card.frames.length+" frames. Zoom deeper to keep going.");
+  updateUI();
+}
+
+// ===== EXPORT: GIF + VIDEO =====
+let resultBlob=null, resultName="", resultUrl=null;
+function showResult(blob,name,kind){
+  resultBlob=blob; resultName=name; if(resultUrl) URL.revokeObjectURL(resultUrl); resultUrl=URL.createObjectURL(blob);
+  const box=$("result"); box.innerHTML="";
+  const el=document.createElement(kind==="gif"?"img":"video"); el.src=resultUrl;
+  if(kind!=="gif"){ el.controls=true; el.loop=true; el.muted=true; el.playsInline=true; el.autoplay=true; }
+  box.appendChild(el);
+  $("resultTitle").textContent=name; $("resultHint").style.display=kind==="gif"?"block":"none";
+  const f=new File([blob],name,{type:blob.type});
+  $("shareBtn").style.display=(navigator.canShare&&navigator.canShare({files:[f]}))?"":"none";
+  $("resultSheet").classList.add("open");
+}
+function fileBase(){ return (card.name+"-"+String(card.no||0).padStart(4,"0")).replace(/[^\w-]+/g,""); }
+async function exportGif(){
+  if(!card||busy||zooming||!card.frames.length) return;
+  busy=true; updateUI();
+  try{
+    const W=GIF_W, H=Math.round(GIF_W*1.4), cv=document.createElement("canvas"); cv.width=W; cv.height=H; const c=cv.getContext("2d",{willReadFrequently:true});
+    const enc=new GifEncoder(W,H), n=card.frames.length, delay=Math.round(100/PLAY_FPS);
+    const count=Math.max(n, n===1?24:0);           // a single frame still gets its holo shimmer
+    for(let i=0;i<count;i++){
+      drawCard(c,W,H,card,card.frames[i%n].img,i*1000/PLAY_FPS,n);
+      enc.addFrame(c.getImageData(0,0,W,H).data,delay);
+      setStatus("Making GIF… "+(i+1)+" / "+count); setBar((i+1)/count);
+      if(i%2===1) await sleep(0);
+    }
+    showResult(new Blob([enc.finish()],{type:"image/gif"}),fileBase()+".gif","gif");
+    setStatus("GIF ready.");
+  }catch(e){ console.error(e); setStatus("GIF export failed: "+(e&&e.message||e),true); }
+  setBar(null); busy=false; updateUI();
+}
+function videoMime(){ if(!window.MediaRecorder) return null; const m=["video/mp4;codecs=avc1","video/mp4","video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"]; for(const t of m) if(MediaRecorder.isTypeSupported(t)) return t; return ""; }
+async function exportVideo(){
+  if(!card||busy||zooming||!card.frames.length) return;
+  const mime=videoMime(); if(mime===null){ setStatus("This browser can't record video. Try the GIF instead.",true); return; }
+  busy=true; updateUI();
+  try{
+    const cv=$("exportCv"), W=VIDEO_W, H=Math.round(VIDEO_W*1.4); cv.width=W; cv.height=H; const c=cv.getContext("2d");
+    const n=card.frames.length, count=Math.max(n,PLAY_FPS*3);     // at least 3 seconds
+    drawCard(c,W,H,card,card.frames[0].img,0,n);
+    const stream=cv.captureStream(30), chunks=[];
+    const rec=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:5000000}:{videoBitsPerSecond:5000000});
+    rec.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
+    const stopped=new Promise(r=>rec.onstop=r);
+    rec.start(250);
+    const t0=performance.now();
+    for(let i=0;i<count;i++){
+      drawCard(c,W,H,card,card.frames[i%n].img,i*1000/PLAY_FPS,n);
+      setStatus("Recording video… "+(i+1)+" / "+count); setBar((i+1)/count);
+      const wait=t0+(i+1)*1000/PLAY_FPS-performance.now(); await sleep(Math.max(0,wait));
+    }
+    await sleep(120); rec.stop(); await stopped; stream.getTracks().forEach(t=>t.stop());
+    const type=(rec.mimeType||mime||"video/webm").split(";")[0], ext=type.indexOf("mp4")>=0?"mp4":"webm";
+    showResult(new Blob(chunks,{type:type}),fileBase()+"."+ext,"video");
+    setStatus("Video ready.");
+  }catch(e){ console.error(e); setStatus("Video export failed: "+(e&&e.message||e),true); }
+  setBar(null); busy=false; updateUI();
+}
+$("dlBtn").onclick=()=>{ const a=document.createElement("a"); a.href=resultUrl; a.download=resultName; document.body.appendChild(a); a.click(); a.remove(); };
+$("shareBtn").onclick=async()=>{ try{ await navigator.share({files:[new File([resultBlob],resultName,{type:resultBlob.type})],title:resultName}); }catch(e){ if(e&&e.name!=="AbortError") setStatus("Sharing failed — use Download instead.",true); } };
+$("resultClose").onclick=()=>{ $("resultSheet").classList.remove("open"); $("result").innerHTML=""; };
+
+// ===== UI =====
+function updateUI(){
+  const p=$("primary"), has=!!(card&&card.frames.length);
+  p.classList.toggle("stop",zooming);
+  if(zooming){ p.textContent="Stop zooming"; p.disabled=false; }
+  else if(has){ p.textContent=card.frames.length>=MAX_FRAMES?"Card is full":"Zoom deeper"; p.disabled=busy||!ready||card.frames.length>=MAX_FRAMES; }
+  else { p.textContent="Generate"; p.disabled=busy||!ready; }
+  const idle=has&&!busy&&!zooming;
+  $("newBtn").disabled=!ready||busy||zooming||!has;
+  $("keepBtn").disabled=!idle||(card.saved&&!card.dirty); $("keepBtn").textContent=(has&&card.saved)?(card.dirty?"Update":"Kept"):"Keep";
+  $("gifBtn").disabled=!idle; $("vidBtn").disabled=!idle;
+  $("galBtn").disabled=busy||zooming; $("qualitySel").disabled=busy||zooming||!ready; $("engineBtn").disabled=busy||zooming;
+}
+$("primary").onclick=()=>{ if(zooming){ zooming=false; setStatus("Finishing this frame…"); } else if(card&&card.frames.length) zoomLoop(); else generate(); };
+$("newBtn").onclick=generate;
+$("keepBtn").onclick=keepCard;
+$("gifBtn").onclick=exportGif;
+$("vidBtn").onclick=exportVideo;
+$("galBtn").onclick=openGallery;
+$("galClose").onclick=closeGallery;
+$("qualitySel").onchange=e=>{ quality=e.target.value; try{ localStorage.setItem(QUALITY_KEY,quality); }catch(err){} setStatus("New cards will dream at "+QUALITY[quality].w+"×"+QUALITY[quality].h+"."); };
+$("engineBtn").onclick=()=>{ if(busy||zooming) return; if(card&&card.dirty&&!confirm("Re-test engines? This reloads the page and the current card isn't kept yet.")) return; try{ localStorage.removeItem(ENGINE_KEY); }catch(e){} location.reload(); };
+function goTown(){ if(card&&card.dirty&&card.frames.length&&!confirm("Leave without keeping "+card.name+"?")) return; zooming=false; location.href=TOWN_FILE; }
+$("backBtn").onclick=goTown;
+addEventListener("keydown",e=>{
+  if(e.target&&e.target.tagName==="SELECT") return;
+  if($("gallery").classList.contains("open")||$("resultSheet").classList.contains("open")){ if(e.key==="Escape"||e.key==="b"){ closeGallery(); $("resultClose").onclick(); } return; }
+  if(e.key==="a"||e.key==="Enter"||e.key===" "){ if(document.activeElement&&document.activeElement.tagName==="BUTTON"&&e.key!=="a") return; e.preventDefault(); if(!$("primary").disabled) $("primary").onclick(); }
+  else if(e.key==="b"||e.key==="Escape"){ goTown(); }
+});
+
+// ===== BOOT =====
+async function boot(){
+  layout(); requestAnimationFrame(tick); updateUI();
+  if(typeof tf==="undefined"){ setStatus("Couldn't load TensorFlow.js. Check your internet connection and reload.",true); return; }
+  setStatus("Looking for the InceptionV3 model…");
+  let found=false; try{ const r=await fetch(MODEL_URL,{cache:"no-cache"}); found=r.ok; }catch(e){}
+  if(!found){ setStatus("Model not found at "+MODEL_URL+". Run tools/export_inceptionv3.py and upload the models/inceptionv3 folder (see DREAM_GENERATOR.md).",true); return; }
+  try{ tf.enableProdMode(); }catch(e){}
+  engineOrder=await pickEngines(); engineIdx=-1;
+  if(!(await nextEngine())){ setStatus("The dream engine couldn't start on this device.",true); $("engineBtn").textContent="Engine: none"; return; }
+  if(!QUALITY[quality]) quality=(engineOrder[engineIdx]==="webgpu"||engineOrder[engineIdx]==="webgl")?"normal":"fast";
+  $("qualitySel").value=quality;
+  ready=true; setStatus("Ready. Press Generate to dream a card."); updateUI();
+}
+boot();
+</script>
+</body>
+</html>
