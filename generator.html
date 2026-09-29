@@ -251,11 +251,25 @@ async function activate(name){
   setStatus("Loading InceptionV3 on "+LABEL[name]+"…"); setBar(0);
   try{ model=await tf.loadLayersModel(MODEL_URL,{onProgress:p=>setBar(p)}); }
   catch(e){ throw new Error("loading the model failed: "+(e&&e.message||e)); }
+  patchBatchNorm(model);
   setStatus("Warming up the dream engine…"); setBar(null);
   try{ const t=tf.randomUniform([1,96,112,3],-1,1), s=dreamStep(t,0.01,0); await s.data(); t.dispose(); s.dispose(); }
   catch(e){ throw new Error("the test dream failed: "+(e&&e.message||e)); }
 }
 let engineErrors=[];
+// InceptionV3's batch-norm layers have no "scale" (gamma) weight. TF.js can run them forward,
+// but its gradient code crashes on the missing weight ("reading 'dataId'"). Adding a gamma of
+// all ones changes nothing in the maths and makes the gradients work.
+function patchBatchNorm(m){
+  let n=0;
+  for(const l of m.layers){
+    if(l.getClassName()!=="BatchNormalization" || l.scale || l.gamma) continue;
+    const c=l.movingMean.shape[l.movingMean.shape.length-1];
+    l.gamma=l.addWeight("gamma",[c],"float32",tf.initializers.ones(),null,false);
+    l.scale=true; n++;
+  }
+  console.log("Patched "+n+" batch-norm layers for gradients");
+}
 async function nextEngine(){
   while(++engineIdx<engineOrder.length){
     try{ await activate(engineOrder[engineIdx]); return true; }
