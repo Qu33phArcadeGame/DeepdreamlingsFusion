@@ -22,6 +22,14 @@
   main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;}
   #card{display:block;touch-action:manipulation;}
   #statusWrap{min-height:36px;}
+  #playbar{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--lav);}
+  #playbar.hide{visibility:hidden;}
+  #playbar label{display:flex;align-items:center;gap:8px;flex:1;white-space:nowrap;}
+  #playbar input{flex:1;accent-color:#8affea;min-width:60px;}
+  #speedVal{min-width:44px;color:var(--mint);font-variant-numeric:tabular-nums;}
+  #boomBtn{font-size:13px;padding:7px 10px;border-radius:18px;white-space:nowrap;}
+  #boomBtn.on{background:var(--mint);color:#08120e;border-color:var(--mint);font-weight:bold;}
+  .tile .badge{position:absolute;left:6px;bottom:6px;font-size:11px;font-weight:bold;padding:3px 7px;border-radius:10px;background:rgba(8,4,18,.8);color:var(--mint);}
   #status{font-size:13px;color:var(--lav);text-align:center;line-height:1.35;min-height:18px;max-height:7.2em;overflow:auto;user-select:text;-webkit-user-select:text;word-break:break-word;}
   #status.err{color:#ffb3d1;}
   #bar{height:4px;border-radius:2px;background:#1d1233;margin-top:6px;overflow:hidden;visibility:hidden;}
@@ -76,6 +84,11 @@
     <button id="galBtn">Gallery</button>
   </header>
   <main id="main"><canvas id="card" aria-label="Dream trading card"></canvas></main>
+  <div id="playbar" class="hide">
+    <label>Zoom speed <input type="range" id="speed" min="2" max="30" step="1" value="12" aria-label="Zoom speed, frames per second"></label>
+    <span id="speedVal">12 fps</span>
+    <button id="boomBtn" class="on" aria-pressed="true">⇆ Zoomerang</button>
+  </div>
   <div id="statusWrap"><div id="status" role="status">Starting up…</div><div id="bar"><i></i></div></div>
   <button id="primary" disabled>Dream this card</button>
   <div id="row">
@@ -102,14 +115,14 @@
 </div>
 
 <div class="sheet" id="gallery">
-  <div class="top"><h2>Kept dream cards</h2><button id="galClose">Close</button></div>
+  <div class="top"><h2>Gallery</h2><button id="galClose">Close</button></div>
   <div class="grid" id="grid"></div>
 </div>
 
 <div class="sheet" id="resultSheet">
   <div class="top"><h2 id="resultTitle">Export</h2><button id="resultClose">Close</button></div>
   <div id="result"></div>
-  <div id="resultBtns"><button id="dlBtn">Download</button><button id="shareBtn">Share</button></div>
+  <div id="resultBtns"><button id="dlBtn">Download</button><button id="shareBtn">Share</button><button id="delExportBtn">Delete</button></div>
   <div id="resultHint">On a phone you can also long-press the GIF to save it to your photos.</div>
 </div>
 <canvas id="exportCv"></canvas>
@@ -195,6 +208,11 @@ const TOWN_FILE = "index.html?ret=1";
 const QUALITY = { fast:{w:192,h:240}, normal:{w:256,h:320}, high:{w:320,h:400}, max:{w:432,h:540} };
 const OCTAVES = 3, OCTAVE_SCALE = 1.35, JITTER = 16;
 const MAX_FRAMES = 600, PLAY_FPS = 12, GIF_W = 300, VIDEO_W = 540;
+// Playback: frames per second and "zoomerang" (zoom in, then back out to the start)
+function cardFps(c){ return Math.max(2,Math.min(30,(c&&c.playFps)||PLAY_FPS)); }
+function cardBoom(c){ return !c||c.boomerang!==false; }
+function seqLength(c){ const n=c.frames.length; return (cardBoom(c)&&n>2)?2*n-2:n; }
+function seqFrame(c,k){ const n=c.frames.length; if(!(cardBoom(c)&&n>2)) return k%n; const p=2*n-2, m=k%p; return m<n?m:p-m; }
 const AREAS = {   // must match AREAS in index.html
   "map":   { first:1,  last:11, name:"Dream Core" },
   "woods": { first:12, last:22, name:"Waking Woods" }
@@ -453,8 +471,9 @@ const frameCache=new Map(); let decoding=new Set();
 function cachedFrame(i){
   if(!card) return null;
   const hit=frameCache.get(i);
-  for(let k=1;k<=4;k++){ const j=(i+k)%card.frames.length; if(!frameCache.has(j) && !decoding.has(j)){ decoding.add(j); const cid=card.id; decodeBlob(card.frames[j]).then(bm=>{ decoding.delete(j); if(card && card.id===cid) frameCache.set(j,bm); }); } }
-  for(const k of Array.from(frameCache.keys())){ const d=(k-i+card.frames.length)%card.frames.length; if(d>6 && k!==0){ const bm=frameCache.get(k); if(bm===lastArt) continue; if(bm&&bm.close) bm.close(); frameCache.delete(k); } }
+  const nn=card.frames.length;
+  for(const k of [1,2,3,4,-1,-2,-3,-4]){ const j=((i+k)%nn+nn)%nn; if(!frameCache.has(j) && !decoding.has(j)){ decoding.add(j); const cid=card.id; decodeBlob(card.frames[j]).then(bm=>{ decoding.delete(j); if(card && card.id===cid) frameCache.set(j,bm); }); } }
+  for(const k of Array.from(frameCache.keys())){ const d0=(k-i+nn)%nn, d=Math.min(d0,nn-d0); if(d>6 && k!==0){ const bm=frameCache.get(k); if(bm===lastArt) continue; if(bm&&bm.close) bm.close(); frameCache.delete(k); } }
   return hit||null;
 }
 function clearFrameCache(){ for(const bm of frameCache.values()) if(bm&&bm.close) bm.close(); frameCache.clear(); decoding=new Set(); }
@@ -581,7 +600,7 @@ function tick(t){
   const W=cardCv.width, H=cardCv.height;
   if(card){ let art=null; const n=card.frames.length;
     if(live||!n) art=artCv;
-    else { const i=Math.floor(Math.max(0,t-playStart)/1000*PLAY_FPS)%n; art=cachedFrame(i)||lastArt||artCv; lastArt=art; }
+    else { const i=seqFrame(card,Math.floor(Math.max(0,t-playStart)/1000*cardFps(card))); art=cachedFrame(i)||lastArt||artCv; lastArt=art; }
     try{ drawCard(cctx,W,H,card,art,t,n); }catch(e){ lastArt=null; try{ drawCard(cctx,W,H,card,artCv,t,n); }catch(e2){} }
   } else drawBack(cctx,W,H,t);
 }
@@ -668,10 +687,10 @@ function openSettings(){ if(zooming) return; buildSettings(); $("settings").clas
 function closeSettings(){ $("settings").classList.remove("open"); if(card) { card.style=styleLabel()+(model?" · "+layersLabel():""); } updateUI(); }
 
 // ===== KEEP (IndexedDB) =====
-const DB_NAME="deepdreamlings_generator", STORE="cards";
-function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME,1); r.onupgradeneeded=()=>{ r.result.createObjectStore(STORE,{keyPath:"id"}); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
-async function idbDo(mode,fn){ const db=await idb(); return new Promise((res,rej)=>{ const tx=db.transaction(STORE,mode), st=tx.objectStore(STORE); const r=fn(st); tx.oncomplete=()=>res(r&&r.result); tx.onerror=()=>rej(tx.error); tx.onabort=()=>rej(tx.error); }); }
-function cardRecord(c){ return { id:c.id, no:c.no, name:c.name, town:c.town, townName:c.townName, rarity:c.rarity, style:c.style, detail:c.detail, seedKey:c.seedKey, w:c.w, h:c.h, created:c.created, pathFrame:c.pathFrame||0, frames:c.frames.slice(), lastPng:c.lastPng||null }; }
+const DB_NAME="deepdreamlings_generator", STORE="cards", EXPORTS="exports";
+function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME,2); r.onupgradeneeded=()=>{ const db=r.result; if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:"id"}); if(!db.objectStoreNames.contains(EXPORTS)) db.createObjectStore(EXPORTS,{keyPath:"id"}); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbDo(mode,fn,store){ store=store||STORE; const db=await idb(); return new Promise((res,rej)=>{ const tx=db.transaction(store,mode), st=tx.objectStore(store); const r=fn(st); tx.oncomplete=()=>res(r&&r.result); tx.onerror=()=>rej(tx.error); tx.onabort=()=>rej(tx.error); }); }
+function cardRecord(c){ return { id:c.id, no:c.no, name:c.name, town:c.town, townName:c.townName, rarity:c.rarity, style:c.style, detail:c.detail, seedKey:c.seedKey, w:c.w, h:c.h, created:c.created, pathFrame:c.pathFrame||0, frames:c.frames.slice(), lastPng:c.lastPng||null, playFps:cardFps(c), boomerang:cardBoom(c) }; }
 async function keepCard(){
   if(!card||busy||zooming||!card.frames.length) return;
   busy=true; updateUI(); setStatus("Keeping "+card.name+"…");
@@ -687,9 +706,24 @@ async function keepCard(){
 async function openGallery(){
   if(busy||zooming) return;
   const grid=$("grid"); grid.innerHTML=""; $("gallery").classList.add("open");
-  let recs=[]; try{ recs=await idbDo("readonly",st=>st.getAll())||[]; }catch(e){ console.error(e); }
-  recs.sort((a,b)=>b.created-a.created);
-  if(!recs.length){ grid.innerHTML='<div class="empty">No kept cards yet. Dream one and press Keep.</div>'; return; }
+  let recs=[], exps=[]; try{ recs=await idbDo("readonly",st=>st.getAll())||[]; }catch(e){ console.error(e); }
+  try{ exps=await idbDo("readonly",st=>st.getAll(),EXPORTS)||[]; }catch(e){ console.error(e); }
+  recs.sort((a,b)=>b.created-a.created); exps.sort((a,b)=>b.created-a.created);
+  if(!recs.length && !exps.length){ grid.innerHTML='<div class="empty">Nothing here yet. Dream a card, then press Keep, GIF or Video.</div>'; return; }
+  const head=t=>{ const h=document.createElement("h3"); h.textContent=t; grid.appendChild(h); };
+  if(exps.length){ head("Videos & GIFs");
+    for(const x of exps){
+      const tile=document.createElement("button"); tile.className="tile"; tile.setAttribute("aria-label","Play "+x.name);
+      const cv=document.createElement("canvas"); cv.width=220; cv.height=308; tile.appendChild(cv);
+      const bd=document.createElement("span"); bd.className="badge"; bd.textContent=x.kind==="gif"?"GIF":"VIDEO"; tile.appendChild(bd);
+      grid.appendChild(tile);
+      const info=x.card||{name:x.name,rarity:"red",townName:town.name};
+      drawCard(cv.getContext("2d"),220,308,info,null,0,info.frameCount||0);
+      if(x.thumb) decodeBlob(x.thumb).then(im=>{ if(im) drawCard(cv.getContext("2d"),220,308,info,im,0,info.frameCount||0); });
+      tile.onclick=()=>{ showResult(x.blob,x.name,x.kind,x.id); };
+    }
+  }
+  if(recs.length) head("Dream cards");
   for(const r of recs){
     if(!r.detail && r.seed) r.detail="Seed #"+r.seed;
     const tile=document.createElement("button"); tile.className="tile"; tile.setAttribute("aria-label","Open "+r.name);
@@ -715,7 +749,14 @@ async function openKept(r){
 
 // ===== EXPORT: GIF + VIDEO =====
 let resultBlob=null, resultName="", resultUrl=null;
-function showResult(blob,name,kind){
+let resultExportId=null;
+async function saveExport(blob,name,kind){
+  const rec={ id:"ex"+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:name, kind:kind, blob:blob, created:Date.now(), thumb:card.frames[0]||null,
+    card:{ name:card.name, rarity:card.rarity, detail:card.detail, style:card.style, townName:card.townName, no:card.no, frameCount:card.frames.length } };
+  try{ await idbDo("readwrite",st=>st.put(rec),EXPORTS); return rec.id; }catch(e){ console.warn("Couldn't save export to gallery",e); return null; }
+}
+function showResult(blob,name,kind,exportId){
+  resultExportId=exportId||null; $("delExportBtn").style.display=resultExportId?"":"none";
   resultBlob=blob; resultName=name; if(resultUrl) URL.revokeObjectURL(resultUrl); resultUrl=URL.createObjectURL(blob);
   const box=$("result"); box.innerHTML="";
   const el=document.createElement(kind==="gif"?"img":"video"); el.src=resultUrl;
@@ -732,17 +773,19 @@ async function exportGif(){
   busy=true; updateUI();
   try{
     const W=GIF_W, H=Math.round(GIF_W*1.4), cv=document.createElement("canvas"); cv.width=W; cv.height=H; const c=cv.getContext("2d",{willReadFrequently:true});
-    const enc=new GifEncoder(W,H), n=card.frames.length, delay=Math.round(100/PLAY_FPS), count=Math.max(n,n===1?24:0);
-    let im=null;
+    const n=card.frames.length, fps=cardFps(card), L=seqLength(card), delay=Math.max(2,Math.round(100/fps)), count=Math.max(L,n===1?24:0);
+    const enc=new GifEncoder(W,H); let im=null, imIdx=-1;
     for(let i=0;i<count;i++){
-      if(i<n){ if(im&&im.close) im.close(); im=await decodeBlob(card.frames[i]); }
-      drawCard(c,W,H,card,im,i*1000/PLAY_FPS,n);
+      const fi=seqFrame(card,i);
+      if(fi!==imIdx){ if(im&&im.close) im.close(); im=await decodeBlob(card.frames[fi]); imIdx=fi; }
+      drawCard(c,W,H,card,im,i*1000/fps,n);
       enc.addFrame(c.getImageData(0,0,W,H).data,delay);
       setStatus("Making GIF… "+(i+1)+" / "+count); setBar((i+1)/count);
       if(i%2===1) await sleep(0);
     }
     if(im&&im.close) im.close();
-    showResult(new Blob([enc.finish()],{type:"image/gif"}),fileBase()+".gif","gif"); setStatus("GIF ready.");
+    const gb=new Blob([enc.finish()],{type:"image/gif"}), gn=fileBase()+".gif"; const gid=await saveExport(gb,gn,"gif");
+    showResult(gb,gn,"gif",gid); setStatus(gid?"GIF ready — also saved to your Gallery.":"GIF ready.");
   }catch(e){ console.error(e); setStatus("GIF export failed: "+(e&&e.message||e),true); }
   setBar(null); busy=false; updateUI();
 }
@@ -753,8 +796,8 @@ async function exportVideo(){
   busy=true; updateUI();
   try{
     const cv=$("exportCv"), W=VIDEO_W, H=Math.round(VIDEO_W*1.4); cv.width=W; cv.height=H; const c=cv.getContext("2d");
-    const n=card.frames.length, count=Math.max(n,PLAY_FPS*3);
-    const imgs=[]; for(let i=0;i<Math.min(n,count);i++){ imgs.push(await decodeBlob(card.frames[i])); setStatus("Preparing video… "+(i+1)+" / "+n); setBar((i+1)/n/2); if(i%10===9) await sleep(0); }
+    const n=card.frames.length, fps=cardFps(card), L=seqLength(card), count=Math.max(L,Math.ceil(fps*3/L)*L);
+    const imgs=[]; for(let i=0;i<n;i++){ imgs.push(await decodeBlob(card.frames[i])); setStatus("Preparing video… "+(i+1)+" / "+n); setBar((i+1)/n/2); if(i%10===9) await sleep(0); }
     drawCard(c,W,H,card,imgs[0],0,n);
     const stream=cv.captureStream(30), chunks=[];
     const rec=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:5000000}:{videoBitsPerSecond:5000000});
@@ -762,23 +805,38 @@ async function exportVideo(){
     const stopped=new Promise(r=>rec.onstop=r); rec.start(250);
     const t0=performance.now();
     for(let i=0;i<count;i++){
-      drawCard(c,W,H,card,imgs[i%n],i*1000/PLAY_FPS,n);
+      drawCard(c,W,H,card,imgs[seqFrame(card,i)],i*1000/fps,n);
       setStatus("Recording video… "+(i+1)+" / "+count); setBar(0.5+(i+1)/count/2);
-      await sleep(Math.max(0,t0+(i+1)*1000/PLAY_FPS-performance.now()));
+      await sleep(Math.max(0,t0+(i+1)*1000/fps-performance.now()));
     }
     await sleep(120); rec.stop(); await stopped; stream.getTracks().forEach(t=>t.stop());
     imgs.forEach(im=>{ if(im&&im.close) im.close(); });
     const type=(rec.mimeType||mime||"video/webm").split(";")[0], ext=type.indexOf("mp4")>=0?"mp4":"webm";
-    showResult(new Blob(chunks,{type:type}),fileBase()+"."+ext,"video"); setStatus("Video ready.");
+    const vb=new Blob(chunks,{type:type}), vn=fileBase()+"."+ext; const vid=await saveExport(vb,vn,"video");
+    showResult(vb,vn,"video",vid); setStatus(vid?"Video ready — also saved to your Gallery.":"Video ready.");
   }catch(e){ console.error(e); setStatus("Video export failed: "+(e&&e.message||e),true); }
   setBar(null); busy=false; updateUI();
 }
 $("dlBtn").onclick=()=>{ const a=document.createElement("a"); a.href=resultUrl; a.download=resultName; document.body.appendChild(a); a.click(); a.remove(); };
 $("shareBtn").onclick=async()=>{ try{ await navigator.share({files:[new File([resultBlob],resultName,{type:resultBlob.type})],title:resultName}); }catch(e){ if(e&&e.name!=="AbortError") setStatus("Sharing failed — use Download instead.",true); } };
 $("resultClose").onclick=()=>{ $("resultSheet").classList.remove("open"); $("result").innerHTML=""; };
+$("delExportBtn").onclick=async()=>{ if(!resultExportId||!confirm("Delete "+resultName+" from your Gallery?")) return; await idbDo("readwrite",st=>st.delete(resultExportId),EXPORTS); $("resultClose").onclick(); if($("gallery").classList.contains("open")) openGallery(); };
 
 // ===== UI =====
+function syncPlaybar(){
+  const show=!!(card&&card.frames.length>1&&!live);
+  $("playbar").classList.toggle("hide",!show);
+  if(!card) return;
+  const f=cardFps(card), b=cardBoom(card);
+  $("speed").value=f; $("speedVal").textContent=f+" fps";
+  $("boomBtn").classList.toggle("on",b); $("boomBtn").setAttribute("aria-pressed",b?"true":"false");
+}
+function playbarChanged(){ if(!card) return; if(card.saved) card.dirty=true; syncPlaybar(); updateUI(); }
+$("speed").oninput=e=>{ if(!card) return; card.playFps=+e.target.value; $("speedVal").textContent=card.playFps+" fps"; };
+$("speed").onchange=()=>playbarChanged();
+$("boomBtn").onclick=()=>{ if(!card) return; card.boomerang=!cardBoom(card); playStart=performance.now(); playbarChanged(); };
 function updateUI(){
+  syncPlaybar();
   const p=$("primary"), has=!!(card&&card.frames.length);
   p.classList.toggle("stop",zooming);
   if(zooming){ p.textContent="Stop zooming"; p.disabled=false; }
