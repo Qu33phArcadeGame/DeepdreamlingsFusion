@@ -207,7 +207,7 @@ const WASM_PATH = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.
 const TOWN_FILE = "index.html?ret=1";
 const QUALITY = { fast:{w:192,h:240}, normal:{w:256,h:320}, high:{w:320,h:400}, max:{w:432,h:540} };
 const OCTAVES = 3, OCTAVE_SCALE = 1.35, JITTER = 16;
-const MAX_FRAMES = 600, PLAY_FPS = 12, GIF_W = 300, VIDEO_W = 540;
+const MAX_FRAMES = 600, PLAY_FPS = 12, GIF_W = 360, VIDEO_W = 540;
 // Playback: frames per second and "zoomerang" (zoom in, then back out to the start)
 function cardFps(c){ return Math.max(2,Math.min(30,(c&&c.playFps)||PLAY_FPS)); }
 function cardBoom(c){ return !c||c.boomerang!==false; }
@@ -487,6 +487,7 @@ async function startDream(){
   if(!card.no) card.no=nextNumber();
   card.style=styleLabel()+" · "+layersLabel(); card.layers=activeLayers();
   const steps=Math.round(settings.startSteps), total=Math.max(1,steps*OCTAVES);
+  card.recipe={ start:steps, startLayers:activeLayers().join("+"), startLr:+Math.max(0.01,settings.lr).toFixed(4), size:card.w+"×"+card.h, engine:ENGINE_SHORT[engineOrder[engineIdx]]||"GPU", runs:[] };
   for(;;){
     try{
       let img=tf.tidy(()=>canvasToTensor(seedCv).add(tf.randomUniform([1,card.h,card.w,3],-0.04,0.04)).clipByValue(-1,1));
@@ -526,6 +527,11 @@ async function zoomRun(){
   artCv.width=card.w; artCv.height=card.h;
   const want=Math.max(1,Math.round(settings.frames));
   card.style=styleLabel()+" · "+layersLabel();
+  if(!card.recipe) card.recipe={ start:0, size:card.w+"×"+card.h, engine:ENGINE_SHORT[engineOrder[engineIdx]]||"GPU", runs:[] };
+  card.recipe.engine=ENGINE_SHORT[engineOrder[engineIdx]]||card.recipe.engine;
+  const runSig={ path:settings.path, zf:+settings.zoomFactor, steps:Math.round(settings.steps), lr:+settings.lr, range:+settings.range, seg:Math.round(settings.segFrames), sharpen:+(settings.sharpen||0), layers:activeLayers().join("+") };
+  const last=card.recipe.runs[card.recipe.runs.length-1], same=last&&["path","zf","steps","lr","range","seg","sharpen","layers"].every(k=>last[k]===runSig[k]);
+  const run=same?last:Object.assign({frames:0},runSig); if(!same) card.recipe.runs.push(run);
   while(zooming && made<want && card.frames.length<MAX_FRAMES){
     try{
       await ensureCur();
@@ -535,7 +541,7 @@ async function zoomRun(){
       const t0=performance.now();
       for(let i=0;i<settings.steps;i++){ const n=dreamStep(cur,settings.lr); cur.dispose(); cur=n; }
       await tensorToCanvas(cur,artCv); noteStepTime((performance.now()-t0)/Math.max(1,settings.steps));
-      await pushFrame(); card.lastPng=null; made++;
+      await pushFrame(); card.lastPng=null; made++; run.frames++;
       const rest=HEAT_REST[settings.heat]||0; if(rest) await sleep((performance.now()-t0)*rest);
       setStatus(styleLabel()+"… frame "+made+" of "+want+" ("+card.frames.length+" on the card)"); setBar(made/want);
       await tf.nextFrame();
@@ -551,33 +557,71 @@ async function zoomRun(){
 
 // ===== CARD RENDERING =====
 function rr(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+// Shrink the font until the text fits (down to minPx), then trim with … as a last resort.
+function fitFont(c,t,maxW,px,minPx,weight,fam){ t=String(t||""); let s=px; for(;;){ c.font=(weight?weight+" ":"")+s+"px "+fam; if(c.measureText(t).width<=maxW||s<=minPx) break; s=Math.max(minPx,s*0.93); } return fitText(c,t,maxW); }
+function wrapText(c,t,maxW){ const words=String(t||"").split(" "), lines=[]; let line=""; for(const w of words){ const test=line?line+" "+w:w; if(c.measureText(test).width<=maxW||!line) line=test; else { lines.push(line); line=w; } } if(line) lines.push(line); return lines; }
 function fitText(c,t,maxW){ t=String(t||""); if(c.measureText(t).width<=maxW) return t; while(t.length>1 && c.measureText(t+"…").width>maxW) t=t.slice(0,-1); return t+"…"; }
+// The "recipe": everything used to make the card, printed small at the bottom of the art.
+const ENGINE_SHORT={ webgpu:"WebGPU", webgl:"WebGL", wasm:"WASM", cpu:"CPU" };
+function recipeText(cd){
+  const r=cd.recipe; if(!r) return "";
+  const parts=[];
+  if(r.start>0) parts.push("Dreamed "+r.start+" steps × 3 sizes ("+r.startLayers+", lr "+r.startLr+").");
+  const runs=r.runs||[], shown=runs.length>3?runs.slice(-2):runs;
+  if(runs.length>3) parts.push("(+"+(runs.length-2)+" earlier zoom runs)");
+  shown.forEach(z=>{ parts.push(z.frames+"f "+z.path+" zoom ×"+z.zf+", "+z.steps+" steps, lr "+z.lr+(z.path!=="straight"?", range "+z.range+"/"+z.seg+"f":"")+(z.sharpen?", sharpen "+z.sharpen:"")+", "+z.layers+"."); });
+  parts.push(r.size+" on "+r.engine+", plays "+(cd.playFps||12)+" fps"+(cd.boomerang===false?".":" zoomerang."));
+  return parts.join(" ");
+}
+// Pixel-art card frame (180×252, drawn by hand). Transparent pixels show the holo foil underneath.
+// To swap it, replace cardframe.png next to this file (same size, art window at 10,24 sized 160×200).
+const FRAME_DATA="data:image/png;base64,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";
+const frameImg=new Image(); frameImg.src=FRAME_DATA;
+(function(){ const alt=new Image(); alt.onload=()=>{ if(alt.naturalWidth===180&&alt.naturalHeight===252) frameImg.src=alt.src; }; alt.src="cardframe.png"; })();
+const FOIL={ red:{h0:330,span:70,s:85,l:60}, green:{h0:85,span:110,s:80,l:58}, blue:{h0:0,span:360,s:90,l:62} };
 function drawCard(c,W,H,cd,art,tms,frameCount){
-  const k=W/360, R=RARITY[cd.rarity]||RARITY.red, F="Helvetica,Arial,sans-serif";
+  const u=W/180, R=RARITY[cd.rarity]||RARITY.red, F="Helvetica,Arial,sans-serif", foil=FOIL[cd.rarity]||FOIL.red;
   c.save(); c.clearRect(0,0,W,H);
-  rr(c,0,0,W,H,16*k); let g=c.createLinearGradient(0,0,W,H);
-  if(cd.rarity==="blue"){ const o=(tms/40)%360; for(let i=0;i<=6;i++) g.addColorStop(i/6,"hsl("+((o+i*60)%360)+",85%,62%)"); }
-  else { g.addColorStop(0,R.c1); g.addColorStop(0.5,R.c2); g.addColorStop(1,R.c1); }
-  c.fillStyle=g; c.fill();
-  const b=11*k; rr(c,b,b,W-2*b,H-2*b,11*k); c.fillStyle="#0d0a17"; c.fill();
-  c.textBaseline="middle"; c.textAlign="right"; c.font="bold "+(11*k)+"px "+F; c.fillStyle=R.c1;
-  const rl=R.sym+" "+R.label; c.fillText(rl,W-b-10*k,b+19*k); const rlw=c.measureText(rl).width;
-  c.textAlign="left"; c.font="bold "+(18*k)+"px "+F; c.fillStyle="#fff"; c.fillText(fitText(c,cd.name,W-2*b-rlw-34*k),b+10*k,b+19*k);
-  const ax=b+8*k, ay=b+36*k, aw=W-2*ax, ah=aw*1.25;
-  c.save(); rr(c,ax,ay,aw,ah,6*k); c.clip(); c.fillStyle="#05020a"; c.fillRect(ax,ay,aw,ah);
+  // 1) holographic foil (shows through every transparent pixel of the frame)
+  const shift=(tms/30)%360, g=c.createLinearGradient(0,0,W,H);
+  for(let i=0;i<=8;i++){ const hue=foil.span>=360?(shift+i*45)%360:foil.h0+((Math.sin((shift/57)+i*0.9)+1)/2)*foil.span; g.addColorStop(i/8,"hsl("+(hue%360)+","+foil.s+"%,"+foil.l+"%)"); }
+  c.fillStyle=g; c.fillRect(0,0,W,H);
+  const sp=((tms/2200)%1)*1.8-0.4, sh=c.createLinearGradient(0,H,W,0), cl=v=>Math.min(1,Math.max(0,v));
+  sh.addColorStop(cl(sp-0.12),"rgba(255,255,255,0)"); sh.addColorStop(cl(sp),"rgba(255,255,255,0.55)"); sh.addColorStop(cl(sp+0.12),"rgba(255,255,255,0)");
+  c.fillStyle=sh; c.fillRect(0,0,W,H);
+  // 2) dream art in the window
+  const ax=10*u, ay=24*u, aw=160*u, ah=200*u;
+  c.fillStyle="#05020a"; c.fillRect(ax,ay,aw,ah);
   if(art){ c.imageSmoothingEnabled=true; c.imageSmoothingQuality="high"; c.drawImage(art,ax,ay,aw,ah); }
-  if(cd.rarity!=="red"){ const p=((tms/2600)%1)*1.6-0.3, sg=c.createLinearGradient(ax,ay,ax+aw,ay+ah), cl=v=>Math.min(1,Math.max(0,v));
-    sg.addColorStop(cl(p-0.15),"rgba(255,255,255,0)"); sg.addColorStop(cl(p),"rgba(255,255,255,"+(cd.rarity==="blue"?0.28:0.16)+")"); sg.addColorStop(cl(p+0.15),"rgba(255,255,255,0)");
-    c.globalCompositeOperation="overlay"; c.fillStyle=sg; c.fillRect(ax,ay,aw,ah); c.globalCompositeOperation="source-over"; }
-  if(frameCount>1){ const t=frameCount+" frames"; c.font="bold "+(11*k)+"px "+F; const tw=c.measureText(t).width+14*k;
-    rr(c,ax+7*k,ay+7*k,tw,20*k,10*k); c.fillStyle="rgba(8,4,18,.72)"; c.fill(); c.fillStyle="#8affea"; c.textAlign="left"; c.fillText(t,ax+14*k,ay+17.5*k); }
-  c.restore();
-  c.strokeStyle=R.c1; c.lineWidth=2*k; rr(c,ax,ay,aw,ah,6*k); c.stroke();
-  const y1=ay+ah+15*k, y2=y1+17*k;
-  c.textAlign="left"; c.font="bold "+(12*k)+"px "+F; c.fillStyle="#c9a0ff"; c.fillText(fitText(c,cd.detail||"",aw*0.6),ax+2*k,y1);
-  c.textAlign="right"; c.font=(10.5*k)+"px "+F; c.fillText(fitText(c,cd.style||"",aw*0.4),W-ax-2*k,y1);
-  c.fillStyle="#8affea"; c.textAlign="left"; c.fillText(cd.townName+" generator",ax+2*k,y2);
-  c.textAlign="right"; c.fillText(cd.no?"No. "+String(cd.no).padStart(4,"0"):"Not dreamed yet",W-ax-2*k,y2);
+  if(cd.rarity!=="red"){ const p=((tms/2600)%1)*1.6-0.3, ag=c.createLinearGradient(ax,ay,ax+aw,ay+ah);
+    ag.addColorStop(cl(p-0.15),"rgba(255,255,255,0)"); ag.addColorStop(cl(p),"rgba(255,255,255,"+(cd.rarity==="blue"?0.22:0.12)+")"); ag.addColorStop(cl(p+0.15),"rgba(255,255,255,0)");
+    c.globalCompositeOperation="overlay"; c.fillStyle=ag; c.fillRect(ax,ay,aw,ah); c.globalCompositeOperation="source-over"; }
+  // 3) the pixel frame on top, crisp
+  if(frameImg.complete&&frameImg.naturalWidth){ c.imageSmoothingEnabled=false; c.drawImage(frameImg,0,0,W,H); c.imageSmoothingEnabled=true; }
+  else { c.fillStyle="#0d0a17"; c.fillRect(30*u,6*u,120*u,13*u); c.fillRect(30*u,229*u,120*u,19*u); }
+  // 4) recipe band along the bottom of the art (small text, wraps and shrinks to fit)
+  const rt=recipeText(cd);
+  if(rt){ let fs=4*u, lines; const maxW=aw-6*u;
+    for(;;){ c.font=fs+"px "+F; lines=wrapText(c,rt,maxW); if(lines.length<=4||fs<=3*u) break; fs*=0.92; }
+    if(lines.length>4){ lines=lines.slice(0,4); lines[3]=fitText(c,lines[3]+" …",maxW); }
+    const lh=fs*1.22, bh=lines.length*lh+4*u, by=ay+ah-bh;
+    const bg=c.createLinearGradient(0,by-6*u,0,ay+ah); bg.addColorStop(0,"rgba(5,2,12,0)"); bg.addColorStop(0.3,"rgba(5,2,12,0.72)"); bg.addColorStop(1,"rgba(5,2,12,0.85)");
+    c.fillStyle=bg; c.fillRect(ax,by-6*u,aw,bh+6*u);
+    c.textBaseline="middle"; c.textAlign="left"; c.fillStyle="#d9ccf2";
+    lines.forEach((ln,i)=>c.fillText(ln,ax+3*u,by+2*u+lh*(i+0.5)));
+  }
+  // 5) text in the plates (name plate 30..149 × 6..18, info plate 30..149 × 229..247), always shrunk to fit
+  c.textBaseline="middle";
+  const rl=R.sym+" "+R.label; c.font="bold "+(5.2*u)+"px "+F; const rlw=c.measureText(rl).width;
+  c.textAlign="right"; c.fillStyle=R.c1; c.fillText(rl,146*u,12.5*u);
+  c.textAlign="left"; c.fillStyle="#fff"; c.fillText(fitFont(c,cd.name,146*u-rlw-4*u-34*u,7.5*u,4.5*u,"bold",F),34*u,12.5*u);
+  const no=cd.no?"No. "+String(cd.no).padStart(4,"0"):"Not dreamed"; c.font="bold "+(5*u)+"px "+F; const nw=c.measureText(no).width;
+  c.textAlign="right"; c.fillStyle="#8affea"; c.fillText(no,146*u,234.5*u);
+  c.textAlign="left"; c.fillStyle="#c9a0ff"; c.fillText(fitFont(c,cd.detail||"",146*u-nw-4*u-34*u,5.2*u,3.6*u,"bold",F),34*u,234.5*u);
+  c.textAlign="center"; c.fillStyle="#b9a8d8"; c.fillText(fitFont(c,cd.style||cd.townName+" generator",112*u,4.6*u,3.4*u,"",F),90*u,242.5*u);
+  // frame counter badge on the art
+  if(frameCount>1){ const t=frameCount+" frames"; c.font="bold "+(5*u)+"px "+F; const tw=c.measureText(t).width+7*u;
+    c.fillStyle="rgba(8,4,18,.75)"; c.fillRect(ax+3*u,ay+3*u,tw,9*u); c.fillStyle="#8affea"; c.textAlign="left"; c.fillText(t,ax+6.5*u,ay+7.6*u); }
   c.restore();
 }
 function drawBack(c,W,H,tms){
@@ -690,7 +734,7 @@ function closeSettings(){ $("settings").classList.remove("open"); if(card) { car
 const DB_NAME="deepdreamlings_generator", STORE="cards", EXPORTS="exports";
 function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME,2); r.onupgradeneeded=()=>{ const db=r.result; if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:"id"}); if(!db.objectStoreNames.contains(EXPORTS)) db.createObjectStore(EXPORTS,{keyPath:"id"}); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 async function idbDo(mode,fn,store){ store=store||STORE; const db=await idb(); return new Promise((res,rej)=>{ const tx=db.transaction(store,mode), st=tx.objectStore(store); const r=fn(st); tx.oncomplete=()=>res(r&&r.result); tx.onerror=()=>rej(tx.error); tx.onabort=()=>rej(tx.error); }); }
-function cardRecord(c){ return { id:c.id, no:c.no, name:c.name, town:c.town, townName:c.townName, rarity:c.rarity, style:c.style, detail:c.detail, seedKey:c.seedKey, w:c.w, h:c.h, created:c.created, pathFrame:c.pathFrame||0, frames:c.frames.slice(), lastPng:c.lastPng||null, playFps:cardFps(c), boomerang:cardBoom(c) }; }
+function cardRecord(c){ return { id:c.id, no:c.no, name:c.name, town:c.town, townName:c.townName, rarity:c.rarity, style:c.style, detail:c.detail, seedKey:c.seedKey, w:c.w, h:c.h, created:c.created, pathFrame:c.pathFrame||0, frames:c.frames.slice(), lastPng:c.lastPng||null, playFps:cardFps(c), boomerang:cardBoom(c), recipe:c.recipe||null }; }
 async function keepCard(){
   if(!card||busy||zooming||!card.frames.length) return;
   busy=true; updateUI(); setStatus("Keeping "+card.name+"…");
@@ -752,7 +796,7 @@ let resultBlob=null, resultName="", resultUrl=null;
 let resultExportId=null;
 async function saveExport(blob,name,kind){
   const rec={ id:"ex"+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:name, kind:kind, blob:blob, created:Date.now(), thumb:card.frames[0]||null,
-    card:{ name:card.name, rarity:card.rarity, detail:card.detail, style:card.style, townName:card.townName, no:card.no, frameCount:card.frames.length } };
+    card:{ name:card.name, rarity:card.rarity, detail:card.detail, style:card.style, townName:card.townName, no:card.no, frameCount:card.frames.length, recipe:card.recipe||null, playFps:cardFps(card), boomerang:cardBoom(card) } };
   try{ await idbDo("readwrite",st=>st.put(rec),EXPORTS); return rec.id; }catch(e){ console.warn("Couldn't save export to gallery",e); return null; }
 }
 function showResult(blob,name,kind,exportId){
