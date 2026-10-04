@@ -563,15 +563,29 @@ function wrapText(c,t,maxW){ const words=String(t||"").split(" "), lines=[]; let
 function fitText(c,t,maxW){ t=String(t||""); if(c.measureText(t).width<=maxW) return t; while(t.length>1 && c.measureText(t+"…").width>maxW) t=t.slice(0,-1); return t+"…"; }
 // The "recipe": everything used to make the card, printed small at the bottom of the art.
 const ENGINE_SHORT={ webgpu:"WebGPU", webgl:"WebGL", wasm:"WASM", cpu:"CPU" };
-function recipeText(cd){
-  const r=cd.recipe; if(!r) return "";
-  const parts=[];
-  if(r.start>0) parts.push("Dreamed "+r.start+" steps × 3 sizes ("+r.startLayers+", lr "+r.startLr+").");
-  const runs=r.runs||[], shown=runs.length>3?runs.slice(-2):runs;
-  if(runs.length>3) parts.push("(+"+(runs.length-2)+" earlier zoom runs)");
-  shown.forEach(z=>{ parts.push(z.frames+"f "+z.path+" zoom ×"+z.zf+", "+z.steps+" steps, lr "+z.lr+(z.path!=="straight"?", range "+z.range+"/"+z.seg+"f":"")+(z.sharpen?", sharpen "+z.sharpen:"")+", "+z.layers+"."); });
-  parts.push(r.size+" on "+r.engine+", plays "+(cd.playFps||12)+" fps"+(cd.boomerang===false?".":" zoomerang."));
-  return parts.join(" ");
+// Which part of the recipe made frame `idx`: the starting dream (frame 0) or one of the zoom runs.
+// Only that part is shown, so the text follows the zoom (and runs backwards with the zoomerang).
+function recipeSegment(cd,idx){
+  const r=cd.recipe; if(!r) return null;
+  const runs=r.runs||[], foot=r.size+" on "+r.engine+" · plays "+(cd.playFps||12)+" fps"+(cd.boomerang===false?"":" zoomerang");
+  const total=1+runs.reduce((t,z)=>t+z.frames,0); if(idx>=total && runs.length) idx=total-1;
+  let start=1;
+  for(let i=0;i<runs.length;i++){ const z=runs[i];
+    if(idx>=start && idx<start+z.frames){
+      return { bullets:[
+        "Zoom "+(i+1)+" of "+runs.length+": frame "+(idx-start+1)+" of "+z.frames,
+        z.path[0].toUpperCase()+z.path.slice(1)+" zoom ×"+z.zf+" · "+z.steps+" steps · lr "+z.lr+(z.path!=="straight"?" · range "+z.range+", "+z.seg+" frames per side":"")+(z.sharpen?" · sharpen "+z.sharpen:""),
+        "Layers "+z.layers.split("+").join(" + "),
+        foot ],
+        style:PATH_LABEL[z.path]+" · "+z.layers.split("+").join(" + ") };
+    }
+    start+=z.frames;
+  }
+  const L=(r.startLayers||"").split("+").join(" + ");
+  return { bullets: r.start>0
+      ? ["Starting dream: "+r.start+" steps × 3 sizes","lr "+r.startLr+" · layers "+L, runs.length?runs.length+" zoom run"+(runs.length>1?"s":"")+" follow":"No zoom yet", foot]
+      : ["Starting card, no starting dream", runs.length?runs.length+" zoom run"+(runs.length>1?"s":"")+" follow":"No zoom yet", foot],
+    style: r.start>0?"Starting dream · "+L:"Starting card" };
 }
 // Pixel-art card frame (180×252, drawn by hand). Transparent pixels show the holo foil underneath.
 // To swap it, replace cardframe.png next to this file (same size, art window at 10,24 sized 160×200).
@@ -598,7 +612,7 @@ function useFrameSrc(src,strict){ const im=new Image(); im.onload=()=>{ const r=
 useFrameSrc(FRAME_DATA,false);
 useFrameSrc("cardframe.png",true);   // your own file next to generator.html wins if present
 const FOIL={ red:{h0:330,span:70,s:85,l:60}, green:{h0:85,span:110,s:80,l:58}, blue:{h0:0,span:360,s:90,l:62} };
-function drawCard(c,W,H,cd,art,tms,frameCount){
+function drawCard(c,W,H,cd,art,tms,frameCount,frameIdx){
   const u=W/180, R=RARITY[cd.rarity]||RARITY.red, F="Helvetica,Arial,sans-serif", foil=FOIL[cd.rarity]||FOIL.red;
   c.save(); c.clearRect(0,0,W,H);
   // 1) holographic foil (shows through every transparent pixel of the frame)
@@ -618,16 +632,19 @@ function drawCard(c,W,H,cd,art,tms,frameCount){
   // 3) the pixel frame on top, crisp
   if(frameImg){ c.imageSmoothingEnabled=false; c.drawImage(frameImg,0,0,W,H); c.imageSmoothingEnabled=true; }
   else { c.fillStyle="#0d0a17"; c.fillRect(30*u,6*u,120*u,13*u); c.fillRect(30*u,229*u,120*u,19*u); }
-  // 4) recipe band along the bottom of the art (small text, wraps and shrinks to fit)
-  const rt=recipeText(cd);
-  if(rt){ let fs=4*u, lines; const maxW=aw-6*u;
-    for(;;){ c.font=fs+"px "+F; lines=wrapText(c,rt,maxW); if(lines.length<=4||fs<=3*u) break; fs*=0.92; }
-    if(lines.length>4){ lines=lines.slice(0,4); lines[3]=fitText(c,lines[3]+" …",maxW); }
-    const lh=fs*1.22, bh=lines.length*lh+4*u, by=ay+ah-bh;
-    const bg=c.createLinearGradient(0,by-6*u,0,ay+ah); bg.addColorStop(0,"rgba(5,2,12,0)"); bg.addColorStop(0.3,"rgba(5,2,12,0.72)"); bg.addColorStop(1,"rgba(5,2,12,0.85)");
+  // 4) recipe band: bullet points for the part of the recipe that made the frame on screen
+  const seg=recipeSegment(cd,frameIdx==null?0:frameIdx);
+  if(seg){ const maxW=aw-6*u; let fs=4.3*u, lines;
+    const build=()=>{ const out=[]; seg.bullets.forEach(bt=>{ const w=wrapText(c,bt,maxW-5*u); w.forEach((ln,j)=>out.push({t:ln,first:j===0})); }); return out; };
+    for(;;){ c.font=fs+"px "+F; lines=build(); if(lines.length<=6||fs<=3*u) break; fs*=0.92; }
+    if(lines.length>6) lines=lines.slice(0,6);
+    const lh=fs*1.25, bh=lines.length*lh+4*u, by=ay+ah-bh;
+    const bg=c.createLinearGradient(0,by-6*u,0,ay+ah); bg.addColorStop(0,"rgba(5,2,12,0)"); bg.addColorStop(0.3,"rgba(5,2,12,0.74)"); bg.addColorStop(1,"rgba(5,2,12,0.88)");
     c.fillStyle=bg; c.fillRect(ax,by-6*u,aw,bh+6*u);
-    c.textBaseline="middle"; c.textAlign="left"; c.fillStyle="#d9ccf2";
-    lines.forEach((ln,i)=>c.fillText(ln,ax+3*u,by+2*u+lh*(i+0.5)));
+    c.textBaseline="middle"; c.textAlign="left";
+    lines.forEach((ln,i)=>{ const y=by+2*u+lh*(i+0.5);
+      if(ln.first){ c.fillStyle="#8affea"; c.fillText("•",ax+3*u,y); }
+      c.fillStyle=(i===0)?"#ffffff":"#d9ccf2"; c.fillText(ln.t,ax+8*u,y); });
   }
   // 5) text in the plates (name plate 30..149 × 6..18, info plate 30..149 × 229..247), always shrunk to fit
   c.textBaseline="middle";
@@ -637,7 +654,7 @@ function drawCard(c,W,H,cd,art,tms,frameCount){
   const no=cd.no?"No. "+String(cd.no).padStart(4,"0"):"Not dreamed"; c.font="bold "+(5*u)+"px "+F; const nw=c.measureText(no).width;
   c.textAlign="right"; c.fillStyle="#8affea"; c.fillText(no,146*u,234.5*u);
   c.textAlign="left"; c.fillStyle="#c9a0ff"; c.fillText(fitFont(c,cd.detail||"",146*u-nw-4*u-34*u,5.2*u,3.6*u,"bold",F),34*u,234.5*u);
-  c.textAlign="center"; c.fillStyle="#b9a8d8"; c.fillText(fitFont(c,cd.style||cd.townName+" generator",112*u,4.6*u,3.4*u,"",F),90*u,242.5*u);
+  c.textAlign="center"; c.fillStyle="#b9a8d8"; c.fillText(fitFont(c,(seg&&seg.style)||cd.style||cd.townName+" generator",112*u,4.6*u,3.4*u,"",F),90*u,242.5*u);
   // frame counter badge on the art
   if(frameCount>1){ const t=frameCount+" frames"; c.font="bold "+(5*u)+"px "+F; const tw=c.measureText(t).width+7*u;
     c.fillStyle="rgba(8,4,18,.75)"; c.fillRect(ax+3*u,ay+3*u,tw,9*u); c.fillStyle="#8affea"; c.textAlign="left"; c.fillText(t,ax+6.5*u,ay+7.6*u); }
@@ -661,10 +678,10 @@ function tick(t){
   requestAnimationFrame(tick);
   if(t-lastDraw < ((busy||zooming)?66:33)) return; lastDraw=t;
   const W=cardCv.width, H=cardCv.height;
-  if(card){ let art=null; const n=card.frames.length;
+  if(card){ let art=null, fi=Math.max(0,card.frames.length-1); const n=card.frames.length;
     if(live||!n) art=artCv;
-    else { const i=seqFrame(card,Math.floor(Math.max(0,t-playStart)/1000*cardFps(card))); art=cachedFrame(i)||lastArt||artCv; lastArt=art; }
-    try{ drawCard(cctx,W,H,card,art,t,n); }catch(e){ lastArt=null; try{ drawCard(cctx,W,H,card,artCv,t,n); }catch(e2){} }
+    else { fi=seqFrame(card,Math.floor(Math.max(0,t-playStart)/1000*cardFps(card))); art=cachedFrame(fi)||lastArt||artCv; lastArt=art; }
+    try{ drawCard(cctx,W,H,card,art,t,n,fi); }catch(e){ lastArt=null; try{ drawCard(cctx,W,H,card,artCv,t,n,fi); }catch(e2){} }
   } else drawBack(cctx,W,H,t);
 }
 function layout(){
@@ -841,7 +858,7 @@ async function exportGif(){
     for(let i=0;i<count;i++){
       const fi=seqFrame(card,i);
       if(fi!==imIdx){ if(im&&im.close) im.close(); im=await decodeBlob(card.frames[fi]); imIdx=fi; }
-      drawCard(c,W,H,card,im,i*1000/fps,n);
+      drawCard(c,W,H,card,im,i*1000/fps,n,fi);
       enc.addFrame(c.getImageData(0,0,W,H).data,delay);
       setStatus("Making GIF… "+(i+1)+" / "+count); setBar((i+1)/count);
       if(i%2===1) await sleep(0);
@@ -861,14 +878,14 @@ async function exportVideo(){
     const cv=$("exportCv"), W=VIDEO_W, H=Math.round(VIDEO_W*1.4); cv.width=W; cv.height=H; const c=cv.getContext("2d");
     const n=card.frames.length, fps=cardFps(card), L=seqLength(card), count=Math.max(L,Math.ceil(fps*3/L)*L);
     const imgs=[]; for(let i=0;i<n;i++){ imgs.push(await decodeBlob(card.frames[i])); setStatus("Preparing video… "+(i+1)+" / "+n); setBar((i+1)/n/2); if(i%10===9) await sleep(0); }
-    drawCard(c,W,H,card,imgs[0],0,n);
+    drawCard(c,W,H,card,imgs[0],0,n,0);
     const stream=cv.captureStream(30), chunks=[];
     const rec=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:5000000}:{videoBitsPerSecond:5000000});
     rec.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
     const stopped=new Promise(r=>rec.onstop=r); rec.start(250);
     const t0=performance.now();
     for(let i=0;i<count;i++){
-      drawCard(c,W,H,card,imgs[seqFrame(card,i)],i*1000/fps,n);
+      drawCard(c,W,H,card,imgs[seqFrame(card,i)],i*1000/fps,n,seqFrame(card,i));
       setStatus("Recording video… "+(i+1)+" / "+count); setBar(0.5+(i+1)/count/2);
       await sleep(Math.max(0,t0+(i+1)*1000/fps-performance.now()));
     }
