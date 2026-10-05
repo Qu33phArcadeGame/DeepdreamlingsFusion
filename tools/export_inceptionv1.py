@@ -83,6 +83,43 @@ def check_graph(pb_path):
     if missing:
         sys.exit(f"ERROR: layers not found in graph: {missing}")
     print(f"All {len(LAYERS)} dream layers found in graph.")
+    for n in graph_def.node:
+        if n.name == "input" and n.op == "Placeholder":
+            dims = [d.size for d in n.attr["shape"].shape.dim]
+            print(f"Input 'input' shape: {dims}")
+            if len(dims) != 4 or dims[3] != 3:
+                sys.exit(f"ERROR: input shape {dims} is not rank-4 NHWC.")
+
+
+def set_input_shape(pb_path):
+    """Stamp the 'input' placeholder as rank-4 NHWC ([-1,-1,-1,3]).
+
+    The frozen graph leaves the placeholder shape empty (unknown rank), which
+    the TF.js converter turns into a scalar shape []. TF.js then rejects the
+    [1,h,w,3] image tensor at runtime. The classic deepdream notebook feeds
+    this graph rank-4 (it expand_dims outside the graph and maps it over
+    'input'), so NHWC with unknown N/H/W is the correct declaration.
+    """
+    import tensorflow as tf
+
+    graph_def = tf.compat.v1.GraphDef()
+    with open(pb_path, "rb") as f:
+        graph_def.ParseFromString(f.read())
+    fixed = False
+    for node in graph_def.node:
+        if node.name == "input" and node.op == "Placeholder":
+            if "shape" not in node.attr:
+                sys.exit("ERROR: 'input' placeholder has no shape attr to patch.")
+            shape = node.attr["shape"].shape
+            del shape.dim[:]
+            for size in (-1, -1, -1, 3):
+                shape.dim.add().size = size
+            fixed = True
+    if not fixed:
+        sys.exit("ERROR: no 'input' Placeholder node found in graph.")
+    with open(pb_path, "wb") as f:
+        f.write(graph_def.SerializeToString())
+    print("Set 'input' placeholder shape to [-1,-1,-1,3] (NHWC).")
 
 
 def convert(pb_path):
@@ -105,6 +142,7 @@ def convert(pb_path):
 
 def main():
     pb_path = download_model()
+    set_input_shape(pb_path)
     check_graph(pb_path)
     convert(pb_path)
     total = sum(
