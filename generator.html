@@ -196,13 +196,18 @@ GifEncoder.prototype.finish=function(){ this.out.byte(0x3B); return this.out.res
 
 // =====================================================================
 //  DREAM GENERATOR — DeepDream trading cards with endless zooms.
-//  Runs InceptionV3 in the browser with TensorFlow.js on whichever engine
-//  benchmarks fastest on this device (WebGPU / WebGL = GPU, WASM / JS = CPU).
-//  Model files: models/inceptionv3/  (make them with tools/export_inceptionv3.py)
+//  Runs InceptionV1 (GoogLeNet -- the original DeepDream model) in the browser
+//  with TensorFlow.js on whichever engine benchmarks fastest on this device
+//  (WebGPU / WebGL = GPU, WASM / JS = CPU).
+//  Model files: models/inceptionv1/  (make them with tools/export_inceptionv1.py)
 // =====================================================================
 
 // ===== CONFIG =====
-const MODEL_URL = "models/inceptionv3/model.json";
+const MODEL_URL = "models/inceptionv1/model.json";
+// InceptionV1 dream layers, low -> high: the 9 Inception module outputs.
+// model.execute() accepts these names (TF.js resolves them to the graph's
+// output tensors, which are named e.g. "mixed4c:0").
+const V1_LAYERS = ["mixed3a","mixed3b","mixed4a","mixed4b","mixed4c","mixed4d","mixed4e","mixed5a","mixed5b"];
 const WASM_PATH = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/";
 const TOWN_FILE = "index.html?ret=1";
 const QUALITY = { fast:{w:192,h:240}, normal:{w:256,h:320}, high:{w:320,h:400}, max:{w:432,h:540} };
@@ -219,15 +224,15 @@ const AREAS = {   // must match AREAS in index.html
 };
 // Each zoom frame crops by zoomFactor around a centre that moves along the chosen path,
 // resizes back up, then runs `steps` gradient-ascent steps at learning rate `lr`.
-const DEFAULTS = { path:"straight", frames:60, zoomFactor:0.97, steps:8, lr:0.04, range:0.08, segFrames:10, startSteps:15, sharpen:0.35, layers:["mixed3","mixed4"], quality:"", heat:"balanced" };
+const DEFAULTS = { path:"straight", frames:60, zoomFactor:0.97, steps:8, lr:0.04, range:0.08, segFrames:10, startSteps:15, sharpen:0.35, layers:["mixed4b","mixed4c"], quality:"", heat:"balanced" };
 const PRESETS = [
   // Tuned for phone-sized dreams: stronger pushes and faster zooms so the effect really shows.
-  { name:"Wild dive (straight)",      s:{ path:"straight", frames:60, zoomFactor:0.96,  steps:8,  lr:0.045, startSteps:15, sharpen:0.35, layers:["mixed3","mixed4"] } },
-  { name:"Eye storm (square)",        s:{ path:"square",   frames:80, zoomFactor:0.97,  steps:10, lr:0.05,  range:0.10, segFrames:8,  startSteps:20, sharpen:0.35, layers:["mixed4","mixed5"] } },
-  { name:"Triangle trip",             s:{ path:"triangle", frames:90, zoomFactor:0.97,  steps:8,  lr:0.045, range:0.12, segFrames:10, startSteps:15, sharpen:0.35, layers:["mixed3","mixed5"] } },
-  { name:"Swirl melt (fast, cool)",   s:{ path:"straight", frames:80, zoomFactor:0.95,  steps:4,  lr:0.06,  startSteps:10, sharpen:0.4,  layers:["mixed2","mixed3"] } },
-  { name:"Beast mode (slow, hot)",    s:{ path:"square",   frames:60, zoomFactor:0.975, steps:20, lr:0.06,  range:0.08, segFrames:10, startSteps:25, sharpen:0.3,  layers:["mixed5","mixed6"] } },
-  { name:"Slow drift (square, subtle)", s:{ path:"square", frames:120, zoomFactor:0.99, steps:6, lr:0.03, range:0.04, segFrames:15, startSteps:20, sharpen:0.3, layers:["mixed4","mixed5"] } }
+  { name:"Wild dive (straight)",      s:{ path:"straight", frames:60, zoomFactor:0.96,  steps:8,  lr:0.045, startSteps:15, sharpen:0.35, layers:["mixed4a","mixed4b"] } },
+  { name:"Eye storm (square)",        s:{ path:"square",   frames:80, zoomFactor:0.97,  steps:10, lr:0.05,  range:0.10, segFrames:8,  startSteps:20, sharpen:0.35, layers:["mixed4c","mixed4d"] } },
+  { name:"Triangle trip",             s:{ path:"triangle", frames:90, zoomFactor:0.97,  steps:8,  lr:0.045, range:0.12, segFrames:10, startSteps:15, sharpen:0.35, layers:["mixed4a","mixed4d"] } },
+  { name:"Swirl melt (fast, cool)",   s:{ path:"straight", frames:80, zoomFactor:0.95,  steps:4,  lr:0.06,  startSteps:10, sharpen:0.4,  layers:["mixed3a","mixed4a"] } },
+  { name:"Beast mode (slow, hot)",    s:{ path:"square",   frames:60, zoomFactor:0.975, steps:20, lr:0.06,  range:0.08, segFrames:10, startSteps:25, sharpen:0.3,  layers:["mixed4e","mixed5a"] } },
+  { name:"Slow drift (square, subtle)", s:{ path:"square", frames:120, zoomFactor:0.99, steps:6, lr:0.03, range:0.04, segFrames:15, startSteps:20, sharpen:0.3, layers:["mixed4c","mixed4d"] } }
 ];
 const FIELDS = [
   { k:"frames",     label:"Frames per run",       min:1,    max:600,  step:1,      note:"How many frames each press of Zoom makes ." },
@@ -306,26 +311,22 @@ async function pickEngines(){
   try{ localStorage.setItem(ENGINE_KEY,JSON.stringify({order:order,times:times})); }catch(e){}
   return order;
 }
-// InceptionV3's batch-norm layers have no "scale" (gamma) weight; TF.js gradients crash on that
-// ("reading 'dataId'"). A gamma of all ones changes nothing in the maths and fixes it.
-function patchBatchNorm(m){
-  for(const l of m.layers){
-    if(l.getClassName()!=="BatchNormalization" || l.scale || l.gamma) continue;
-    const c=l.movingMean.shape[l.movingMean.shape.length-1];
-    l.gamma=l.addWeight("gamma",[c],"float32",tf.initializers.ones(),null,false); l.scale=true;
-  }
-}
+// NOTE: the old InceptionV3 build needed patchBatchNorm() because its Keras
+// batch-norm layers had no gamma weight. The InceptionV1 frozen graph is a pure
+// inference graph (batch norm folded into constants), so no patching is needed.
 async function activate(name){
   if(model){ model.dispose(); model=null; } grads={}; if(cur){ cur.dispose(); cur=null; }
   if(!(await tryBackend(name))) throw new Error(name+" unavailable");
   $("engineBtn").textContent="Engine: "+LABEL[name];
-  setStatus("Loading InceptionV3 on "+LABEL[name]+"…"); setBar(0);
-  try{ model=await tf.loadLayersModel(MODEL_URL,{onProgress:p=>setBar(p)}); }
+  setStatus("Loading InceptionV1 on "+LABEL[name]+"…"); setBar(0);
+  try{ model=await tf.loadGraphModel(MODEL_URL,{onProgress:p=>setBar(p)}); }
   catch(e){ throw new Error("loading the model failed: "+(e&&e.message||e)); }
-  patchBatchNorm(model);
-  modelLayers=(model.outputNames&&model.outputNames.length)?model.outputNames.slice():model.outputs.map(o=>o.sourceLayer.name);
+  // Keep only the dream layers this model actually exposes. TF.js names graph
+  // outputs like "mixed4c:0"; execute() accepts the short form too.
+  const have=(model.outputs||[]).map(o=>o.name);
+  modelLayers=V1_LAYERS.filter(n=>have.indexOf(n)>=0||have.indexOf(n+":0")>=0);
   setStatus("Warming up the dream engine…"); setBar(null);
-  try{ const t=tf.randomUniform([1,96,112,3],-1,1), s=dreamStep(t,0.01); await s.data(); t.dispose(); s.dispose(); }
+  try{ const t=tf.randomUniform([1,96,112,3],0,255).sub(117), s=dreamStep(t,0.01); await s.data(); t.dispose(); s.dispose(); }
   catch(e){ throw new Error("the test dream failed: "+(e&&e.message||e)); }
 }
 async function nextEngine(){
@@ -340,16 +341,15 @@ async function nextEngine(){
 function activeLayers(){
   const want=(settings.layers&&settings.layers.length)?settings.layers:null;
   let use=want?modelLayers.filter(n=>want.indexOf(n)>=0):[];
-  if(!use.length){ const pref=["mixed6","mixed7"].filter(n=>modelLayers.indexOf(n)>=0); use=pref.length?pref:modelLayers.slice(-2); }
+  if(!use.length){ const pref=["mixed4c","mixed4d"].filter(n=>modelLayers.indexOf(n)>=0); use=pref.length?pref:modelLayers.slice(-2); }
   return use;
 }
 function getGrad(){
   const use=activeLayers(), key=use.join("+");
   if(grads[key]) return grads[key];
-  const idx=use.map(n=>modelLayers.indexOf(n));
   return grads[key]=tf.grad(img=>{
-    let outs=model.apply(img,{training:false}); if(!Array.isArray(outs)) outs=[outs];
-    let loss=null; for(const i of idx){ const l=tf.mean(outs[i]); loss=loss?loss.add(l):l; }
+    let outs=model.execute(img,use); if(!Array.isArray(outs)) outs=[outs];
+    let loss=null; for(const o of outs){ const l=tf.mean(o); loss=loss?loss.add(l):l; }
     return loss;
   });
 }
@@ -360,7 +360,7 @@ function dreamStep(img,lr){
     let g=getGrad()(roll(roll(img,sy,1),sx,2));
     g=roll(roll(g,-sy,1),-sx,2);
     const std=tf.moments(g).variance.sqrt();
-    return img.add(g.div(std.add(1e-8)).mul(lr)).clipByValue(-1,1);
+    return img.add(g.div(std.add(1e-8)).mul(lr)).clipByValue(-117,138);
   });
 }
 // Zoom path offsets in pixels: straight stays centred, square and triangle trace their shape.
@@ -395,13 +395,13 @@ function zoomCrop(img,zf,ox,oy,sharpen){
     if(sharpen>0){   // unsharp mask to cancel the resize blur
       const k=[1,2,1,2,4,2,1,2,1].map(v=>v/16), ker=tf.tensor4d([].concat(...k.map(v=>[v,v,v])),[3,3,3,1]);
       const blur=tf.depthwiseConv2d(out,ker,1,"same");
-      out=out.add(out.sub(blur).mul(sharpen*2)).clipByValue(-1,1);
+      out=out.add(out.sub(blur).mul(sharpen*2)).clipByValue(-117,138);
     }
     return out;
   });
 }
-function canvasToTensor(cv){ return tf.tidy(()=>tf.browser.fromPixels(cv).toFloat().div(127.5).sub(1).expandDims(0)); }
-async function tensorToCanvas(img,cv){ const t=tf.tidy(()=>img.squeeze([0]).add(1).div(2).clipByValue(0,1)); await tf.browser.toPixels(t,cv); t.dispose(); }
+function canvasToTensor(cv){ return tf.tidy(()=>tf.browser.fromPixels(cv).toFloat().sub(117).expandDims(0)); }
+async function tensorToCanvas(img,cv){ const t=tf.tidy(()=>img.squeeze([0]).add(117).div(255).clipByValue(0,1)); await tf.browser.toPixels(t,cv); t.dispose(); }
 function noteStepTime(ms){ msPerStep=msPerStep==null?ms:msPerStep*0.8+ms*0.2; updateEstimate(); }
 function updateEstimate(){
   const el=$("estimate"); if(msPerStep==null){ el.textContent=""; return; }
@@ -490,7 +490,7 @@ async function startDream(){
   card.recipe={ start:steps, startLayers:activeLayers().join("+"), startLr:+Math.max(0.01,settings.lr).toFixed(4), size:card.w+"×"+card.h, engine:ENGINE_SHORT[engineOrder[engineIdx]]||"GPU", runs:[] };
   for(;;){
     try{
-      let img=tf.tidy(()=>canvasToTensor(seedCv).add(tf.randomUniform([1,card.h,card.w,3],-0.04,0.04)).clipByValue(-1,1));
+      let img=tf.tidy(()=>canvasToTensor(seedCv).add(tf.randomUniform([1,card.h,card.w,3],-10,10)).clipByValue(-117,138));
       if(steps>0){ let done=0;
         for(let o=OCTAVES-1;o>=0;o--){
           const s=Math.pow(OCTAVE_SCALE,-o), h=Math.max(96,Math.round(card.h*s)), w=Math.max(96,Math.round(card.w*s));
@@ -740,14 +740,13 @@ function buildSettings(){
   // layers
   const lf=document.createElement("div"); lf.className="field"; lf.innerHTML="<label>Inception layers <span>which features to amplify</span></label>";
   const chips=document.createElement("div"); chips.className="chips";
-  const allNames=["mixed2","mixed3","mixed4","mixed5","mixed6","mixed7"], active=model?activeLayers():(settings.layers||[]);
+  const allNames=V1_LAYERS, active=model?activeLayers():(settings.layers||[]);
   allNames.forEach(n=>{ const b=document.createElement("button"); b.textContent=n; const have=!model||modelLayers.indexOf(n)>=0;
     b.disabled=!have; b.className=active.indexOf(n)>=0&&have?"on":"";
     b.onclick=()=>{ let L=(model?activeLayers():(settings.layers||[])).slice(); const i=L.indexOf(n); if(i>=0){ if(L.length>1) L.splice(i,1); } else L.push(n); settings.layers=L; saveSettings(); buildSettings(); };
     chips.appendChild(b); });
   lf.appendChild(chips);
-  lf.appendChild(addNote("Low layers (mixed2–3) make swirls and textures; high layers (mixed6–7) make eyes, fur and creature faces."+
-    (model&&modelLayers.indexOf("mixed7")<0?" mixed6 and mixed7 need the updated model: re-run “Build DeepDream model” in GitHub Actions.":"")));
+  lf.appendChild(addNote("Low layers (mixed3a) make swirls and textures; mid layers (mixed4c/4d) make the classic eyes-and-creatures; high layers (mixed5b) make abstract shapes."));
   body.appendChild(lf);
   // quality
   const qf=document.createElement("div"); qf.className="field"; qf.innerHTML="<label>Dream size <span>bigger = sharper but slower</span></label>";
