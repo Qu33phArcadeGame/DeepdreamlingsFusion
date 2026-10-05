@@ -212,7 +212,7 @@ const WASM_PATH = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.
 const TOWN_FILE = "index.html?ret=1";
 const QUALITY = { fast:{w:192,h:240}, normal:{w:256,h:320}, high:{w:320,h:400}, max:{w:432,h:540} };
 const OCTAVES = 3, OCTAVE_SCALE = 1.35, JITTER = 16;
-const MAX_FRAMES = 600, PLAY_FPS = 12, GIF_W = 360, VIDEO_W = 540;
+const MAX_FRAMES = 1000, PLAY_FPS = 12, GIF_W = 360, VIDEO_W = 540; // MAX_FRAMES = total a card can hold across multiple Zoom presses; the Settings slider caps each press at 100
 // Playback: frames per second and "zoomerang" (zoom in, then back out to the start)
 function cardFps(c){ return Math.max(2,Math.min(30,(c&&c.playFps)||PLAY_FPS)); }
 function cardBoom(c){ return !c||c.boomerang!==false; }
@@ -232,10 +232,10 @@ const PRESETS = [
   { name:"Triangle trip",             s:{ path:"triangle", frames:90, zoomFactor:0.97,  steps:8,  lr:0.045, range:0.12, segFrames:10, startSteps:15, sharpen:0.35, layers:["mixed4a","mixed4d"] } },
   { name:"Swirl melt (fast, cool)",   s:{ path:"straight", frames:80, zoomFactor:0.95,  steps:4,  lr:0.06,  startSteps:10, sharpen:0.4,  layers:["mixed3a","mixed4a"] } },
   { name:"Beast mode (slow, hot)",    s:{ path:"square",   frames:60, zoomFactor:0.975, steps:20, lr:0.06,  range:0.08, segFrames:10, startSteps:25, sharpen:0.3,  layers:["mixed4e","mixed5a"] } },
-  { name:"Slow drift (square, subtle)", s:{ path:"square", frames:120, zoomFactor:0.99, steps:6, lr:0.03, range:0.04, segFrames:15, startSteps:20, sharpen:0.3, layers:["mixed4c","mixed4d"] } }
+  { name:"Slow drift (square, subtle)", s:{ path:"square", frames:100, zoomFactor:0.99, steps:6, lr:0.03, range:0.04, segFrames:15, startSteps:20, sharpen:0.3, layers:["mixed4c","mixed4d"] } }
 ];
 const FIELDS = [
-  { k:"frames",     label:"Frames per run",       min:1,    max:600,  step:1,      note:"How many frames each press of Zoom makes ." },
+  { k:"frames",     label:"Frames per run",       min:1,    max:100,  step:1,      note:"How many frames each press of Zoom makes ." },
   { k:"zoomFactor", label:"Zoom factor",          min:0.9,  max:1,    step:0.0001, note:"Crop size each frame. 0.9999 barely moves, 0.98 dives fast." },
   { k:"steps",      label:"Steps per frame",      min:1,    max:50,   step:1,      note:"More steps = stronger dream, slower frames." },
   { k:"lr",         label:"Learning rate",        min:0.001,max:0.2,  step:0.0001, note:"How hard each step pushes the dream." },
