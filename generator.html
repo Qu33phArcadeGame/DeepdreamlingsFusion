@@ -232,7 +232,15 @@ const PRESETS = [
   { name:"Triangle trip",             s:{ path:"triangle", frames:90, zoomFactor:0.97,  steps:8,  lr:0.045, range:0.12, segFrames:10, startSteps:15, sharpen:0.35, layers:["mixed4a","mixed4d"] } },
   { name:"Swirl melt (fast, cool)",   s:{ path:"straight", frames:80, zoomFactor:0.95,  steps:4,  lr:0.06,  startSteps:10, sharpen:0.4,  layers:["mixed3a","mixed4a"] } },
   { name:"Beast mode (slow, hot)",    s:{ path:"square",   frames:60, zoomFactor:0.975, steps:20, lr:0.06,  range:0.08, segFrames:10, startSteps:25, sharpen:0.3,  layers:["mixed4e","mixed5a"] } },
-  { name:"Slow drift (square, subtle)", s:{ path:"square", frames:100, zoomFactor:0.99, steps:6, lr:0.03, range:0.04, segFrames:15, startSteps:20, sharpen:0.3, layers:["mixed4c","mixed4d"] } }
+  { name:"Slow drift (square, subtle)", s:{ path:"square", frames:100, zoomFactor:0.99, steps:6, lr:0.03, range:0.04, segFrames:15, startSteps:20, sharpen:0.3, layers:["mixed4c","mixed4d"] } },
+  { name:"Hound dreams (the dog-slugs)", s:{ path:"straight", frames:70, zoomFactor:0.96, steps:18, lr:0.055, startSteps:25, sharpen:0.35, layers:["mixed4d","mixed4e"] } },
+  { name:"Eyeball soup",               s:{ path:"square", frames:80, zoomFactor:0.97, steps:16, lr:0.065, range:0.08, segFrames:8, startSteps:25, sharpen:0.35, layers:["mixed4c","mixed4d"] } },
+  { name:"Bird choir (triangle)",      s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:14, lr:0.06, range:0.1, segFrames:10, startSteps:20, sharpen:0.35, layers:["mixed4b","mixed4c"] } },
+  { name:"Deep ones (sea beasts)",      s:{ path:"straight", frames:70, zoomFactor:0.965, steps:14, lr:0.06, startSteps:20, sharpen:0.35, layers:["mixed4a","mixed4b","mixed4c"] } },
+  { name:"Pagoda mind",                s:{ path:"square", frames:70, zoomFactor:0.975, steps:12, lr:0.05, range:0.06, segFrames:10, startSteps:20, sharpen:0.3, layers:["mixed4e","mixed5a"] } },
+  { name:"Critter static (insects)",    s:{ path:"straight", frames:80, zoomFactor:0.96, steps:12, lr:0.055, startSteps:15, sharpen:0.4, layers:["mixed3b","mixed4b"] } },
+  { name:"Ghost zoo (apparitions)",     s:{ path:"triangle", frames:70, zoomFactor:0.97, steps:10, lr:0.045, range:0.08, segFrames:10, startSteps:20, sharpen:0.3, layers:["mixed5a","mixed5b"] } },
+  { name:"The 2015 classic",           s:{ path:"straight", frames:60, zoomFactor:0.96, steps:22, lr:0.05, startSteps:30, sharpen:0.35, layers:["mixed4c","mixed4d","mixed4e"] } }
 ];
 const FIELDS = [
   { k:"frames",     label:"Frames per run",       min:1,    max:100,  step:1,      note:"How many frames each press of Zoom makes ." },
