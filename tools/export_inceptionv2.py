@@ -18,6 +18,12 @@ Run from the repo root:
 """
 
 import os
+
+# Must be set before tensorflow is imported: tells TF 2.13-2.15 to use the
+# tf_keras package (Keras 2) as its Keras backend, which provides
+# tf_keras.legacy_tf_layers needed by tf_slim's batch_norm.
+os.environ["TF_USE_LEGACY_KERAS"] = "1"
+
 import shutil
 import subprocess
 import sys
