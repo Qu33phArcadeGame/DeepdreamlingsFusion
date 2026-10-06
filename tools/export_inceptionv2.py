@@ -109,6 +109,7 @@ def build_and_freeze(ckpt_prefix, num_classes):
     import tensorflow.compat.v1 as tf
 
     tf.disable_v2_behavior()
+    from tf_slim import slim
     from tf_slim.nets import inception_v2
 
     tf.reset_default_graph()
@@ -118,7 +119,9 @@ def build_and_freeze(ckpt_prefix, num_classes):
     # variables at all (and gains 'biases' the checkpoint never had), so the
     # arg_scope is required for an exact restore. is_training=False makes BN
     # use the trained moving stats and dropout an identity.
-    with inception_v2.inception_v2_arg_scope():
+    # NOTE: inception_v2_arg_scope() returns a params dict, not a context
+    # manager, so it must be wrapped in slim.arg_scope().
+    with slim.arg_scope(inception_v2.inception_v2_arg_scope()):
         _logits, endpoints = inception_v2.inception_v2(
             inp, num_classes=num_classes, is_training=False
         )
@@ -138,7 +141,13 @@ def build_and_freeze(ckpt_prefix, num_classes):
     # wrong model.
     reader = tf.train.NewCheckpointReader(ckpt_prefix)
     ckpt_vars = set(reader.get_variable_to_shape_map().keys())
-    graph_vars = tf.global_variables()
+    # Batch-norm moving stats live in the 'moving_vars' collection, not
+    # GLOBAL_VARIABLES (see inception_v2_arg_scope's variables_collections),
+    # so collect both.
+    graph_vars = {}
+    for v in tf.global_variables() + tf.get_collection("moving_vars"):
+        graph_vars[v.op.name] = v
+    graph_vars = list(graph_vars.values())
     graph_names = {v.op.name for v in graph_vars}
     restore_vars = [v for v in graph_vars if v.op.name in ckpt_vars]
     skipped = sorted(n for n in graph_names if n not in ckpt_vars)
@@ -169,7 +178,7 @@ def build_and_freeze(ckpt_prefix, num_classes):
     saver = tf.train.Saver(var_list=restore_vars)
     with tf.Session() as sess:
         print("Restoring checkpoint ...")
-        sess.run(tf.global_variables_initializer())
+        sess.run(tf.variables_initializer(graph_vars))
         saver.restore(sess, ckpt_prefix)
         print("Freezing graph ...")
         frozen = tf.graph_util.convert_variables_to_constants(
