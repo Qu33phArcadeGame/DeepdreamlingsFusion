@@ -57,7 +57,8 @@ const ARCADE_FILE="deepdreamlings.html";     // real binder + cards + fuse anima
 // Per-area config: map filename -> dreamling range, encounter-video prefix, character-sprite prefix
 const AREAS={
   "map":   { first:1,  last:11, vid:"encounter", guy:"dreamguy",  name:"DREAM CORE" },
-  "woods": { first:12, last:22, vid:"woods",     guy:"dreamwood", name:"WAKING WOODS" }
+  "woods": { first:12, last:22, vid:"woods",     guy:"dreamwood", name:"WAKING WOODS" },
+  "area3": { first:23, last:33, vid:"area3",     guy:"dreamarea3", name:"AREA 3" }
 };
 const DEFAULT_AREA=AREAS["map"];
 let area=AREAS[START_MAP]||DEFAULT_AREA;
@@ -103,7 +104,8 @@ function say(t){ dialogue=t; }
 const GENERATOR_FILE="generator.html";
 const GENERATORS={
   "map":   { x:8, y:20, w:3, h:2 },
-  "woods": { x:5, y:22, w:3, h:2 }
+  "woods": { x:5, y:22, w:3, h:2 },
+  "area3": { x:11, y:6, w:3, h:2 }
 };
 let dialogueAction=null;
 const genImg=new Image(); let genImgOk=false; genImg.onload=function(){ genImgOk=true; }; genImg.src="generator.png";
