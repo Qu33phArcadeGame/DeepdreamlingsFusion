@@ -111,6 +111,35 @@ def detect_num_classes(ckpt_prefix):
     sys.exit("ERROR: logits weights not found in checkpoint.")
 
 
+def _batch_norm_no_gamma(inputs, decay=0.9997, epsilon=0.001, scope=None, **_kw):
+    """Batch norm matching the 2016 checkpoint exactly.
+
+    The 2016 model was trained with batch norm WITHOUT scale (no gamma) and
+    WITHOUT biases on the convs. tf_slim 1.1.0's batch_norm needs tf_keras
+    (broken on TF 2.13-2.15), so we build the variables manually with the
+    exact 2016 names: .../BatchNorm/{beta,moving_mean,moving_variance}.
+    Always uses moving stats (inference mode).
+    """
+    import tensorflow.compat.v1 as tf
+
+    channels = inputs.get_shape().as_list()[-1]
+    with tf.variable_scope(scope, "BatchNorm"):
+        beta = tf.get_variable(
+            "beta", shape=[channels], initializer=tf.zeros_initializer()
+        )
+        moving_mean = tf.get_variable(
+            "moving_mean", shape=[channels], initializer=tf.zeros_initializer(),
+            trainable=False,
+        )
+        moving_variance = tf.get_variable(
+            "moving_variance", shape=[channels], initializer=tf.ones_initializer(),
+            trainable=False,
+        )
+    return tf.nn.batch_normalization(
+        inputs, moving_mean, moving_variance, beta, None, epsilon
+    )
+
+
 def build_and_freeze(ckpt_prefix, num_classes):
     import tensorflow.compat.v1 as tf
 
@@ -120,14 +149,18 @@ def build_and_freeze(ckpt_prefix, num_classes):
 
     tf.reset_default_graph()
     inp = tf.placeholder(tf.float32, shape=[None, None, None, 3], name="input")
-    # The 2016 checkpoint was trained with batch norm via
-    # inception_v2_arg_scope(). Without it the graph has no BatchNorm
-    # variables at all (and gains 'biases' the checkpoint never had), so the
-    # arg_scope is required for an exact restore. is_training=False makes BN
-    # use the trained moving stats and dropout an identity.
-    # NOTE: inception_v2_arg_scope() returns a params dict, not a context
-    # manager, so it must be wrapped in slim.arg_scope().
-    with slim.arg_scope(inception_v2.inception_v2_arg_scope()):
+    # The 2016 checkpoint used batch norm (no gamma, no biases) on every
+    # conv EXCEPT the separable first conv and the Logits conv. tf_slim
+    # 1.1.0's batch_norm is broken on TF 2.13-2.15 (needs tf_keras), so we
+    # supply our own normalizer with the exact 2016 variable names.
+    # The Logits conv passes normalizer_fn=None explicitly, and the first
+    # conv is separable_conv2d (not in this scope), so both are excluded —
+    # matching the checkpoint.
+    with slim.arg_scope(
+        [slim.conv2d],
+        normalizer_fn=_batch_norm_no_gamma,
+        normalizer_params={"decay": 0.9997, "epsilon": 0.001},
+    ):
         _logits, endpoints = inception_v2.inception_v2(
             inp, num_classes=num_classes, is_training=False
         )
@@ -139,17 +172,14 @@ def build_and_freeze(ckpt_prefix, num_classes):
     for k, n in zip(LAYERS, output_names):
         print(f"  {k:10s} -> {n}")
 
-    # With the arg_scope above, graph and checkpoint should match exactly:
-    # slim creates no 'biases' when a normalizer is set, and scale=False
-    # creates no BatchNorm 'gamma' — same as the 2016 training. Restore the
-    # intersection; anything missing whose initializer is not a provable
-    # no-op (biases=0, gamma=1) fails loudly instead of baking a silently
-    # wrong model.
+    # The custom batch norm above creates exactly the 2016 variable names, so
+    # the graph and checkpoint should match. slim.conv2d still creates
+    # 'biases' (the 2016 training didn't have them except on the first and
+    # Logits convs) — those are skipped in the restore and stay at 0, an
+    # exact no-op. Anything else missing fails loudly instead of baking a
+    # silently wrong model.
     reader = tf.train.NewCheckpointReader(ckpt_prefix)
     ckpt_vars = set(reader.get_variable_to_shape_map().keys())
-    # Batch-norm moving stats live in the 'moving_vars' collection, not
-    # GLOBAL_VARIABLES (see inception_v2_arg_scope's variables_collections),
-    # so collect both.
     graph_vars = {}
     for v in tf.global_variables() + tf.get_collection("moving_vars"):
         graph_vars[v.op.name] = v
