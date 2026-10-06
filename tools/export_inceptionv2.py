@@ -113,9 +113,15 @@ def build_and_freeze(ckpt_prefix, num_classes):
 
     tf.reset_default_graph()
     inp = tf.placeholder(tf.float32, shape=[None, None, None, 3], name="input")
-    _logits, endpoints = inception_v2.inception_v2(
-        inp, num_classes=num_classes, is_training=False
-    )
+    # The 2016 checkpoint was trained with batch norm via
+    # inception_v2_arg_scope(). Without it the graph has no BatchNorm
+    # variables at all (and gains 'biases' the checkpoint never had), so the
+    # arg_scope is required for an exact restore. is_training=False makes BN
+    # use the trained moving stats and dropout an identity.
+    with inception_v2.inception_v2_arg_scope():
+        _logits, endpoints = inception_v2.inception_v2(
+            inp, num_classes=num_classes, is_training=False
+        )
     missing = [k for k in LAYERS if k not in endpoints]
     if missing:
         sys.exit(f"ERROR: endpoints missing from graph: {missing}")
@@ -123,9 +129,47 @@ def build_and_freeze(ckpt_prefix, num_classes):
     print("Dream layer nodes:")
     for k, n in zip(LAYERS, output_names):
         print(f"  {k:10s} -> {n}")
-    saver = tf.train.Saver()
+
+    # With the arg_scope above, graph and checkpoint should match exactly:
+    # slim creates no 'biases' when a normalizer is set, and scale=False
+    # creates no BatchNorm 'gamma' — same as the 2016 training. Restore the
+    # intersection; anything missing whose initializer is not a provable
+    # no-op (biases=0, gamma=1) fails loudly instead of baking a silently
+    # wrong model.
+    reader = tf.train.NewCheckpointReader(ckpt_prefix)
+    ckpt_vars = set(reader.get_variable_to_shape_map().keys())
+    graph_vars = tf.global_variables()
+    graph_names = {v.op.name for v in graph_vars}
+    restore_vars = [v for v in graph_vars if v.op.name in ckpt_vars]
+    skipped = sorted(n for n in graph_names if n not in ckpt_vars)
+    orphaned = sorted(n for n in ckpt_vars if n not in graph_names)
+    print(f"Restoring {len(restore_vars)}/{len(graph_vars)} graph variables.")
+    if skipped:
+        bad = [
+            n
+            for n in skipped
+            if not (n.endswith("/biases") or n.endswith("/gamma"))
+        ]
+        if bad:
+            sys.exit(
+                "ERROR: checkpoint is missing variables with no safe default "
+                "(not biases/gamma) — variable-name mismatch:\n  "
+                + "\n  ".join(bad)
+            )
+        print(
+            f"Skipped {len(skipped)} (init defaults are exact no-ops: biases=0, gamma=1)."
+        )
+    if orphaned:
+        print(f"NOTE: {len(orphaned)} checkpoint variables have no graph variable (left unrestored):")
+        for n in orphaned[:10]:
+            print(f"  {n}")
+        if len(orphaned) > 10:
+            print(f"  ... and {len(orphaned) - 10} more")
+
+    saver = tf.train.Saver(var_list=restore_vars)
     with tf.Session() as sess:
         print("Restoring checkpoint ...")
+        sess.run(tf.global_variables_initializer())
         saver.restore(sess, ckpt_prefix)
         print("Freezing graph ...")
         frozen = tf.graph_util.convert_variables_to_constants(
