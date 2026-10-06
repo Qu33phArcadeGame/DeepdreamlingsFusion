@@ -13,12 +13,28 @@ number adjustable in Settings.
   flash, and the fused creature pops out.
 - The binder's fuse options are unchanged.
 
-## One-time setup: the InceptionV3 model
+## One-time setup: the dream models
 
-The generator loads `models/inceptionv3/model.json`. Build it on GitHub: open the
-**Actions** tab, pick **Build DeepDream model**, press **Run workflow**. The export now
-includes layers mixed2 to mixed7, about 18 MB.
-If you built the model before this update, run the workflow again to unlock mixed6/mixed7.
+Each area dreams on its own model (`MODELS` in `generator.html`, picked per area
+in `AREAS` — `?town=` selects the area, the area selects the model):
+
+- **Dream Core** → Inception v1 (`models/inceptionv1/`): the original DeepDream
+  model (GoogLeNet, the classic dog-slug look). Build it on GitHub: open the
+  **Actions** tab, pick **Build DeepDream model**, press **Run workflow**.
+  Note: Keras doesn't ship InceptionV1, so `tools/export_inceptionv1.py`
+  converts Google's frozen DeepDream graph directly.
+- **Waking Woods** → Inception v2 (`models/inceptionv2/`): the TF-Slim
+  checkpoint (`inception_v2_2016_08_28`), rebuilt into a frozen graph and
+  converted. Build it on GitHub: **Actions** → **Build DeepDream v2 model** →
+  **Run workflow** (`tools/export_inceptionv2.py`).
+- **Area 3** (third area, reached through `hall2.json` from the south edge of
+  the woods) → Inception v3 (`models/inceptionv3/`): the Keras model,
+  exported with `tools/export_inceptionv3.py` (already in the repo).
+
+To add a model (VGG16, ResNet50, …): export it to `models/<name>/` with the
+same converter pattern, add an entry to `MODELS` (see the commented `vgg16`
+template: `kind`, `url`, `layers`, `pref`, `pre`), then point an area at it.
+Presets carry an `m:"v1"` / `m:"v2"` / `m:"v3"` tag so each model only offers its own.
 
 ## Settings (all saved on the device)
 

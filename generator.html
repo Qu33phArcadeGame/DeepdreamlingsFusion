@@ -205,11 +205,36 @@ GifEncoder.prototype.finish=function(){ this.out.byte(0x3B); return this.out.res
 // =====================================================================
 
 // ===== CONFIG =====
-const MODEL_URL = "models/inceptionv1/model.json";
-// InceptionV1 dream layers, low -> high: the 9 Inception module outputs.
-// model.execute() accepts these names (TF.js resolves them to the graph's
-// output tensors, which are named e.g. "mixed4c:0").
-const V1_LAYERS = ["mixed3a","mixed3b","mixed4a","mixed4b","mixed4c","mixed4d","mixed4e","mixed5a","mixed5b"];
+// ===== DREAM MODELS =====
+// Each area of the game dreams on its own model. ?town= picks the area (see AREAS below);
+// the area picks the model. To add a model: export it to models/<name>/, add an entry here,
+// then point an area at it.
+const MODELS = {
+  v1: { short:"v1", label:"Inception v1", kind:"graph", url:"models/inceptionv1/model.json", pre:"v1",
+        layers:["mixed3a","mixed3b","mixed4a","mixed4b","mixed4c","mixed4d","mixed4e","mixed5a","mixed5b"],
+        pref:["mixed4c","mixed4d"],
+        note:"Low layers (mixed3a) make swirls and textures; mid layers (mixed4c/4d) make the classic eyes-and-creatures; high layers (mixed5b) make abstract shapes." },
+  v3: { short:"v3", label:"Inception v3", kind:"layers", url:"models/inceptionv3/model.json", pre:"v3",
+        layers:["mixed2","mixed3","mixed4","mixed5","mixed6","mixed7"],
+        pref:["mixed6","mixed7"],
+        note:"Low layers (mixed2–3) make swirls and textures; high layers (mixed6–7) make eyes, fur and creature faces." },
+  v2: { short:"v2", label:"Inception v2", kind:"graph", url:"models/inceptionv2/model.json", pre:"v2",
+        layers:["InceptionV2/Mixed_3b/concat","InceptionV2/Mixed_3c/concat","InceptionV2/Mixed_4a/concat","InceptionV2/Mixed_4b/concat","InceptionV2/Mixed_4c/concat","InceptionV2/Mixed_4d/concat","InceptionV2/Mixed_4e/concat","InceptionV2/Mixed_5a/concat","InceptionV2/Mixed_5b/concat","InceptionV2/Mixed_5c/concat"],
+        pref:["InceptionV2/Mixed_4d/concat","InceptionV2/Mixed_4e/concat"],
+        note:"Low layers (Mixed_3b) make swirls and textures; mid layers (Mixed_4c–4e) make the classic eyes-and-creatures; high layers (Mixed_5c) make abstract shapes." },
+  // Template for the next model (VGG16, ResNet50, …). Same export pattern as tools/export_inceptionv3.py.
+  // vgg16: { short:"vgg16", label:"VGG16", kind:"layers", url:"models/vgg16/model.json", pre:"vgg",
+  //          layers:["block1_conv2","block2_conv2","block3_conv3","block4_conv3","block5_conv3"],
+  //          pref:["block4_conv3"],
+  //          note:"Early blocks make painterly textures; deep blocks make flowing organic shapes." },
+};
+// Per-model pixel math. v1 (original DeepDream graph) works on pixels minus 117;
+// v2 (TF-Slim) and v3 (Keras) work on pixels scaled to [-1,1].
+const PRE = {
+  v1: { norm:t=>t.sub(117),          denorm:t=>t.add(117).div(255), lo:-117, hi:138, noise:[-10,10] },
+  v3: { norm:t=>t.div(127.5).sub(1), denorm:t=>t.add(1).div(2),     lo:-1,   hi:1,   noise:[-1,1] },
+  v2: { norm:t=>t.div(127.5).sub(1), denorm:t=>t.add(1).div(2),     lo:-1,   hi:1,   noise:[-1,1] },
+};
 const WASM_PATH = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/";
 const TOWN_FILE = "index.html?ret=1";
 const QUALITY = { fast:{w:192,h:240}, normal:{w:256,h:320}, high:{w:320,h:400}, max:{w:432,h:540} };
@@ -232,29 +257,50 @@ function seqLeg(c,i){ const n=c.frames.length; if(!(cardBoom(c)&&n>2)) return 0;
 function cardBoom(c){ return !c||c.boomerang!==false; }
 function seqLength(c){ const n=c.frames.length; return (cardBoom(c)&&n>2)?2*n-2:n; }
 function seqFrame(c,k){ const n=c.frames.length; if(!(cardBoom(c)&&n>2)) return k%n; const p=2*n-2, m=k%p; return m<n?m:p-m; }
-const AREAS = {   // must match AREAS in index.html
-  "map":   { first:1,  last:11, name:"Dream Core" },
-  "woods": { first:12, last:22, name:"Waking Woods" }
+const AREAS = {   // must match AREAS in index.html; each area dreams on its own model (see MODELS)
+  "map":   { first:1,  last:11, name:"Dream Core",   model:"v1" },
+  "woods": { first:12, last:22, name:"Waking Woods", model:"v2" },
+  "area3": { first:23, last:33, name:"Area 3",       model:"v3" }
 };
 // Each zoom frame crops by zoomFactor around a centre that moves along the chosen path,
 // resizes back up, then runs `steps` gradient-ascent steps at learning rate `lr`.
 const DEFAULTS = { path:"straight", frames:60, zoomFactor:0.97, steps:8, lr:0.04, range:0.08, segFrames:10, startSteps:15, sharpen:0.35, layers:["mixed4b","mixed4c"], quality:"", heat:"balanced" };
 const PRESETS = [
   // Tuned for phone-sized dreams: stronger pushes and faster zooms so the effect really shows.
-  { name:"Wild dive (straight)",      s:{ path:"straight", frames:60, zoomFactor:0.96,  steps:8,  lr:0.045, startSteps:15, sharpen:0.35, layers:["mixed4a","mixed4b"] } },
-  { name:"Eye storm (square)",        s:{ path:"square",   frames:80, zoomFactor:0.97,  steps:10, lr:0.05,  range:0.10, segFrames:8,  startSteps:20, sharpen:0.35, layers:["mixed4c","mixed4d"] } },
-  { name:"Triangle trip",             s:{ path:"triangle", frames:90, zoomFactor:0.97,  steps:8,  lr:0.045, range:0.12, segFrames:10, startSteps:15, sharpen:0.35, layers:["mixed4a","mixed4d"] } },
-  { name:"Swirl melt (fast, cool)",   s:{ path:"straight", frames:80, zoomFactor:0.95,  steps:4,  lr:0.06,  startSteps:10, sharpen:0.4,  layers:["mixed3a","mixed4a"] } },
-  { name:"Beast mode (slow, hot)",    s:{ path:"square",   frames:60, zoomFactor:0.975, steps:20, lr:0.06,  range:0.08, segFrames:10, startSteps:25, sharpen:0.3,  layers:["mixed4e","mixed5a"] } },
-  { name:"Slow drift (square, subtle)", s:{ path:"square", frames:100, zoomFactor:0.99, steps:6, lr:0.03, range:0.04, segFrames:15, startSteps:20, sharpen:0.3, layers:["mixed4c","mixed4d"] } },
-  { name:"Hound dreams (the dog-slugs)", s:{ path:"straight", frames:70, zoomFactor:0.96, steps:18, lr:0.055, startSteps:25, sharpen:0.35, layers:["mixed4d","mixed4e"] } },
-  { name:"Eyeball soup",               s:{ path:"square", frames:80, zoomFactor:0.97, steps:16, lr:0.065, range:0.08, segFrames:8, startSteps:25, sharpen:0.35, layers:["mixed4c","mixed4d"] } },
-  { name:"Bird choir (triangle)",      s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:14, lr:0.06, range:0.1, segFrames:10, startSteps:20, sharpen:0.35, layers:["mixed4b","mixed4c"] } },
-  { name:"Deep ones (sea beasts)",      s:{ path:"straight", frames:70, zoomFactor:0.965, steps:14, lr:0.06, startSteps:20, sharpen:0.35, layers:["mixed4a","mixed4b","mixed4c"] } },
-  { name:"Pagoda mind",                s:{ path:"square", frames:70, zoomFactor:0.975, steps:12, lr:0.05, range:0.06, segFrames:10, startSteps:20, sharpen:0.3, layers:["mixed4e","mixed5a"] } },
-  { name:"Critter static (insects)",    s:{ path:"straight", frames:80, zoomFactor:0.96, steps:12, lr:0.055, startSteps:15, sharpen:0.4, layers:["mixed3b","mixed4b"] } },
-  { name:"Ghost zoo (apparitions)",     s:{ path:"triangle", frames:70, zoomFactor:0.97, steps:10, lr:0.045, range:0.08, segFrames:10, startSteps:20, sharpen:0.3, layers:["mixed5a","mixed5b"] } },
-  { name:"The 2015 classic",           s:{ path:"straight", frames:60, zoomFactor:0.96, steps:22, lr:0.05, startSteps:30, sharpen:0.35, layers:["mixed4c","mixed4d","mixed4e"] } }
+  { m:"v1", name:"Wild dive (straight)",      s:{ path:"straight", frames:60, zoomFactor:0.96,  steps:8,  lr:0.045, startSteps:15, sharpen:0.35, layers:["mixed4a","mixed4b"] } },
+  { m:"v1", name:"Eye storm (square)",        s:{ path:"square",   frames:80, zoomFactor:0.97,  steps:10, lr:0.05,  range:0.10, segFrames:8,  startSteps:20, sharpen:0.35, layers:["mixed4c","mixed4d"] } },
+  { m:"v1", name:"Triangle trip",             s:{ path:"triangle", frames:90, zoomFactor:0.97,  steps:8,  lr:0.045, range:0.12, segFrames:10, startSteps:15, sharpen:0.35, layers:["mixed4a","mixed4d"] } },
+  { m:"v1", name:"Swirl melt (fast, cool)",   s:{ path:"straight", frames:80, zoomFactor:0.95,  steps:4,  lr:0.06,  startSteps:10, sharpen:0.4,  layers:["mixed3a","mixed4a"] } },
+  { m:"v1", name:"Beast mode (slow, hot)",    s:{ path:"square",   frames:60, zoomFactor:0.975, steps:20, lr:0.06,  range:0.08, segFrames:10, startSteps:25, sharpen:0.3,  layers:["mixed4e","mixed5a"] } },
+  { m:"v1", name:"Slow drift (square, subtle)", s:{ path:"square", frames:100, zoomFactor:0.99, steps:6, lr:0.03, range:0.04, segFrames:15, startSteps:20, sharpen:0.3, layers:["mixed4c","mixed4d"] } },
+  { m:"v1", name:"Hound dreams (the dog-slugs)", s:{ path:"straight", frames:70, zoomFactor:0.96, steps:18, lr:0.055, startSteps:25, sharpen:0.35, layers:["mixed4d","mixed4e"] } },
+  { m:"v1", name:"Eyeball soup",               s:{ path:"square", frames:80, zoomFactor:0.97, steps:16, lr:0.065, range:0.08, segFrames:8, startSteps:25, sharpen:0.35, layers:["mixed4c","mixed4d"] } },
+  { m:"v1", name:"Bird choir (triangle)",      s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:14, lr:0.06, range:0.1, segFrames:10, startSteps:20, sharpen:0.35, layers:["mixed4b","mixed4c"] } },
+  { m:"v1", name:"Deep ones (sea beasts)",      s:{ path:"straight", frames:70, zoomFactor:0.965, steps:14, lr:0.06, startSteps:20, sharpen:0.35, layers:["mixed4a","mixed4b","mixed4c"] } },
+  { m:"v1", name:"Pagoda mind",                s:{ path:"square", frames:70, zoomFactor:0.975, steps:12, lr:0.05, range:0.06, segFrames:10, startSteps:20, sharpen:0.3, layers:["mixed4e","mixed5a"] } },
+  { m:"v1", name:"Critter static (insects)",    s:{ path:"straight", frames:80, zoomFactor:0.96, steps:12, lr:0.055, startSteps:15, sharpen:0.4, layers:["mixed3b","mixed4b"] } },
+  { m:"v1", name:"Ghost zoo (apparitions)",     s:{ path:"triangle", frames:70, zoomFactor:0.97, steps:10, lr:0.045, range:0.08, segFrames:10, startSteps:20, sharpen:0.3, layers:["mixed5a","mixed5b"] } },
+  { m:"v1", name:"The 2015 classic",           s:{ path:"straight", frames:60, zoomFactor:0.96, steps:22, lr:0.05, startSteps:30, sharpen:0.35, layers:["mixed4c","mixed4d","mixed4e"] } },
+  { m:"v1", name:"Spider choir (low webs)", s:{ path:"straight", frames:70, zoomFactor:0.965, steps:10, lr:0.06, startSteps:15, sharpen:0.4, layers:["mixed3a","mixed3b"] } },
+  { m:"v1", name:"Neon circuitry", s:{ path:"straight", frames:70, zoomFactor:0.96, steps:12, lr:0.065, startSteps:15, sharpen:0.5, layers:["mixed3a","mixed4a"] } },
+  { m:"v1", name:"Jellyfish bloom", s:{ path:"square", frames:80, zoomFactor:0.97, steps:14, lr:0.06, range:0.08, segFrames:8, startSteps:20, sharpen:0.35, layers:["mixed4b","mixed4c","mixed4d"] } },
+  { m:"v1", name:"Owl parliament", s:{ path:"straight", frames:60, zoomFactor:0.96, steps:20, lr:0.05, startSteps:25, sharpen:0.35, layers:["mixed4d"] } },
+  { m:"v1", name:"Serpent garden", s:{ path:"triangle", frames:70, zoomFactor:0.97, steps:12, lr:0.055, range:0.1, segFrames:10, startSteps:20, sharpen:0.35, layers:["mixed4e","mixed5b"] } },
+  { m:"v1", name:"Cloud council", s:{ path:"square", frames:70, zoomFactor:0.975, steps:10, lr:0.045, range:0.06, segFrames:10, startSteps:20, sharpen:0.3, layers:["mixed5b"] } },
+  { m:"v1", name:"Fossil record", s:{ path:"straight", frames:80, zoomFactor:0.965, steps:12, lr:0.055, startSteps:15, sharpen:0.4, layers:["mixed3a","mixed5a"] } },
+  { m:"v1", name:"The menagerie", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:14, lr:0.055, range:0.1, segFrames:10, startSteps:20, sharpen:0.35, layers:["mixed3b","mixed4c","mixed5a"] } },
+  { m:"v1", name:"Prism break", s:{ path:"straight", frames:70, zoomFactor:0.955, steps:10, lr:0.07, startSteps:15, sharpen:0.4, layers:["mixed4a","mixed4e"] } },
+  { m:"v1", name:"Lace storm", s:{ path:"square", frames:80, zoomFactor:0.97, steps:12, lr:0.06, range:0.08, segFrames:8, startSteps:15, sharpen:0.4, layers:["mixed3b"] } },
+  { m:"v1", name:"Cathedral of teeth", s:{ path:"straight", frames:70, zoomFactor:0.96, steps:16, lr:0.06, startSteps:25, sharpen:0.35, layers:["mixed4c","mixed4e"] } },
+  { m:"v1", name:"Abyssal plain", s:{ path:"straight", frames:90, zoomFactor:0.98, steps:10, lr:0.05, startSteps:15, sharpen:0.35, layers:["mixed3a","mixed3b","mixed4a"] } },
+  { m:"v3", name:"V3: Silk road", s:{ path:"straight", frames:70, zoomFactor:0.965, steps:8, lr:0.05, startSteps:15, sharpen:0.35, layers:["mixed2","mixed3"] } },
+  { m:"v3", name:"V3: Fur storm", s:{ path:"square", frames:70, zoomFactor:0.97, steps:12, lr:0.05, range:0.08, segFrames:8, startSteps:20, sharpen:0.35, layers:["mixed6","mixed7"] } },
+  { m:"v3", name:"V3: Deep structure", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:10, lr:0.055, range:0.1, segFrames:10, startSteps:20, sharpen:0.35, layers:["mixed4","mixed5","mixed6"] } },
+  { m:"v2", name:"V2: Cocoon", s:{ path:"straight", frames:70, zoomFactor:0.965, steps:8, lr:0.05, startSteps:15, sharpen:0.35, layers:["InceptionV2/Mixed_3b/concat","InceptionV2/Mixed_3c/concat"] } },
+  { m:"v2", name:"V2: Fur storm", s:{ path:"square", frames:70, zoomFactor:0.97, steps:12, lr:0.05, range:0.08, segFrames:8, startSteps:20, sharpen:0.35, layers:["InceptionV2/Mixed_5b/concat","InceptionV2/Mixed_5c/concat"] } },
+  { m:"v2", name:"V2: Deep structure", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:10, lr:0.055, range:0.1, segFrames:10, startSteps:20, sharpen:0.35, layers:["InceptionV2/Mixed_4a/concat","InceptionV2/Mixed_4b/concat","InceptionV2/Mixed_4c/concat"] } },
+  { m:"v2", name:"V2: Eye garden", s:{ path:"spiral", frames:80, zoomFactor:0.97, steps:10, lr:0.05, startSteps:20, sharpen:0.4, layers:["InceptionV2/Mixed_4c/concat","InceptionV2/Mixed_4d/concat","InceptionV2/Mixed_4e/concat"] } },
+  { m:"v2", name:"V2: Prism drift", s:{ path:"wave", frames:70, zoomFactor:0.97, steps:9, lr:0.05, startSteps:15, sharpen:0.35, layers:["InceptionV2/Mixed_3c/concat","InceptionV2/Mixed_5a/concat"] } }
 ];
 const FIELDS = [
   { k:"frames",     label:"Frames per run",       min:1,    max:100,  step:1,      note:"How many frames each press of Zoom makes ." },
@@ -290,7 +336,8 @@ const cardCv=$("card"), cctx=cardCv.getContext("2d");
 const artCv=document.createElement("canvas"), seedCv=document.createElement("canvas"), tmpCv=document.createElement("canvas");
 const params=new URLSearchParams(location.search);
 const townKey=AREAS[params.get("town")]?params.get("town"):"map", town=AREAS[townKey];
-$("townName").textContent=town.name;
+const MODEL=(MODELS[town.model]||MODELS.v1), P=PRE[MODEL.pre];
+$("townName").textContent=town.name+" · "+MODEL.label;
 
 let model=null, modelLayers=[], grads={}, engineOrder=[], engineIdx=-1, engineErrors=[], ready=false, busy=false, zooming=false, live=false;
 let card=null, cur=null, settings=loadSettings(), msPerStep=null;
@@ -336,19 +383,35 @@ async function pickEngines(){
 // NOTE: the old InceptionV3 build needed patchBatchNorm() because its Keras
 // batch-norm layers had no gamma weight. The InceptionV1 frozen graph is a pure
 // inference graph (batch norm folded into constants), so no patching is needed.
+// InceptionV3's batch-norm layers have no "scale" (gamma) weight; TF.js gradients crash on that
+// ("reading 'dataId'"). A gamma of all ones changes nothing in the maths and fixes it.
+function patchBatchNorm(m){
+  for(const l of m.layers){
+    if(l.getClassName()!=="BatchNormalization" || l.scale || l.gamma) continue;
+    const c=l.movingMean.shape[l.movingMean.shape.length-1];
+    l.gamma=l.addWeight("gamma",[c],"float32",tf.initializers.ones(),null,false); l.scale=true;
+  }
+}
 async function activate(name){
   if(model){ model.dispose(); model=null; } grads={}; if(cur){ cur.dispose(); cur=null; }
   if(!(await tryBackend(name))) throw new Error(name+" unavailable");
   $("engineBtn").textContent="Engine: "+LABEL[name];
-  setStatus("Loading InceptionV1 on "+LABEL[name]+"…"); setBar(0);
-  try{ model=await tf.loadGraphModel(MODEL_URL,{onProgress:p=>setBar(p)}); }
+  setStatus("Loading "+MODEL.label+" on "+LABEL[name]+"…"); setBar(0);
+  try{
+    if(MODEL.kind==="layers"){ model=await tf.loadLayersModel(MODEL.url,{onProgress:p=>setBar(p)}); patchBatchNorm(model); }
+    else { model=await tf.loadGraphModel(MODEL.url,{onProgress:p=>setBar(p)}); }
+  }
   catch(e){ throw new Error("loading the model failed: "+(e&&e.message||e)); }
-  // Keep only the dream layers this model actually exposes. TF.js names graph
-  // outputs like "mixed4c:0"; execute() accepts the short form too.
-  const have=(model.outputs||[]).map(o=>o.name);
-  modelLayers=V1_LAYERS.filter(n=>have.indexOf(n)>=0||have.indexOf(n+":0")>=0);
+  if(MODEL.kind==="layers"){
+    modelLayers=(model.outputNames&&model.outputNames.length)?model.outputNames.slice():model.outputs.map(o=>o.sourceLayer.name);
+  }else{
+    // Keep only the dream layers this model actually exposes. TF.js names graph
+    // outputs like "mixed4c:0"; execute() accepts the short form too.
+    const have=(model.outputs||[]).map(o=>o.name);
+    modelLayers=MODEL.layers.filter(n=>have.indexOf(n)>=0||have.indexOf(n+":0")>=0);
+  }
   setStatus("Warming up the dream engine…"); setBar(null);
-  try{ const t=tf.randomUniform([1,96,112,3],0,255).sub(117), s=dreamStep(t,0.01); await s.data(); t.dispose(); s.dispose(); }
+  try{ const t=tf.randomUniform([1,96,112,3],P.lo,P.hi), s=dreamStep(t,0.01); await s.data(); t.dispose(); s.dispose(); }
   catch(e){ throw new Error("the test dream failed: "+(e&&e.message||e)); }
 }
 async function nextEngine(){
@@ -363,12 +426,20 @@ async function nextEngine(){
 function activeLayers(){
   const want=(settings.layers&&settings.layers.length)?settings.layers:null;
   let use=want?modelLayers.filter(n=>want.indexOf(n)>=0):[];
-  if(!use.length){ const pref=["mixed4c","mixed4d"].filter(n=>modelLayers.indexOf(n)>=0); use=pref.length?pref:modelLayers.slice(-2); }
+  if(!use.length){ const pref=(MODEL.pref||[]).filter(n=>modelLayers.indexOf(n)>=0); use=pref.length?pref:modelLayers.slice(-2); }
   return use;
 }
 function getGrad(){
   const use=activeLayers(), key=use.join("+");
   if(grads[key]) return grads[key];
+  if(MODEL.kind==="layers"){
+    const idx=use.map(n=>modelLayers.indexOf(n));
+    return grads[key]=tf.grad(img=>{
+      let outs=model.apply(img,{training:false}); if(!Array.isArray(outs)) outs=[outs];
+      let loss=null; for(const i of idx){ const l=tf.mean(outs[i]); loss=loss?loss.add(l):l; }
+      return loss;
+    });
+  }
   return grads[key]=tf.grad(img=>{
     let outs=model.execute(img,use); if(!Array.isArray(outs)) outs=[outs];
     let loss=null; for(const o of outs){ const l=tf.mean(o); loss=loss?loss.add(l):l; }
@@ -382,7 +453,7 @@ function dreamStep(img,lr){
     let g=getGrad()(roll(roll(img,sy,1),sx,2));
     g=roll(roll(g,-sy,1),-sx,2);
     const std=tf.moments(g).variance.sqrt();
-    return img.add(g.div(std.add(1e-8)).mul(lr)).clipByValue(-117,138);
+    return img.add(g.div(std.add(1e-8)).mul(lr)).clipByValue(P.lo,P.hi);
   });
 }
 // Zoom path offsets in pixels: straight stays centred, square and triangle trace their shape.
@@ -417,13 +488,13 @@ function zoomCrop(img,zf,ox,oy,sharpen){
     if(sharpen>0){   // unsharp mask to cancel the resize blur
       const k=[1,2,1,2,4,2,1,2,1].map(v=>v/16), ker=tf.tensor4d([].concat(...k.map(v=>[v,v,v])),[3,3,3,1]);
       const blur=tf.depthwiseConv2d(out,ker,1,"same");
-      out=out.add(out.sub(blur).mul(sharpen*2)).clipByValue(-117,138);
+      out=out.add(out.sub(blur).mul(sharpen*2)).clipByValue(P.lo,P.hi);
     }
     return out;
   });
 }
-function canvasToTensor(cv){ return tf.tidy(()=>tf.browser.fromPixels(cv).toFloat().sub(117).expandDims(0)); }
-async function tensorToCanvas(img,cv){ const t=tf.tidy(()=>img.squeeze([0]).add(117).div(255).clipByValue(0,1)); await tf.browser.toPixels(t,cv); t.dispose(); }
+function canvasToTensor(cv){ return tf.tidy(()=>P.norm(tf.browser.fromPixels(cv).toFloat()).expandDims(0)); }
+async function tensorToCanvas(img,cv){ const t=tf.tidy(()=>P.denorm(img.squeeze([0])).clipByValue(0,1)); await tf.browser.toPixels(t,cv); t.dispose(); }
 function noteStepTime(ms){ msPerStep=msPerStep==null?ms:msPerStep*0.8+ms*0.2; updateEstimate(); }
 function updateEstimate(){
   const el=$("estimate"); if(msPerStep==null){ el.textContent=""; return; }
@@ -512,7 +583,7 @@ async function startDream(){
   card.recipe={ start:steps, startLayers:activeLayers().join("+"), startLr:+Math.max(0.01,settings.lr).toFixed(4), size:card.w+"×"+card.h, engine:ENGINE_SHORT[engineOrder[engineIdx]]||"GPU", runs:[] };
   for(;;){
     try{
-      let img=tf.tidy(()=>canvasToTensor(seedCv).add(tf.randomUniform([1,card.h,card.w,3],-10,10)).clipByValue(-117,138));
+      let img=tf.tidy(()=>canvasToTensor(seedCv).add(tf.randomUniform([1,card.h,card.w,3],P.noise[0],P.noise[1])).clipByValue(P.lo,P.hi));
       if(steps>0){ let done=0;
         for(let o=OCTAVES-1;o>=0;o--){
           const s=Math.pow(OCTAVE_SCALE,-o), h=Math.max(96,Math.round(card.h*s)), w=Math.max(96,Math.round(card.w*s));
@@ -740,7 +811,8 @@ function buildSettings(){
   // presets
   const pw=document.createElement("div"); pw.className="field";
   pw.innerHTML='<label>Preset <span>quick starting points</span></label>';
-  const sel=document.createElement("select"); sel.innerHTML='<option value="">Choose a preset…</option>'+PRESETS.map((p,i)=>'<option value="'+i+'">'+p.name+'</option>').join("");
+  const plist=PRESETS.map((p,i)=>({p:p,i:i})).filter(o=>!o.p.m||o.p.m===MODEL.short);
+  const sel=document.createElement("select"); sel.innerHTML='<option value="">Choose a preset…</option>'+plist.map(o=>'<option value="'+o.i+'">'+o.p.name+'</option>').join("");
   sel.onchange=()=>{ if(sel.value==="") return; const p=PRESETS[+sel.value]; settings=Object.assign({},settings,DEFAULTS,{quality:settings.quality,heat:settings.heat},p.s); saveSettings(); buildSettings(); setStatus("Preset: "+p.name); };
   pw.appendChild(sel); body.appendChild(pw);
   // path
@@ -763,13 +835,13 @@ function buildSettings(){
   // layers
   const lf=document.createElement("div"); lf.className="field"; lf.innerHTML="<label>Inception layers <span>which features to amplify</span></label>";
   const chips=document.createElement("div"); chips.className="chips";
-  const allNames=V1_LAYERS, active=model?activeLayers():(settings.layers||[]);
+  const allNames=MODEL.layers, active=model?activeLayers():(settings.layers||[]);
   allNames.forEach(n=>{ const b=document.createElement("button"); b.textContent=n; const have=!model||modelLayers.indexOf(n)>=0;
     b.disabled=!have; b.className=active.indexOf(n)>=0&&have?"on":"";
     b.onclick=()=>{ let L=(model?activeLayers():(settings.layers||[])).slice(); const i=L.indexOf(n); if(i>=0){ if(L.length>1) L.splice(i,1); } else L.push(n); settings.layers=L; saveSettings(); buildSettings(); };
     chips.appendChild(b); });
   lf.appendChild(chips);
-  lf.appendChild(addNote("Low layers (mixed3a) make swirls and textures; mid layers (mixed4c/4d) make the classic eyes-and-creatures; high layers (mixed5b) make abstract shapes."));
+  lf.appendChild(addNote(MODEL.note));
   body.appendChild(lf);
   // quality
   const qf=document.createElement("div"); qf.className="field"; qf.innerHTML="<label>Dream size <span>bigger = sharper but slower</span></label>";
@@ -981,8 +1053,8 @@ async function boot(){
   const col=readCollection(); await useSeed(col.length?col[0]:wildSeed());
   setStatus(card.name+" popped out of your collection. Loading the dream engine…");
   if(typeof tf==="undefined"){ setStatus("Couldn't load TensorFlow.js. Check your internet connection and reload.",true); return; }
-  let found=false; try{ const r=await fetch(MODEL_URL,{cache:"no-cache"}); found=r.ok; }catch(e){}
-  if(!found){ setStatus("Model not found at "+MODEL_URL+". Run “Build DeepDream model” in GitHub Actions (see DREAM_GENERATOR.md).",true); return; }
+  let found=false; try{ const r=await fetch(MODEL.url,{cache:"no-cache"}); found=r.ok; }catch(e){}
+  if(!found){ setStatus("Model not found at "+MODEL.url+" ("+MODEL.label+").",true); return; }
   try{ tf.enableProdMode(); }catch(e){}
   engineOrder=await pickEngines(); engineIdx=-1;
   if(!(await nextEngine())){ setStatus("The dream engine couldn't start. "+(engineErrors.length?engineErrors[engineErrors.length-1]:"No engine was available."),true); $("engineBtn").textContent="Engine: none"; return; }
