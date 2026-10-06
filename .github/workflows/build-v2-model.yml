@@ -11,7 +11,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install TensorFlow + converter + tf-slim
-        run: pip install "tensorflow>=2.13,<2.16" "tensorflowjs>=4.13,<4.18" tf-slim
+        run: pip install "tensorflow>=2.13,<2.16" "tensorflowjs>=4.13,<4.18" tf-slim "tf-keras>=2.13,<2.16"
       - name: Export InceptionV2 (TF-Slim checkpoint)
         run: python tools/export_inceptionv2.py
       - name: Commit model files
