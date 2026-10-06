@@ -50,14 +50,28 @@ WORK_DIR = os.path.join("tools", ".inceptionv2_tmp")
 FROZEN_PB = os.path.join(WORK_DIR, "inception_v2_frozen.pb")
 
 
+def find_checkpoint(work_dir):
+    """Find an extracted checkpoint, new (*.index) or old single-file (*.ckpt) format."""
+    for root, _dirs, files in os.walk(work_dir):
+        for f in files:
+            if f.endswith(".index"):
+                return os.path.join(root, f[: -len(".index")])
+    # TF 1.x-era single-file checkpoints (e.g. inception_v2_2016_08_28.tar.gz
+    # contains just "inception_v2.ckpt"): the full path is the restore prefix.
+    for root, _dirs, files in os.walk(work_dir):
+        for f in files:
+            if f.endswith(".ckpt"):
+                return os.path.join(root, f)
+    return None
+
+
 def download_checkpoint():
     os.makedirs(WORK_DIR, exist_ok=True)
     # Find an already-extracted checkpoint first (lets re-runs skip the download).
-    for f in os.listdir(WORK_DIR):
-        if f.endswith(".index"):
-            prefix = os.path.join(WORK_DIR, f[: -len(".index")])
-            print(f"Checkpoint already extracted: {prefix}")
-            return prefix
+    prefix = find_checkpoint(WORK_DIR)
+    if prefix:
+        print(f"Checkpoint already extracted: {prefix}")
+        return prefix
     tar_path = os.path.join(WORK_DIR, "inception_v2.tar.gz")
     if not os.path.exists(tar_path):
         print(f"Downloading {CHECKPOINT_URL} ... (~41 MB)")
@@ -66,12 +80,15 @@ def download_checkpoint():
     with tarfile.open(tar_path, "r:gz") as t:
         t.extractall(WORK_DIR)
     os.remove(tar_path)
-    for f in os.listdir(WORK_DIR):
-        if f.endswith(".index"):
-            prefix = os.path.join(WORK_DIR, f[: -len(".index")])
-            print(f"Checkpoint ready: {prefix}")
-            return prefix
-    sys.exit("ERROR: no .ckpt found in the tarball.")
+    print("Extracted files:")
+    for root, _dirs, files in os.walk(WORK_DIR):
+        for f in files:
+            print("  " + os.path.relpath(os.path.join(root, f), WORK_DIR))
+    prefix = find_checkpoint(WORK_DIR)
+    if prefix:
+        print(f"Checkpoint ready: {prefix}")
+        return prefix
+    sys.exit("ERROR: no checkpoint found in the tarball.")
 
 
 def detect_num_classes(ckpt_prefix):
