@@ -26,7 +26,7 @@
   #playbar.hide{visibility:hidden;}
   #playbar label{display:flex;align-items:center;gap:8px;flex:1;white-space:nowrap;}
   #playbar input{flex:1;accent-color:#8affea;min-width:60px;}
-  #speedVal{min-width:44px;color:var(--mint);font-variant-numeric:tabular-nums;}
+  #speedVal,#speedOutVal{min-width:44px;color:var(--mint);font-variant-numeric:tabular-nums;}
   #boomBtn{font-size:13px;padding:7px 10px;border-radius:18px;white-space:nowrap;}
   #boomBtn.on{background:var(--mint);color:#08120e;border-color:var(--mint);font-weight:bold;}
   .tile .badge{position:absolute;left:6px;bottom:6px;font-size:11px;font-weight:bold;padding:3px 7px;border-radius:10px;background:rgba(8,4,18,.8);color:var(--mint);}
@@ -85,8 +85,10 @@
   </header>
   <main id="main"><canvas id="card" aria-label="Dream trading card"></canvas></main>
   <div id="playbar" class="hide">
-    <label>Zoom speed <input type="range" id="speed" min="2" max="60" step="1" value="12" aria-label="Zoom speed, frames per second"></label>
+    <label>Zoom in <input type="range" id="speed" min="2" max="60" step="1" value="12" aria-label="Zoom in speed, frames per second"></label>
     <span id="speedVal">12 fps</span>
+    <label>Zoom out <input type="range" id="speedOut" min="2" max="60" step="1" value="12" aria-label="Zoom out speed, frames per second"></label>
+    <span id="speedOutVal">12 fps</span>
     <button id="boomBtn" class="on" aria-pressed="true">⇆ Zoomerang</button>
   </div>
   <div id="statusWrap"><div id="status" role="status">Starting up…</div><div id="bar"><i></i></div></div>
@@ -214,7 +216,19 @@ const QUALITY = { fast:{w:192,h:240}, normal:{w:256,h:320}, high:{w:320,h:400}, 
 const OCTAVES = 3, OCTAVE_SCALE = 1.35, JITTER = 16;
 const MAX_FRAMES = 1000, PLAY_FPS = 12, GIF_W = 360, VIDEO_W = 540; // MAX_FRAMES = total a card can hold across multiple Zoom presses; the Settings slider caps each press at 100
 // Playback: frames per second and "zoomerang" (zoom in, then back out to the start)
-function cardFps(c){ return Math.max(2,Math.min(60,(c&&c.playFps)||PLAY_FPS)); }
+function clampFps(v){ v=parseFloat(v); if(!(v>0)) v=PLAY_FPS; return Math.max(2,Math.min(60,v)); }
+function cardFps(c){ return clampFps(c&&c.playFps); }
+function cardFpsOut(c){ return clampFps(c&&c.playFpsOut!=null?c.playFpsOut:cardFps(c)); }
+// Frame index for elapsed seconds, honoring separate zoom-in / zoom-out speeds on the zoomerang.
+function boomFrame(c,tSec){
+  const n=c.frames.length, fi=cardFps(c), fo=cardFpsOut(c);
+  if(!(cardBoom(c)&&n>2)) return Math.floor(tSec*fi)%n;
+  const tIn=n/fi, tOut=(n-2)/fo, tc=tSec%(tIn+tOut);
+  if(tc<tIn) return Math.min(n-1,Math.floor(tc*fi+1e-6));
+  return Math.max(1,(n-2)-Math.floor((tc-tIn)*fo+1e-6));
+}
+// 0 = zoom-in leg, 1 = zoom-out leg, for output frame i of an exported sequence.
+function seqLeg(c,i){ const n=c.frames.length; if(!(cardBoom(c)&&n>2)) return 0; return (i%(2*n-2))>=n?1:0; }
 function cardBoom(c){ return !c||c.boomerang!==false; }
 function seqLength(c){ const n=c.frames.length; return (cardBoom(c)&&n>2)?2*n-2:n; }
 function seqFrame(c,k){ const n=c.frames.length; if(!(cardBoom(c)&&n>2)) return k%n; const p=2*n-2, m=k%p; return m<n?m:p-m; }
@@ -575,7 +589,8 @@ const ENGINE_SHORT={ webgpu:"WebGPU", webgl:"WebGL", wasm:"WASM", cpu:"CPU" };
 // Only that part is shown, so the text follows the zoom (and runs backwards with the zoomerang).
 function recipeSegment(cd,idx){
   const r=cd.recipe; if(!r) return null;
-  const runs=r.runs||[], foot=r.size+" on "+r.engine+" · plays "+(cd.playFps||12)+" fps"+(cd.boomerang===false?"":" zoomerang");
+  const runs=r.runs||[], f1=(cd.playFps||12), f2=(cd.playFpsOut!=null?cd.playFpsOut:f1);
+  const foot=r.size+" on "+r.engine+" · plays "+f1+(cd.boomerang===false?"":"/"+f2)+" fps"+(cd.boomerang===false?"":" zoomerang");
   const total=1+runs.reduce((t,z)=>t+z.frames,0); if(idx>=total && runs.length) idx=total-1;
   let start=1;
   for(let i=0;i<runs.length;i++){ const z=runs[i];
@@ -688,7 +703,7 @@ function tick(t){
   const W=cardCv.width, H=cardCv.height;
   if(card){ let art=null, fi=Math.max(0,card.frames.length-1); const n=card.frames.length;
     if(live||!n) art=artCv;
-    else { fi=seqFrame(card,Math.floor(Math.max(0,t-playStart)/1000*cardFps(card))); art=cachedFrame(fi)||lastArt||artCv; lastArt=art; }
+    else { fi=boomFrame(card,Math.max(0,t-playStart)/1000); art=cachedFrame(fi)||lastArt||artCv; lastArt=art; }
     try{ drawCard(cctx,W,H,card,art,t,n,fi); }catch(e){ lastArt=null; try{ drawCard(cctx,W,H,card,artCv,t,n,fi); }catch(e2){} }
   } else drawBack(cctx,W,H,t);
 }
@@ -777,7 +792,7 @@ function closeSettings(){ $("settings").classList.remove("open"); if(card) { car
 const DB_NAME="deepdreamlings_generator", STORE="cards", EXPORTS="exports";
 function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME,2); r.onupgradeneeded=()=>{ const db=r.result; if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:"id"}); if(!db.objectStoreNames.contains(EXPORTS)) db.createObjectStore(EXPORTS,{keyPath:"id"}); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 async function idbDo(mode,fn,store){ store=store||STORE; const db=await idb(); return new Promise((res,rej)=>{ const tx=db.transaction(store,mode), st=tx.objectStore(store); const r=fn(st); tx.oncomplete=()=>res(r&&r.result); tx.onerror=()=>rej(tx.error); tx.onabort=()=>rej(tx.error); }); }
-function cardRecord(c){ return { id:c.id, no:c.no, name:c.name, town:c.town, townName:c.townName, rarity:c.rarity, style:c.style, detail:c.detail, seedKey:c.seedKey, w:c.w, h:c.h, created:c.created, pathFrame:c.pathFrame||0, frames:c.frames.slice(), lastPng:c.lastPng||null, playFps:cardFps(c), boomerang:cardBoom(c), recipe:c.recipe||null }; }
+function cardRecord(c){ return { id:c.id, no:c.no, name:c.name, town:c.town, townName:c.townName, rarity:c.rarity, style:c.style, detail:c.detail, seedKey:c.seedKey, w:c.w, h:c.h, created:c.created, pathFrame:c.pathFrame||0, frames:c.frames.slice(), lastPng:c.lastPng||null, playFps:cardFps(c), playFpsOut:cardFpsOut(c), boomerang:cardBoom(c), recipe:c.recipe||null }; }
 async function keepCard(){
   if(!card||busy||zooming||!card.frames.length) return;
   busy=true; updateUI(); setStatus("Keeping "+card.name+"…");
@@ -839,7 +854,7 @@ let resultBlob=null, resultName="", resultUrl=null;
 let resultExportId=null;
 async function saveExport(blob,name,kind){
   const rec={ id:"ex"+Date.now().toString(36)+Math.random().toString(36).slice(2,5), name:name, kind:kind, blob:blob, created:Date.now(), thumb:card.frames[0]||null,
-    card:{ name:card.name, rarity:card.rarity, detail:card.detail, style:card.style, townName:card.townName, no:card.no, frameCount:card.frames.length, recipe:card.recipe||null, playFps:cardFps(card), boomerang:cardBoom(card) } };
+    card:{ name:card.name, rarity:card.rarity, detail:card.detail, style:card.style, townName:card.townName, no:card.no, frameCount:card.frames.length, recipe:card.recipe||null, playFps:cardFps(card), playFpsOut:cardFpsOut(card), boomerang:cardBoom(card) } };
   try{ await idbDo("readwrite",st=>st.put(rec),EXPORTS); return rec.id; }catch(e){ console.warn("Couldn't save export to gallery",e); return null; }
 }
 function showResult(blob,name,kind,exportId){
@@ -860,13 +875,15 @@ async function exportGif(){
   busy=true; updateUI();
   try{
     const W=GIF_W, H=Math.round(GIF_W*1.4), cv=document.createElement("canvas"); cv.width=W; cv.height=H; const c=cv.getContext("2d",{willReadFrequently:true});
-    const n=card.frames.length, fps=cardFps(card), L=seqLength(card), delay=Math.max(2,Math.round(100/fps)), count=Math.max(L,n===1?24:0);
-    const enc=new GifEncoder(W,H); let im=null, imIdx=-1;
+    const n=card.frames.length, fpsIn=cardFps(card), fpsOut=cardFpsOut(card), L=seqLength(card);
+    const dIn=Math.max(2,Math.round(100/fpsIn)), dOut=Math.max(2,Math.round(100/fpsOut)), count=Math.max(L,n===1?24:0);
+    const enc=new GifEncoder(W,H); let im=null, imIdx=-1, tMs=0;
     for(let i=0;i<count;i++){
-      const fi=seqFrame(card,i);
+      const fi=seqFrame(card,i), dl=seqLeg(card,i)?dOut:dIn;
       if(fi!==imIdx){ if(im&&im.close) im.close(); im=await decodeBlob(card.frames[fi]); imIdx=fi; }
-      drawCard(c,W,H,card,im,i*1000/fps,n,fi);
-      enc.addFrame(c.getImageData(0,0,W,H).data,delay);
+      drawCard(c,W,H,card,im,tMs,n,fi);
+      enc.addFrame(c.getImageData(0,0,W,H).data,dl);
+      tMs+=dl*10;
       setStatus("Making GIF… "+(i+1)+" / "+count); setBar((i+1)/count);
       if(i%2===1) await sleep(0);
     }
@@ -883,18 +900,21 @@ async function exportVideo(){
   busy=true; updateUI();
   try{
     const cv=$("exportCv"), W=VIDEO_W, H=Math.round(VIDEO_W*1.4); cv.width=W; cv.height=H; const c=cv.getContext("2d");
-    const n=card.frames.length, fps=cardFps(card), L=seqLength(card), count=Math.max(L,Math.ceil(fps*3/L)*L);
+    const n=card.frames.length, fpsIn=cardFps(card), fpsOut=cardFpsOut(card), L=seqLength(card);
+    const cycSec=(cardBoom(card)&&n>2)?n/fpsIn+(n-2)/fpsOut:n/fpsIn, count=Math.max(L,Math.ceil(3/cycSec)*L);
     const imgs=[]; for(let i=0;i<n;i++){ imgs.push(await decodeBlob(card.frames[i])); setStatus("Preparing video… "+(i+1)+" / "+n); setBar((i+1)/n/2); if(i%10===9) await sleep(0); }
     drawCard(c,W,H,card,imgs[0],0,n,0);
     const stream=cv.captureStream(30), chunks=[];
     const rec=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:5000000}:{videoBitsPerSecond:5000000});
     rec.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
     const stopped=new Promise(r=>rec.onstop=r); rec.start(250);
-    const t0=performance.now();
+    const t0=performance.now(); let tMs=0;
     for(let i=0;i<count;i++){
-      drawCard(c,W,H,card,imgs[seqFrame(card,i)],i*1000/fps,n,seqFrame(card,i));
+      const fi=seqFrame(card,i), stepMs=seqLeg(card,i)?1000/fpsOut:1000/fpsIn;
+      drawCard(c,W,H,card,imgs[fi],tMs,n,fi);
       setStatus("Recording video… "+(i+1)+" / "+count); setBar(0.5+(i+1)/count/2);
-      await sleep(Math.max(0,t0+(i+1)*1000/fps-performance.now()));
+      tMs+=stepMs;
+      await sleep(Math.max(0,t0+tMs-performance.now()));
     }
     await sleep(120); rec.stop(); await stopped; stream.getTracks().forEach(t=>t.stop());
     imgs.forEach(im=>{ if(im&&im.close) im.close(); });
@@ -914,13 +934,16 @@ function syncPlaybar(){
   const show=!!(card&&card.frames.length>1&&!live);
   $("playbar").classList.toggle("hide",!show);
   if(!card) return;
-  const f=cardFps(card), b=cardBoom(card);
+  const f=cardFps(card), fo=cardFpsOut(card), b=cardBoom(card);
   $("speed").value=f; $("speedVal").textContent=f+" fps";
+  $("speedOut").value=fo; $("speedOutVal").textContent=fo+" fps"; $("speedOut").disabled=!b;
   $("boomBtn").classList.toggle("on",b); $("boomBtn").setAttribute("aria-pressed",b?"true":"false");
 }
 function playbarChanged(){ if(!card) return; if(card.saved) card.dirty=true; syncPlaybar(); updateUI(); }
 $("speed").oninput=e=>{ if(!card) return; card.playFps=+e.target.value; $("speedVal").textContent=card.playFps+" fps"; };
 $("speed").onchange=()=>playbarChanged();
+$("speedOut").oninput=e=>{ if(!card) return; card.playFpsOut=+e.target.value; $("speedOutVal").textContent=card.playFpsOut+" fps"; };
+$("speedOut").onchange=()=>playbarChanged();
 $("boomBtn").onclick=()=>{ if(!card) return; card.boomerang=!cardBoom(card); playStart=performance.now(); playbarChanged(); };
 function updateUI(){
   syncPlaybar();
