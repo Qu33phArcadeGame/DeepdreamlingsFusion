@@ -85,7 +85,7 @@
   </header>
   <main id="main"><canvas id="card" aria-label="Dream trading card"></canvas></main>
   <div id="playbar" class="hide">
-    <label>Zoom speed <input type="range" id="speed" min="2" max="30" step="1" value="12" aria-label="Zoom speed, frames per second"></label>
+    <label>Zoom speed <input type="range" id="speed" min="2" max="60" step="1" value="12" aria-label="Zoom speed, frames per second"></label>
     <span id="speedVal">12 fps</span>
     <button id="boomBtn" class="on" aria-pressed="true">⇆ Zoomerang</button>
   </div>
@@ -214,7 +214,7 @@ const QUALITY = { fast:{w:192,h:240}, normal:{w:256,h:320}, high:{w:320,h:400}, 
 const OCTAVES = 3, OCTAVE_SCALE = 1.35, JITTER = 16;
 const MAX_FRAMES = 1000, PLAY_FPS = 12, GIF_W = 360, VIDEO_W = 540; // MAX_FRAMES = total a card can hold across multiple Zoom presses; the Settings slider caps each press at 100
 // Playback: frames per second and "zoomerang" (zoom in, then back out to the start)
-function cardFps(c){ return Math.max(2,Math.min(30,(c&&c.playFps)||PLAY_FPS)); }
+function cardFps(c){ return Math.max(2,Math.min(60,(c&&c.playFps)||PLAY_FPS)); }
 function cardBoom(c){ return !c||c.boomerang!==false; }
 function seqLength(c){ const n=c.frames.length; return (cardBoom(c)&&n>2)?2*n-2:n; }
 function seqFrame(c,k){ const n=c.frames.length; if(!(cardBoom(c)&&n>2)) return k%n; const p=2*n-2, m=k%p; return m<n?m:p-m; }
