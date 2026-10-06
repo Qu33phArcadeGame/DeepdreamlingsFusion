@@ -109,7 +109,7 @@ def build_and_freeze(ckpt_prefix, num_classes):
     import tensorflow.compat.v1 as tf
 
     tf.disable_v2_behavior()
-    from tf_slim import slim
+    import tf_slim as slim
     from tf_slim.nets import inception_v2
 
     tf.reset_default_graph()
