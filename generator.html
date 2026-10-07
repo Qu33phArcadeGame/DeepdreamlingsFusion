@@ -296,11 +296,11 @@ const PRESETS = [
   { m:"v3", name:"V3: Silk road", s:{ path:"straight", frames:70, zoomFactor:0.965, steps:8, lr:0.05, startSteps:0, sharpen:0.35, layers:["mixed2","mixed3"] } },
   { m:"v3", name:"V3: Fur storm", s:{ path:"square", frames:70, zoomFactor:0.97, steps:12, lr:0.05, range:0.08, segFrames:8, startSteps:0, sharpen:0.35, layers:["mixed6","mixed7"] } },
   { m:"v3", name:"V3: Deep structure", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:10, lr:0.055, range:0.1, segFrames:10, startSteps:0, sharpen:0.35, layers:["mixed4","mixed5","mixed6"] } },
-  { m:"v2", name:"V2: Cocoon", s:{ path:"straight", frames:70, zoomFactor:0.965, steps:8, lr:0.05, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_3b/concat","InceptionV2/InceptionV2/Mixed_3c/concat"] } },
-  { m:"v2", name:"V2: Fur storm", s:{ path:"square", frames:70, zoomFactor:0.97, steps:12, lr:0.05, range:0.08, segFrames:8, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_5b/concat","InceptionV2/InceptionV2/Mixed_5c/concat"] } },
-  { m:"v2", name:"V2: Deep structure", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:10, lr:0.055, range:0.1, segFrames:10, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_4a/concat","InceptionV2/InceptionV2/Mixed_4b/concat","InceptionV2/InceptionV2/Mixed_4c/concat"] } },
-  { m:"v2", name:"V2: Eye garden", s:{ path:"spiral", frames:80, zoomFactor:0.97, steps:10, lr:0.05, startSteps:0, sharpen:0.4, layers:["InceptionV2/InceptionV2/Mixed_4c/concat","InceptionV2/InceptionV2/Mixed_4d/concat","InceptionV2/InceptionV2/Mixed_4e/concat"] } },
-  { m:"v2", name:"V2: Prism drift", s:{ path:"wave", frames:70, zoomFactor:0.97, steps:9, lr:0.05, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_3c/concat","InceptionV2/InceptionV2/Mixed_5a/concat"] } }
+  { m:"v2", name:"V2: Cocoon", s:{ path:"straight", frames:70, zoomFactor:0.965, steps:6, lr:0.04, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_3b/concat","InceptionV2/InceptionV2/Mixed_3c/concat"] } },
+  { m:"v2", name:"V2: Fur storm", s:{ path:"square", frames:70, zoomFactor:0.97, steps:9, lr:0.04, range:0.08, segFrames:8, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_5b/concat","InceptionV2/InceptionV2/Mixed_5c/concat"] } },
+  { m:"v2", name:"V2: Deep structure", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:7, lr:0.045, range:0.1, segFrames:10, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_4a/concat","InceptionV2/InceptionV2/Mixed_4b/concat","InceptionV2/InceptionV2/Mixed_4c/concat"] } },
+  { m:"v2", name:"V2: Eye garden", s:{ path:"spiral", frames:80, zoomFactor:0.97, steps:7, lr:0.04, startSteps:0, sharpen:0.4, layers:["InceptionV2/InceptionV2/Mixed_4c/concat","InceptionV2/InceptionV2/Mixed_4d/concat","InceptionV2/InceptionV2/Mixed_4e/concat"] } },
+  { m:"v2", name:"V2: Prism drift", s:{ path:"wave", frames:70, zoomFactor:0.97, steps:7, lr:0.04, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_3c/concat","InceptionV2/InceptionV2/Mixed_5a/concat"] } }
 ];
 const FIELDS = [
   { k:"frames",     label:"Frames per run",       min:1,    max:100,  step:1,      note:"How many frames each press of Zoom makes ." },
