@@ -583,7 +583,7 @@ async function startDream(){
   card.recipe={ start:steps, startLayers:activeLayers().join("+"), startLr:+Math.max(0.01,settings.lr).toFixed(4), size:card.w+"×"+card.h, engine:ENGINE_SHORT[engineOrder[engineIdx]]||"GPU", runs:[] };
   for(;;){
     try{
-      let img=tf.tidy(()=>canvasToTensor(seedCv).add(tf.randomUniform([1,card.h,card.w,3],P.noise[0],P.noise[1])).clipByValue(P.lo,P.hi));
+      let img=tf.tidy(()=>{ let t=canvasToTensor(seedCv); if(steps>0) t=t.add(tf.randomUniform([1,card.h,card.w,3],P.noise[0],P.noise[1])).clipByValue(P.lo,P.hi); return t; });
       if(steps>0){ let done=0;
         for(let o=OCTAVES-1;o>=0;o--){
           const s=Math.pow(OCTAVE_SCALE,-o), h=Math.max(96,Math.round(card.h*s)), w=Math.max(96,Math.round(card.w*s));
