@@ -293,14 +293,51 @@ const PRESETS = [
   { m:"v1", name:"Lace storm", s:{ path:"square", frames:80, zoomFactor:0.97, steps:12, lr:0.06, range:0.08, segFrames:8, startSteps:0, sharpen:0.4, layers:["mixed3b"] } },
   { m:"v1", name:"Cathedral of teeth", s:{ path:"straight", frames:70, zoomFactor:0.96, steps:16, lr:0.06, startSteps:0, sharpen:0.35, layers:["mixed4c","mixed4e"] } },
   { m:"v1", name:"Abyssal plain", s:{ path:"straight", frames:90, zoomFactor:0.98, steps:10, lr:0.05, startSteps:0, sharpen:0.35, layers:["mixed3a","mixed3b","mixed4a"] } },
+  { m:"v1", name:"Fractal seeds", s:{ path:"straight", frames:70, zoomFactor:0.96, steps:6, lr:0.05, startSteps:0, sharpen:0.4, layers:["mixed3a"] } },
+  { m:"v1", name:"Honeycomb mind", s:{ path:"square", frames:70, zoomFactor:0.97, steps:10, lr:0.055, range:0.08, segFrames:10, startSteps:0, sharpen:0.35, layers:["mixed4a"] } },
+  { m:"v1", name:"The witness", s:{ path:"straight", frames:60, zoomFactor:0.965, steps:12, lr:0.055, startSteps:0, sharpen:0.35, layers:["mixed4b"] } },
+  { m:"v1", name:"Cathedral glass", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:12, lr:0.05, range:0.1, segFrames:10, startSteps:0, sharpen:0.35, layers:["mixed4c"] } },
+  { m:"v1", name:"Choir loft", s:{ path:"square", frames:70, zoomFactor:0.975, steps:14, lr:0.055, range:0.06, segFrames:10, startSteps:0, sharpen:0.3, layers:["mixed4e"] } },
+  { m:"v1", name:"Porcelain static", s:{ path:"straight", frames:70, zoomFactor:0.96, steps:10, lr:0.05, startSteps:0, sharpen:0.4, layers:["mixed5a"] } },
+  { m:"v1", name:"Tide and signal", s:{ path:"straight", frames:80, zoomFactor:0.965, steps:12, lr:0.055, startSteps:0, sharpen:0.35, layers:["mixed3a","mixed5b"] } },
+  { m:"v1", name:"Root and crown", s:{ path:"square", frames:70, zoomFactor:0.97, steps:10, lr:0.05, range:0.08, segFrames:8, startSteps:0, sharpen:0.35, layers:["mixed3b","mixed5b"] } },
+  { m:"v1", name:"Moss and marble", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:12, lr:0.055, range:0.1, segFrames:10, startSteps:0, sharpen:0.35, layers:["mixed3b","mixed5a"] } },
+  { m:"v1", name:"Lantern swarm", s:{ path:"straight", frames:70, zoomFactor:0.96, steps:14, lr:0.06, startSteps:0, sharpen:0.35, layers:["mixed4a","mixed5b"] } },
+  { m:"v1", name:"Ink and opal", s:{ path:"square", frames:70, zoomFactor:0.975, steps:10, lr:0.05, range:0.06, segFrames:10, startSteps:0, sharpen:0.35, layers:["mixed4b","mixed5b"] } },
+  { m:"v1", name:"Ivory tower", s:{ path:"triangle", frames:70, zoomFactor:0.97, steps:10, lr:0.045, range:0.08, segFrames:10, startSteps:0, sharpen:0.3, layers:["mixed4c","mixed5a"] } },
+  { m:"v1", name:"Velvet antlers", s:{ path:"straight", frames:80, zoomFactor:0.965, steps:14, lr:0.055, startSteps:0, sharpen:0.35, layers:["mixed4d","mixed5a"] } },
+  { m:"v1", name:"Pond ripple", s:{ path:"square", frames:80, zoomFactor:0.97, steps:8, lr:0.045, range:0.1, segFrames:12, startSteps:0, sharpen:0.4, layers:["mixed3a","mixed4c"] } },
+  { m:"v1", name:"Thicket eyes", s:{ path:"triangle", frames:70, zoomFactor:0.965, steps:14, lr:0.06, range:0.1, segFrames:8, startSteps:0, sharpen:0.35, layers:["mixed3a","mixed4d"] } },
+  { m:"v1", name:"Coral archive", s:{ path:"straight", frames:70, zoomFactor:0.96, steps:16, lr:0.06, startSteps:0, sharpen:0.35, layers:["mixed3a","mixed4e"] } },
+  { m:"v1", name:"Fern cathedral", s:{ path:"square", frames:80, zoomFactor:0.97, steps:12, lr:0.055, range:0.08, segFrames:10, startSteps:0, sharpen:0.35, layers:["mixed3b","mixed4d"] } },
+  { m:"v1", name:"Moth choir", s:{ path:"triangle", frames:70, zoomFactor:0.97, steps:10, lr:0.05, range:0.08, segFrames:10, startSteps:0, sharpen:0.4, layers:["mixed3b","mixed4e"] } },
+  { m:"v1", name:"The grand menagerie", s:{ path:"straight", frames:90, zoomFactor:0.97, steps:12, lr:0.05, startSteps:0, sharpen:0.35, layers:["mixed4a","mixed4b","mixed4c","mixed4d"] } },
+  { m:"v1", name:"Strata", s:{ path:"square", frames:80, zoomFactor:0.975, steps:10, lr:0.05, range:0.06, segFrames:12, startSteps:0, sharpen:0.35, layers:["mixed3a","mixed4b","mixed5b"] } },
   { m:"v3", name:"V3: Silk road", s:{ path:"straight", frames:70, zoomFactor:0.965, steps:8, lr:0.05, startSteps:0, sharpen:0.35, layers:["mixed2","mixed3"] } },
   { m:"v3", name:"V3: Fur storm", s:{ path:"square", frames:70, zoomFactor:0.97, steps:12, lr:0.05, range:0.08, segFrames:8, startSteps:0, sharpen:0.35, layers:["mixed6","mixed7"] } },
   { m:"v3", name:"V3: Deep structure", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:10, lr:0.055, range:0.1, segFrames:10, startSteps:0, sharpen:0.35, layers:["mixed4","mixed5","mixed6"] } },
+  { m:"v3", name:"V3: Pebble bed", s:{ path:"straight", frames:70, zoomFactor:0.965, steps:8, lr:0.05, startSteps:0, sharpen:0.4, layers:["mixed2"] } },
+  { m:"v3", name:"V3: Crossroads", s:{ path:"square", frames:70, zoomFactor:0.97, steps:10, lr:0.05, range:0.08, segFrames:10, startSteps:0, sharpen:0.35, layers:["mixed4"] } },
+  { m:"v3", name:"V3: Lantern oil", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:10, lr:0.055, range:0.1, segFrames:10, startSteps:0, sharpen:0.35, layers:["mixed5"] } },
+  { m:"v3", name:"V3: River delta", s:{ path:"straight", frames:80, zoomFactor:0.965, steps:10, lr:0.05, startSteps:0, sharpen:0.35, layers:["mixed2","mixed4"] } },
+  { m:"v3", name:"V3: Orchard", s:{ path:"square", frames:70, zoomFactor:0.97, steps:12, lr:0.05, range:0.08, segFrames:8, startSteps:0, sharpen:0.35, layers:["mixed3","mixed5"] } },
+  { m:"v3", name:"V3: High pasture", s:{ path:"triangle", frames:70, zoomFactor:0.975, steps:8, lr:0.045, range:0.08, segFrames:10, startSteps:0, sharpen:0.3, layers:["mixed5","mixed7"] } },
+  { m:"v3", name:"V3: Terraced hills", s:{ path:"straight", frames:80, zoomFactor:0.97, steps:10, lr:0.05, startSteps:0, sharpen:0.35, layers:["mixed2","mixed4","mixed6"] } },
   { m:"v2", name:"V2: Cocoon", s:{ path:"straight", frames:70, zoomFactor:0.965, steps:6, lr:0.04, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_3b/concat","InceptionV2/InceptionV2/Mixed_3c/concat"] } },
   { m:"v2", name:"V2: Fur storm", s:{ path:"square", frames:70, zoomFactor:0.97, steps:9, lr:0.04, range:0.08, segFrames:8, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_5b/concat","InceptionV2/InceptionV2/Mixed_5c/concat"] } },
   { m:"v2", name:"V2: Deep structure", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:7, lr:0.045, range:0.1, segFrames:10, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_4a/concat","InceptionV2/InceptionV2/Mixed_4b/concat","InceptionV2/InceptionV2/Mixed_4c/concat"] } },
   { m:"v2", name:"V2: Eye garden", s:{ path:"spiral", frames:80, zoomFactor:0.97, steps:7, lr:0.04, startSteps:0, sharpen:0.4, layers:["InceptionV2/InceptionV2/Mixed_4c/concat","InceptionV2/InceptionV2/Mixed_4d/concat","InceptionV2/InceptionV2/Mixed_4e/concat"] } },
-  { m:"v2", name:"V2: Prism drift", s:{ path:"wave", frames:70, zoomFactor:0.97, steps:7, lr:0.04, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_3c/concat","InceptionV2/InceptionV2/Mixed_5a/concat"] } }
+  { m:"v2", name:"V2: Prism drift", s:{ path:"wave", frames:70, zoomFactor:0.97, steps:7, lr:0.04, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_3c/concat","InceptionV2/InceptionV2/Mixed_5a/concat"] } },
+  { m:"v2", name:"V2: Seed crystal", s:{ path:"straight", frames:70, zoomFactor:0.965, steps:5, lr:0.035, startSteps:0, sharpen:0.4, layers:["InceptionV2/InceptionV2/Mixed_3b/concat"] } },
+  { m:"v2", name:"V2: The observer", s:{ path:"square", frames:70, zoomFactor:0.97, steps:7, lr:0.04, range:0.08, segFrames:10, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_4d/concat"] } },
+  { m:"v2", name:"V2: Far shore", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:6, lr:0.035, range:0.1, segFrames:10, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_5c/concat"] } },
+  { m:"v2", name:"V2: Twin lanterns", s:{ path:"straight", frames:70, zoomFactor:0.965, steps:6, lr:0.04, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_4a/concat","InceptionV2/InceptionV2/Mixed_4b/concat"] } },
+  { m:"v2", name:"V2: Green chapel", s:{ path:"square", frames:70, zoomFactor:0.97, steps:7, lr:0.04, range:0.08, segFrames:8, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_4c/concat","InceptionV2/InceptionV2/Mixed_4d/concat"] } },
+  { m:"v2", name:"V2: Amber choir", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:7, lr:0.04, range:0.1, segFrames:10, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_4d/concat","InceptionV2/InceptionV2/Mixed_4e/concat"] } },
+  { m:"v2", name:"V2: High windows", s:{ path:"straight", frames:70, zoomFactor:0.97, steps:6, lr:0.035, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_5a/concat","InceptionV2/InceptionV2/Mixed_5b/concat"] } },
+  { m:"v2", name:"V2: Root to sky", s:{ path:"square", frames:80, zoomFactor:0.965, steps:6, lr:0.04, range:0.08, segFrames:10, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_3b/concat","InceptionV2/InceptionV2/Mixed_4a/concat","InceptionV2/InceptionV2/Mixed_5a/concat"] } },
+  { m:"v2", name:"V2: Crosscurrent", s:{ path:"triangle", frames:70, zoomFactor:0.97, steps:7, lr:0.04, range:0.1, segFrames:8, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_4b/concat","InceptionV2/InceptionV2/Mixed_4d/concat","InceptionV2/InceptionV2/Mixed_5b/concat"] } },
+  { m:"v2", name:"V2: Night garden", s:{ path:"straight", frames:80, zoomFactor:0.965, steps:6, lr:0.04, startSteps:0, sharpen:0.4, layers:["InceptionV2/InceptionV2/Mixed_3c/concat","InceptionV2/InceptionV2/Mixed_4d/concat","InceptionV2/InceptionV2/Mixed_5c/concat"] } },
 ];
 const FIELDS = [
   { k:"frames",     label:"Frames per run",       min:1,    max:100,  step:1,      note:"How many frames each press of Zoom makes ." },
@@ -543,6 +580,7 @@ function wildSeed(){ const n=town.first+Math.floor(Math.random()*(town.last-town
 function nextNumber(){ let n=parseInt(localStorage.getItem(COUNT_KEY)||"0",10)+1; try{ localStorage.setItem(COUNT_KEY,String(n)); }catch(e){} return n; }
 function styleLabel(){ return PATH_LABEL[settings.path]||"Zoom"; }
 function layersLabel(){ return model?activeLayers().join(" + "):""; }
+function shortLayer(n){ let m=/Mixed_([0-9][a-z])/i.exec(n); if(m) return m[1].toLowerCase(); m=/mixed([0-9]+)([a-z]*)/i.exec(n); if(m) return m[1]+m[2].toLowerCase(); return n; }
 
 async function useSeed(seed){
   if(card && card.dirty && card.frames.length && !confirm("Switch cards? This dream isn't kept yet.")) return false;
@@ -829,7 +867,7 @@ function buildSettings(){
   const pw=document.createElement("div"); pw.className="field";
   pw.innerHTML='<label>Preset <span>quick starting points</span></label>';
   const plist=PRESETS.map((p,i)=>({p:p,i:i})).filter(o=>!o.p.m||o.p.m===MODEL.short);
-  const sel=document.createElement("select"); sel.innerHTML='<option value="">Choose a preset…</option>'+plist.map(o=>'<option value="'+o.i+'">'+o.p.name+'</option>').join("");
+  const sel=document.createElement("select"); sel.innerHTML='<option value="">Choose a preset…</option>'+plist.map(o=>'<option value="'+o.i+'">'+o.p.name+' ['+(o.p.s.layers||[]).map(shortLayer).join('+')+']</option>').join("");
   sel.onchange=()=>{ if(sel.value==="") return; const p=PRESETS[+sel.value]; settings=Object.assign({},settings,DEFAULTS,{quality:settings.quality,heat:settings.heat},p.s); saveSettings(); buildSettings(); setStatus("Preset: "+p.name); };
   pw.appendChild(sel); body.appendChild(pw);
   // path
