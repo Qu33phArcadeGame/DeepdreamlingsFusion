@@ -84,6 +84,24 @@ let compImg=null; (function(){ try{ var d=localStorage.getItem("town_companion_i
 function saveGame(){ try{ localStorage.setItem("qu33phDLDex",JSON.stringify(dmDex)); localStorage.setItem("qu33phDLHeld",JSON.stringify(dmHeld)); localStorage.setItem("qu33phDLRare",JSON.stringify(dmRare)); localStorage.setItem("qu33phDLFusions",JSON.stringify(dmFusions)); localStorage.setItem("town_tier",JSON.stringify(tier)); localStorage.setItem("town_tiers",JSON.stringify(tiers)); localStorage.setItem("town_companion",JSON.stringify(companion)); localStorage.setItem("town_visited",JSON.stringify(visited)); }catch(e){} }
 function areaCount(){ var n=0; for(var i=area.first;i<=area.last;i++) if(dmDex.indexOf(i)>=0) n++; return n; }
 
+// ===== DREAM FLOATERS: dreamed in the generator, they float around their town =====
+// Keeping a card saves small dream thumbnails to localStorage ("dl_floaters"); the town
+// replays them zooming inside the dreamed dreamling's form.
+let floaters=[];
+function loadFloaters(){
+  floaters=[];
+  let recs=[]; try{ recs=JSON.parse(localStorage.getItem("dl_floaters")||"[]"); }catch(e){}
+  const cols=M?M.cols:20, rows=M?M.rows:15;
+  recs.forEach(function(r){
+    if(!r||r.town!==currentMap||!(r.thumbs&&r.thumbs.length)) return;
+    const imgs=[];
+    r.thumbs.forEach(function(t){ const im=new Image(); im.onload=function(){ if(typeof draw==="function") draw(); }; im.src=t; imgs.push(im); });
+    floaters.push({ rec:r, imgs:imgs, num:(r.comp&&r.comp.length)?r.comp[0]:null,
+      hx:2+Math.random()*Math.max(2,cols-4), hy:2+Math.random()*Math.max(2,rows-4),
+      ph:Math.random()*6.28, sp:0.00010+Math.random()*0.00016, rg:1.2+Math.random()*2.2 });
+  });
+}
+
 // ===== ASSETS: PIXEL sprites (dreamlingP), photo fallback =====
 const sprP={}, sprPhoto={};
 function pixSpr(n){ if(sprP[n]) return sprP[n]; var im=new Image(); var rec={img:im,ok:false}; im.onload=function(){rec.ok=true; if(typeof draw==="function")draw();}; im.onerror=function(){rec.ok=false;}; im.src="dreamlingP"+n+".png"; return sprP[n]=rec; }
@@ -216,7 +234,7 @@ function loadMap(name,entry){
   fetch(name+".json").then(r=>{ if(!r.ok) throw new Error(name+".json ("+r.status+")"); return r.json(); })
    .then(d=>{ M=d; T=d.tileSize||64; currentMap=name; setArea(name); if(name===BOB.map) bobShown=false; tiles=(d.tiles||[]).map(n=>{const im=tileImg(n); if(!im.complete)im.addEventListener("load",draw); return im;});
      const sp=(d.spawns||[]).find(s=>s.name===entry)||(d.spawns||[]).find(s=>s.name==="start")||(d.spawns||[])[0];
-     px=sp?sp.x:Math.floor((d.cols||1)/2); py=sp?sp.y:Math.floor((d.rows||1)/2); if(retPos){ px=retPos.x; py=retPos.y; if(retPos.f) guyFace=retPos.f; retPos=null; } inZone=zoneAt(px,py); layout(); })
+     px=sp?sp.x:Math.floor((d.cols||1)/2); py=sp?sp.y:Math.floor((d.rows||1)/2); if(retPos){ px=retPos.x; py=retPos.y; if(retPos.f) guyFace=retPos.f; retPos=null; } inZone=zoneAt(px,py); loadFloaters(); layout(); })
    .catch(e=>{ const el=document.getElementById("err"); el.innerHTML="Couldn't load <b>"+name+".json</b>.<br>"+e.message; el.style.display="flex"; });
 }
 function solidAt(c,r){ if(!M) return true; if(c<0||r<0||c>=M.cols||r>=M.rows) return true; if(genAt(c,r)) return true; return !!(M.solid&&M.solid[r][c]); }
@@ -263,6 +281,7 @@ function drawWalk(){
   if(gim&&gim.complete&&gim.naturalWidth){ const pw2=sz*1.05, ph2=sz*1.5; x.drawImage(gim, ppx+sz/2-pw2/2, ppy+sz-ph2+sz*0.12+bounceY+idleY, pw2, ph2); }
   else { x.fillStyle="#8affea";x.strokeStyle="#0d0a17";x.lineWidth=Math.max(2,sz*0.06);x.beginPath();x.arc(pcx,pcy+bounceY+idleY,sz*0.3,0,7);x.fill();x.stroke(); }
   if(hasComp){ var oa2=orbit, ox3=pcx+Math.cos(oa2)*sz*0.9, oy3=pcy+Math.sin(oa2)*sz*0.5-sz*0.1; if(Math.sin(oa2)>=0){ shadow(ox3,oy3+sz*0.42,sz*0.3,sz*0.1); drawCompanionSprite(ox3,oy3,sz*1.15); } }
+  drawFloaters(camx,camy,s,sz,now);
   updateLeaves(now,treeCells); drawLeaves(); updateMotes(now); drawMotes();
   ux.fillStyle="rgba(13,10,23,.72)"; roundRectC(ux,6,6,226,24,7); ux.fill(); ux.fillStyle="#c9a0ff"; ux.font="bold 12px sans-serif"; ux.textAlign="left"; ux.textBaseline="middle"; ux.fillText(area.name+" · "+areaCount()+"/"+(area.last-area.first+1)+" · B=Binder",13,19);
 }
@@ -272,6 +291,37 @@ function drawLeaves(){ x.filter="none"; x.imageSmoothingEnabled=true; for(var i=
 function updateMotes(now){ if(motes.length<14&&Math.random()<0.12){ motes.push({x:Math.random()*W,y:H+8,vx:(Math.random()-0.5)*0.3,vy:-0.12-Math.random()*0.28,ph:Math.random()*6,r:2+Math.random()*3.2,col:MOTE_COLORS[Math.floor(Math.random()*MOTE_COLORS.length)]}); }
   for(var i=0;i<motes.length;i++){ var m=motes[i]; m.ph+=0.02; m.x+=m.vx+Math.sin(m.ph)*0.25; m.y+=m.vy; } motes=motes.filter(function(m){return m.y>-12;}); }
 function drawMotes(){ x.filter="none"; for(var i=0;i<motes.length;i++){ var m=motes[i]; var a=0.25+0.25*Math.sin(m.ph*1.5); var g=x.createRadialGradient(m.x,m.y,0,m.x,m.y,m.r*4); g.addColorStop(0,m.col); g.addColorStop(1,"rgba(0,0,0,0)"); x.globalAlpha=a; x.fillStyle=g; x.beginPath(); x.arc(m.x,m.y,m.r*4,0,7); x.fill(); } x.globalAlpha=1; }
+const _ftmp=document.createElement("canvas");
+function drawFloaters(camx,camy,s,sz,now){
+  if(!floaters.length) return;
+  const S=Math.max(8,Math.round(sz*1.25));
+  if(_ftmp.width!==S){ _ftmp.width=S; _ftmp.height=S; }
+  const fx=_ftmp.getContext("2d");
+  for(let i=0;i<floaters.length;i++){
+    const f=floaters[i];
+    const wx=f.hx+Math.sin(now*f.sp+f.ph)*f.rg, wy=f.hy+Math.cos(now*f.sp*0.77+f.ph*1.3)*f.rg*0.7;
+    const sx=Math.round((wx*T-camx)*s), sy=Math.round((wy*T-camy)*s);
+    if(sx<-S||sy<-S||sx>W+S||sy>H+S) continue;
+    const thumb=f.imgs.length?f.imgs[Math.floor(now/240)%f.imgs.length]:null;
+    if(!thumb||!thumb.complete||!thumb.naturalWidth) continue;
+    const bob=Math.sin(now/600+f.ph)*sz*0.09, cxp=sx+S/2, cyp=sy+S/2+bob;
+    shadow(cxp, sy+S+bob+sz*0.06, S*0.30, sz*0.08);
+    const gl=x.createRadialGradient(cxp,cyp,0,cxp,cyp,S*0.75);
+    gl.addColorStop(0,"rgba(190,150,255,0.28)"); gl.addColorStop(1,"rgba(0,0,0,0)");
+    x.fillStyle=gl; x.beginPath(); x.arc(cxp,cyp,S*0.75,0,7); x.fill();
+    // the dream, clipped inside the dreamed dreamling's form
+    fx.globalCompositeOperation="source-over"; fx.clearRect(0,0,S,S); fx.imageSmoothingEnabled=true;
+    const tw=thumb.naturalWidth, th=thumb.naturalHeight, sc=Math.max(S/tw,S/th), dw=tw*sc, dh=th*sc;
+    fx.drawImage(thumb,(S-dw)/2,(S-dh)/2,dw,dh);
+    const spr=(f.num!=null)?pixSpr(f.num):null;
+    fx.globalCompositeOperation="destination-in";
+    if(spr&&spr.ok) fx.drawImage(spr.img,0,0,S,S);
+    else { fx.beginPath(); fx.arc(S/2,S/2,S*0.42,0,7); fx.fill(); }
+    fx.globalCompositeOperation="source-over";
+    x.imageSmoothingEnabled=true;
+    x.drawImage(_ftmp,sx,sy+bob);
+  }
+}
 
 // ===== ENCOUNTER (video + slot machine) =====
 const DIRV={U:[0,-1],D:[0,1],L:[-1,0],R:[1,0]};

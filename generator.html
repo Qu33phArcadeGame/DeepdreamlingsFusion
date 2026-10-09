@@ -587,7 +587,7 @@ async function useSeed(seed){
   disposeCard();
   const q=dims();
   card={ id:"dc"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), no:0, name:seed.name, town:townKey, townName:town.name,
-         rarity:seed.rarity||"red", style:styleLabel(), detail:seed.label, seedKey:seed.key, w:q.w, h:q.h, created:Date.now(),
+         rarity:seed.rarity||"red", style:styleLabel(), detail:seed.label, seedKey:seed.key, seedComp:(seed.comp||[]).slice(), w:q.w, h:q.h, created:Date.now(),
          frames:[], pathFrame:0, dirty:false, saved:false };
   await renderSeedArt(seed,seedCv,q.w,q.h);
   artCv.width=q.w; artCv.height=q.h; artCv.getContext("2d").drawImage(seedCv,0,0);
@@ -919,7 +919,29 @@ function closeSettings(){ $("settings").classList.remove("open"); if(card) { car
 const DB_NAME="deepdreamlings_generator", STORE="cards", EXPORTS="exports";
 function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME,2); r.onupgradeneeded=()=>{ const db=r.result; if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:"id"}); if(!db.objectStoreNames.contains(EXPORTS)) db.createObjectStore(EXPORTS,{keyPath:"id"}); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 async function idbDo(mode,fn,store){ store=store||STORE; const db=await idb(); return new Promise((res,rej)=>{ const tx=db.transaction(store,mode), st=tx.objectStore(store); const r=fn(st); tx.oncomplete=()=>res(r&&r.result); tx.onerror=()=>rej(tx.error); tx.onabort=()=>rej(tx.error); }); }
-function cardRecord(c){ return { id:c.id, no:c.no, name:c.name, town:c.town, townName:c.townName, rarity:c.rarity, style:c.style, detail:c.detail, seedKey:c.seedKey, w:c.w, h:c.h, created:c.created, pathFrame:c.pathFrame||0, frames:c.frames.slice(), lastPng:c.lastPng||null, playFps:cardFps(c), playFpsOut:cardFpsOut(c), boomerang:cardBoom(c), recipe:c.recipe||null }; }
+function cardRecord(c){ return { id:c.id, no:c.no, name:c.name, town:c.town, townName:c.townName, rarity:c.rarity, style:c.style, detail:c.detail, seedKey:c.seedKey, seedComp:c.seedComp||[], w:c.w, h:c.h, created:c.created, pathFrame:c.pathFrame||0, frames:c.frames.slice(), lastPng:c.lastPng||null, playFps:cardFps(c), playFpsOut:cardFpsOut(c), boomerang:cardBoom(c), recipe:c.recipe||null }; }
+// Thumbnails of the dream for town floaters: a few small frames so the town can
+// replay the zoom inside the dreamed dreamling's form.
+async function floaterThumbs(){
+  const out=[]; if(!card||!card.frames.length) return out;
+  const n=card.frames.length, K=Math.min(8,n);
+  const tc=document.createElement("canvas"); tc.width=tc.height=64;
+  const tcx=tc.getContext("2d");
+  for(let i=0;i<K;i++){
+    const idx=Math.min(n-1,Math.floor(i*n/K));
+    try{
+      const bm=await decodeBlob(card.frames[idx]);
+      if(!bm) continue;
+      const bw=bm.width||64, bh=bm.height||64;
+      const s=Math.max(64/bw,64/bh), dw=bw*s, dh=bh*s;
+      tcx.clearRect(0,0,64,64);
+      tcx.drawImage(bm,(64-dw)/2,(64-dh)/2,dw,dh);
+      out.push(tc.toDataURL("image/jpeg",0.65));
+      if(bm.close) bm.close();
+    }catch(e){}
+  }
+  return out;
+}
 async function keepCard(){
   if(!card||busy||zooming||!card.frames.length) return;
   busy=true; updateUI(); setStatus("Keeping "+card.name+"…");
@@ -927,6 +949,19 @@ async function keepCard(){
     if(cur){ tmpCv.width=card.w; tmpCv.height=card.h; await tensorToCanvas(cur,tmpCv); card.lastPng=await toBlob(tmpCv,"image/png"); }
     await idbDo("readwrite",st=>st.put(cardRecord(card)));
     card.saved=true; card.dirty=false; setStatus(card.name+" is in your Gallery.");
+    // Floater for the town: this dreamed dreamling now floats around the town it
+    // was made in, with the dream zooming inside it.
+    try{
+      const thumbs=await floaterThumbs();
+      if(thumbs.length){
+        let fl=[]; try{ fl=JSON.parse(localStorage.getItem("dl_floaters")||"[]"); }catch(e){}
+        const rec={ id:card.id, town:card.town, name:card.name, comp:(card.seedComp||[]).slice(), tier:card.rarity, thumbs:thumbs, created:Date.now() };
+        const ix=fl.findIndex(function(f){ return f&&f.id===card.id; });
+        if(ix>=0) fl[ix]=rec; else fl.push(rec);
+        while(fl.length>24) fl.shift();
+        try{ localStorage.setItem("dl_floaters",JSON.stringify(fl)); setStatus(card.name+" is in your Gallery — it floated out into "+card.townName+"!"); }catch(e){}
+      }
+    }catch(e){ console.error(e); }
   }catch(e){ console.error(e); setStatus("Couldn't keep the card: "+(e&&e.message||e)+". Browser storage may be full — try exporting instead.",true); }
   busy=false; updateUI();
 }
