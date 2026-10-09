@@ -56,9 +56,10 @@ const START_MAP="map", START_ENTRY="start";
 const ARCADE_FILE="deepdreamlings.html";     // real binder + cards + fuse animation
 // Per-area config: map filename -> dreamling range, encounter-video prefix, character-sprite prefix
 const AREAS={
-  "map":   { first:1,  last:11, vid:"encounter", guy:"dreamguy",  name:"DREAM CORE" },
-  "woods": { first:12, last:22, vid:"woods",     guy:"dreamwood", name:"WAKING WOODS" },
-  "area3": { first:23, last:33, vid:"area3",     guy:"dreamarea3", name:"AREA 3" }
+  // slots: how many reels the dream slots have here (= how many dreamlings fuse per spin)
+  "map":   { first:1,  last:11, vid:"encounter", guy:"dreamguy",  name:"DREAM CORE",   slots:2 },
+  "woods": { first:12, last:22, vid:"woods",     guy:"dreamwood", name:"WAKING WOODS", slots:3 },
+  "area3": { first:23, last:33, vid:"area3",     guy:"dreamarea3", name:"AREA 3",      slots:3 }
 };
 const DEFAULT_AREA=AREAS["map"];
 let area=AREAS[START_MAP]||DEFAULT_AREA;
@@ -278,7 +279,8 @@ let enc=null;
 function randMonNum(){ return area.first+Math.floor(Math.random()*(area.last-area.first+1)); }
 function startEncounter(){
   var dir={B:"U",F:"D",L:"L",R:"R"}[guyFace]||"U";
-  var slots=[]; for(var i=0;i<3;i++){ slots.push({num:randMonNum(), t:rollRarity(), show:randMonNum(), stopped:false, stopAt:(i+1)*38+18}); }
+  var nSlots=area.slots||3;
+  var slots=[]; for(var i=0;i<nSlots;i++){ slots.push({num:randMonNum(), t:rollRarity(), show:randMonNum(), stopped:false, stopAt:(i+1)*38+18}); }
   enc={ dir:dir, grow:0, holdT:0, vidStarted:false,
         phase:"video",      // video -> ready -> spinning -> result
         first:(dmDex.length===0),
@@ -287,8 +289,8 @@ function startEncounter(){
 }
 function boxRect(){ var bs=Math.min(W,H)*0.96*(0.3+0.7*enc.grow); return {x:W/2-bs/2, y:H/2-bs/2, s:bs}; }
 // Slot reels layout (bigger reels, easier to see)
-function slotGeom(b){ var mw=b.s*0.92, mh=b.s*0.54, mx0=b.x+b.s/2-mw/2, my0=b.y+b.s*0.08, gap=mw*0.025, rw=(mw-gap*4)/3, rh=mh-gap*2, ry=my0+gap, reels=[];
-  for(var i=0;i<3;i++) reels.push({x:mx0+gap+i*(rw+gap), y:ry, w:rw, h:rh, cx:mx0+gap+i*(rw+gap)+rw/2, cy:ry+rh/2});
+function slotGeom(b){ var n=(enc&&enc.slots)?enc.slots.length:3, full=b.s*0.92, gap=full*0.025, rw=(full-gap*4)/3, mw=rw*n+gap*(n+1), mh=b.s*0.54, mx0=b.x+b.s/2-mw/2, my0=b.y+b.s*0.08, rh=mh-gap*2, ry=my0+gap, reels=[];
+  for(var i=0;i<n;i++) reels.push({x:mx0+gap+i*(rw+gap), y:ry, w:rw, h:rh, cx:mx0+gap+i*(rw+gap)+rw/2, cy:ry+rh/2});
   return {mx0:mx0,my0:my0,mw:mw,mh:mh,reels:reels,csz:Math.min(rw,rh)*0.92}; }
 // A fused creature: every component sprite layered on top of the first (same idea as the binder)
 function drawFusedPix(comp,tags,cx,cy,size){ var op=comp.length<=2?0.62:0.5; for(var i=0;i<comp.length;i++){ x.save(); x.globalAlpha=(i===0?1:op); drawPix(comp[i],cx,cy,size,(tags&&tags[i])||"red"); x.restore(); } x.globalAlpha=1; }
@@ -303,7 +305,7 @@ function drawFusionAnim(b,g){
     var lift=easeOut(Math.min(1,f/0.25)), spiral=Math.max(0,(f-0.2)/0.58), R=b.s*0.3*(1-easeOut(spiral)*0.92), spin=spiral*spiral*14;
     var glow=x.createRadialGradient(cx,cy,0,cx,cy,b.s*0.45); glow.addColorStop(0,"rgba(255,255,255,"+(0.1+0.5*spiral)+")"); glow.addColorStop(0.4,col); glow.addColorStop(1,"rgba(0,0,0,0)");
     x.globalAlpha=0.25+0.5*spiral; x.fillStyle=glow; x.beginPath(); x.arc(cx,cy,b.s*0.45,0,7); x.fill(); x.globalAlpha=1;
-    for(var i=0;i<3;i++){ var r=g.reels[i], a=spin+i*Math.PI*2/3-Math.PI/2;
+    for(var i=0;i<comp.length;i++){ var r=g.reels[i], a=spin+i*Math.PI*2/comp.length-Math.PI/2;
       var tx=cx+Math.cos(a)*R, ty=cy+Math.sin(a)*R*0.8, px2=r.cx+(tx-r.cx)*lift, py2=r.cy+(ty-r.cy)*lift, sz=g.csz*(1-0.35*spiral);
       // light trail
       x.strokeStyle=TAG_COLOR[tags[i]]; x.globalAlpha=0.35*spiral; x.lineWidth=sz*0.12; x.beginPath(); x.arc(cx,cy,Math.max(1,R),a-0.9,a); x.stroke(); x.globalAlpha=1;
@@ -348,9 +350,9 @@ function fuseRareFromSlots(slots){ var allRare=true, anyRare=false; for(var i=0;
 function fuseTagsFromSlots(slots){ var seen={}, out=[]; for(var i=0;i<slots.length;i++){ if(!seen[slots[i].t]){ seen[slots[i].t]=1; out.push(slots[i].t); } } return out; }
 function rareTierOf(f){ return f.rare==="full"?"blue":(f.rare==="half"?"green":"red"); }
 function resolveSpin(){
-  // Every spin fuses the three rolled dreamlings together, and you always keep the fusion.
-  var comp=[enc.slots[0].num, enc.slots[1].num, enc.slots[2].num];
-  var power=comp[0]+comp[1]+comp[2];
+  // Every spin fuses all the rolled dreamlings together (2 in Dream Core, 3 later on), and you always keep the fusion.
+  var comp=enc.slots.map(function(s){ return s.num; });
+  var power=comp.reduce(function(a,b){ return a+b; },0);
   var rare=fuseRareFromSlots(enc.slots), tags=fuseTagsFromSlots(enc.slots);
   var ent={comp:comp, power:power, rare:rare, tags:tags, name:"Fusion #"+power};
   dmFusions.push(ent);
@@ -358,7 +360,7 @@ function resolveSpin(){
   saveGame();
   enc.fused=ent; enc.fuseT=0; enc.phase="fusing";
   var label=rare==="full"?"a full-rare ":(rare==="half"?"a rare ":"a ");
-  enc.msg="They fused into "+label+"Tri-being — power "+power+"! Try it in the Dream Generator.";
+  enc.msg="They fused into "+label+(comp.length>=3?"Tri-being":"Fusion")+" — power "+power+"! Try it in the Dream Generator.";
   enc.pendingPrompt={comp:comp, t:rareTierOf({rare:rare})};
   if(!localStorage.getItem("town_tut")){ try{localStorage.setItem("town_tut","1");}catch(e){} setTimeout(function(){ say("Nice! Fusions can circle you as a companion. Hold the RED button to run faster."); },50); }
 }
@@ -379,7 +381,7 @@ function drawEncounter(){ if(!enc) return;
     var g=slotGeom(b);
     x.fillStyle="rgba(20,8,36,0.88)"; roundRect(g.mx0,g.my0,g.mw,g.mh,10); x.fill();
     x.strokeStyle="#c9a0ff"; x.lineWidth=2; roundRect(g.mx0,g.my0,g.mw,g.mh,10); x.stroke();
-    for(var i=0;i<3;i++){ var s=enc.slots[i], r=g.reels[i];
+    for(var i=0;i<enc.slots.length;i++){ var s=enc.slots[i], r=g.reels[i];
       x.fillStyle="rgba(6,3,14,0.9)"; roundRect(r.x,r.y,r.w,r.h,8); x.fill();
       x.save(); roundRect(r.x,r.y,r.w,r.h,8); x.clip();
       var showNum=(enc.phase==="ready")?s.num:s.show, showT=s.stopped?s.t:(enc.phase==="ready"?s.t:"red");
@@ -393,7 +395,7 @@ function drawEncounter(){ if(!enc) return;
   else if(enc.phase==="result" && enc.fused){ drawFusedReveal(b,1); }
   x.restore();
   ux.fillStyle="#c9a0ff"; ux.font="bold 13px sans-serif"; ux.textAlign="center"; ux.textBaseline="top";
-  var topMsg = enc.phase==="ready" ? "Press A to spin — all three will fuse!"
+  var topMsg = enc.phase==="ready" ? (enc.slots.length===2?"Press A to spin — both will fuse!":"Press A to spin — all three will fuse!")
              : enc.phase==="spinning" ? "Spinning..."
              : enc.phase==="fusing" ? "Fusing!"
              : "Press A to continue";
