@@ -860,9 +860,45 @@ async function keepCard(){
 }
 
 // ===== GALLERY =====
+// ===== OLD CARDS -> 9:16 =====
+// Cards kept before the switch to 9:16 were dreamed at 4:5. Once, in the background, every kept card's
+// frames are trimmed (centre crop) to the 3:5 dream window of the 9:16 card and saved back, so they
+// look, zoom and export exactly like new cards. Cards already in the new shape are left alone.
+const DREAM_RATIO=3/5;
+let migrating=null;
+async function cropToDream(b,type,q){
+  const im=await decodeBlob(b); if(!im) return null;
+  const iw=im.width||im.naturalWidth, ih=im.height||im.naturalHeight; let cw=iw, ch=ih;
+  if(iw/ih>DREAM_RATIO) cw=Math.round(ih*DREAM_RATIO); else ch=Math.round(iw/DREAM_RATIO);
+  const c=document.createElement("canvas"); c.width=cw; c.height=ch;
+  c.getContext("2d").drawImage(im,(iw-cw)/2,(ih-ch)/2,cw,ch,0,0,cw,ch); if(im.close) im.close();
+  return { blob:await toBlob(c,type,q), w:cw, h:ch };
+}
+function migrateOldCards(){
+  if(!migrating) migrating=(async()=>{
+    let recs=[]; try{ recs=await idbDo("readonly",st=>st.getAll())||[]; }catch(e){ return 0; }
+    let done=0;
+    for(const r of recs){
+      if(!r.frames||!r.frames.length) continue;
+      if(r.w&&r.h&&Math.abs(r.w/r.h-DREAM_RATIO)<0.02) continue;      // already 9:16
+      try{
+        const frames=[]; let w=r.w, h=r.h;
+        for(let i=0;i<r.frames.length;i++){ const o=await cropToDream(r.frames[i],"image/jpeg",0.92); if(!o) { frames.push(r.frames[i]); continue; } frames.push(o.blob); w=o.w; h=o.h; if(i%8===7) await sleep(0); }
+        if(Math.abs(w/h-DREAM_RATIO)>=0.02) continue;                   // nothing decoded: leave it
+        const out=Object.assign({},r,{frames:frames,w:w,h:h});
+        if(r.lastPng){ const o=await cropToDream(r.lastPng,"image/png"); if(o) out.lastPng=o.blob; }
+        await idbDo("readwrite",st=>st.put(out)); done++;
+      }catch(e){ console.warn("couldn't update card",r.id,e); }
+    }
+    return done;
+  })();
+  return migrating;
+}
 async function openGallery(){
   if(busy||zooming) return;
   const grid=$("grid"); grid.innerHTML=""; $("gallery").classList.add("open");
+  grid.innerHTML='<p style="opacity:.7;padding:12px">Loading your cards…</p>';
+  await migrateOldCards(); grid.innerHTML="";
   let recs=[], exps=[]; try{ recs=await idbDo("readonly",st=>st.getAll())||[]; }catch(e){ console.error(e); }
   try{ exps=await idbDo("readonly",st=>st.getAll(),EXPORTS)||[]; }catch(e){ console.error(e); }
   recs.sort((a,b)=>b.created-a.created); exps.sort((a,b)=>b.created-a.created);
@@ -1038,6 +1074,7 @@ addEventListener("keydown",e=>{
 // ===== BOOT =====
 async function boot(){
   layout(); requestAnimationFrame(tick); updateUI();
+  migrateOldCards().then(n=>{ if(n) console.log("Updated "+n+" old card(s) to 9:16"); });
   // Show the newest card from your collection straight away (fusions first).
   const col=readCollection(); await useSeed(col.length?col[0]:wildSeed());
   setStatus(card.name+" popped out of your collection. Loading the dream engine…");
