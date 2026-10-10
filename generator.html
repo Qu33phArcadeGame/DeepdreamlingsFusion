@@ -208,9 +208,14 @@ GifEncoder.prototype.finish=function(){ this.out.byte(0x3B); return this.out.res
 const MODEL_URL = "models/inceptionv3/model.json";
 const WASM_PATH = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/";
 const TOWN_FILE = "index.html?ret=1";
-const QUALITY = { fast:{w:192,h:240}, normal:{w:256,h:320}, high:{w:320,h:400}, max:{w:432,h:540} };
+const QUALITY = { fast:{w:144,h:240}, normal:{w:192,h:320}, high:{w:240,h:400}, max:{w:324,h:540} };   // 3:5, the shape of the card's dream window
 const OCTAVES = 3, OCTAVE_SCALE = 1.35, JITTER = 16;
 const MAX_FRAMES = 600, PLAY_FPS = 12, GIF_W = 360, VIDEO_W = 540;
+// Card layout in card pixels (9:16). Everything else scales from these.
+const CARD_W = 180, CARD_H = 320;
+const ART = { x:10, y:24, w:160, h:268 };                    // dream window
+const PLATE_TOP = { x0:30, y0:6, x1:149, y1:18 };            // name + rarity
+const PLATE_BOT = { x0:30, y0:297, x1:149, y1:315 };         // card info
 // Playback: frames per second and "zoomerang" (zoom in, then back out to the start)
 function cardFps(c){ return Math.max(2,Math.min(30,(c&&c.playFps)||PLAY_FPS)); }
 function cardBoom(c){ return !c||c.boomerang!==false; }
@@ -636,30 +641,51 @@ function recipeSegment(cd,idx){
 // Pixel-art card frame (180×252, drawn by hand). Transparent pixels show the holo foil underneath.
 // To swap it, replace cardframe.png next to this file (same size, art window at 10,24 sized 160×200).
 const FRAME_DATA="data:image/png;base64,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";
-// Takes your raw drawing at any size with a 5:7 shape (180×252, 360×504, 720×1008…), shrinks it to 180×252
-// with crisp pixels, turns the purple into see-through foil, and cuts the dark text plates.
+// Takes your drawing at any 9:16 size, shrinks it to 180×320 with crisp pixels, turns the purple into
+// see-through foil, clears the dream window and cuts the dark name plates.
 const FRAME_PURPLE=[58,36,102];
 function processFrame(img){
-  const cv=document.createElement("canvas"); cv.width=180; cv.height=252; const c=cv.getContext("2d");
-  c.imageSmoothingEnabled=false; c.drawImage(img,0,0,180,252);
-  const d=c.getImageData(0,0,180,252), p=d.data;
+  const cv=document.createElement("canvas"); cv.width=CARD_W; cv.height=CARD_H; const c=cv.getContext("2d");
+  c.imageSmoothingEnabled=false; c.drawImage(img,0,0,CARD_W,CARD_H);
+  const d=c.getImageData(0,0,CARD_W,CARD_H), p=d.data;
   for(let i=0;i<p.length;i+=4){ if(Math.abs(p[i]-FRAME_PURPLE[0])+Math.abs(p[i+1]-FRAME_PURPLE[1])+Math.abs(p[i+2]-FRAME_PURPLE[2])<40) p[i+3]=0; }
-  for(let y=24;y<224;y++) for(let x=10;x<170;x++) p[(y*180+x)*4+3]=0;     // keep the art window clear
-  const plate=(x0,y0,x1,y1)=>{ for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){ const i=(y*180+x)*4;
-      if((x===x0||x===x1)&&(y===y0||y===y1)){ p[i+3]=0; continue; }
-      const edge=x===x0||x===x1||y===y0||y===y1, hi=y===y0+1&&x>x0+1&&x<x1-1;
+  for(let y=ART.y;y<ART.y+ART.h;y++) for(let x=ART.x;x<ART.x+ART.w;x++) p[(y*CARD_W+x)*4+3]=0;     // keep the dream window clear
+  const plate=(q)=>{ for(let y=q.y0;y<=q.y1;y++) for(let x=q.x0;x<=q.x1;x++){ const i=(y*CARD_W+x)*4;
+      if((x===q.x0||x===q.x1)&&(y===q.y0||y===q.y1)){ p[i+3]=0; continue; }
+      const edge=x===q.x0||x===q.x1||y===q.y0||y===q.y1, hi=y===q.y0+1&&x>q.x0+1&&x<q.x1-1;
       p[i]=edge?0:(hi?40:13); p[i+1]=edge?0:(hi?28:10); p[i+2]=edge?0:(hi?66:23); p[i+3]=255; } };
-  plate(30,6,149,18); plate(30,229,149,247);
+  plate(PLATE_TOP); plate(PLATE_BOT);
   c.putImageData(d,0,0); return cv;
 }
-let frameImg=null;
-let frameFromFile=false;
-function useFrameSrc(src,strict){ const im=new Image(); im.onload=()=>{ const r=im.naturalWidth/im.naturalHeight; if(Math.abs(r-180/252)<0.02){ if(strict) frameFromFile=true; if(strict||!frameFromFile) frameImg=processFrame(im); } else if(strict) console.warn("cardframe.png should be 5:7 (like 180×252 or 720×1008)"); }; im.src=src; }
-useFrameSrc(FRAME_DATA,false);
-useFrameSrc("cardframe.png",true);   // your own file next to generator.html wins if present
+// an old 5:7 (180×252) drawing -> 9:16: same top band, same bottom band, side borders repeated to fill
+function stretch57(img){
+  const s=document.createElement("canvas"); s.width=180; s.height=252; const sc=s.getContext("2d"); sc.imageSmoothingEnabled=false; sc.drawImage(img,0,0,180,252);
+  const o=document.createElement("canvas"); o.width=CARD_W; o.height=CARD_H; const oc=o.getContext("2d"); oc.imageSmoothingEnabled=false;
+  oc.fillStyle="rgb(58,36,102)"; oc.fillRect(0,0,CARD_W,CARD_H);
+  oc.drawImage(s,0,0,180,24,0,0,180,24);                                    // top band
+  const bot=252-224; oc.drawImage(s,0,224,180,bot,0,CARD_H-bot,180,bot);     // bottom band
+  for(let y=24;y<CARD_H-bot;y+=200){ const h=Math.min(200,CARD_H-bot-y);     // sides, repeated
+    oc.drawImage(s,0,24,10,h,0,y,10,h); oc.drawImage(s,170,24,10,h,170,y,10,h); }
+  return o;
+}
+// ===== CARD BORDERS: one per town, drawn by you =====
+// Put a PNG next to generator.html for each town (9:16, any size: 180×320, 360×640, 720×1280…):
+//   cardframe.png (Dream Core)   cardframe_woods.png (Waking Woods)   cardframe_area3.png (Area 3)
+// Purple (58,36,102) = see-through holo foil. The art window and the two name plates are cut out
+// automatically (see cardframe_template_*.png). A town without its own file uses Dream Core's border.
+// Older 5:7 drawings still load: their top and bottom bands are kept and the sides are repeated.
+const TOWN_FRAMES={ map:{data:FRAME_DATA,file:"cardframe.png"}, woods:{data:null,file:"cardframe_woods.png"}, area3:{data:null,file:"cardframe_area3.png"} };
+const townFrame={};   // town -> {img, fromFile}
+function useFrameSrc(town,src,strict){ const im=new Image(); im.onload=()=>{ const r=im.naturalWidth/im.naturalHeight;
+    const ok916=Math.abs(r-CARD_W/CARD_H)<0.02, ok57=Math.abs(r-5/7)<0.02;
+    if(ok916||ok57){ const tf=townFrame[town]||(townFrame[town]={img:null,fromFile:false}); if(strict) tf.fromFile=true;
+      if(strict||!tf.fromFile) tf.img=processFrame(ok916?im:stretch57(im)); }
+    else if(strict) console.warn(src+" should be 9:16 (like 180×320 or 720×1280)"); }; im.src=src; }
+for(const t in TOWN_FRAMES){ if(TOWN_FRAMES[t].data) useFrameSrc(t,TOWN_FRAMES[t].data,false); useFrameSrc(t,TOWN_FRAMES[t].file,true); }   // your own file wins if present
+function frameFor(cd){ const t=(cd&&cd.town)||townKey; return (townFrame[t]&&townFrame[t].img)||(townFrame.map&&townFrame.map.img)||null; }
 const FOIL={ red:{h0:330,span:70,s:85,l:60}, green:{h0:85,span:110,s:80,l:58}, blue:{h0:0,span:360,s:90,l:62} };
 function drawCard(c,W,H,cd,art,tms,frameCount,frameIdx){
-  const u=W/180, R=RARITY[cd.rarity]||RARITY.red, F="Helvetica,Arial,sans-serif", foil=FOIL[cd.rarity]||FOIL.red;
+  const u=W/CARD_W, R=RARITY[cd.rarity]||RARITY.red, F="Helvetica,Arial,sans-serif", foil=FOIL[cd.rarity]||FOIL.red;
   c.save(); c.clearRect(0,0,W,H);
   // 1) holographic foil (shows through every transparent pixel of the frame)
   const shift=(tms/30)%360, g=c.createLinearGradient(0,0,W,H);
@@ -669,15 +695,19 @@ function drawCard(c,W,H,cd,art,tms,frameCount,frameIdx){
   sh.addColorStop(cl(sp-0.12),"rgba(255,255,255,0)"); sh.addColorStop(cl(sp),"rgba(255,255,255,0.55)"); sh.addColorStop(cl(sp+0.12),"rgba(255,255,255,0)");
   c.fillStyle=sh; c.fillRect(0,0,W,H);
   // 2) dream art in the window
-  const ax=10*u, ay=24*u, aw=160*u, ah=200*u;
+  const ax=ART.x*u, ay=ART.y*u, aw=ART.w*u, ah=ART.h*u;
   c.fillStyle="#05020a"; c.fillRect(ax,ay,aw,ah);
-  if(art){ c.imageSmoothingEnabled=true; c.imageSmoothingQuality="high"; c.drawImage(art,ax,ay,aw,ah); }
+  if(art){ c.imageSmoothingEnabled=true; c.imageSmoothingQuality="high";
+    // cover the window (cards dreamed at the old 4:5 size get their sides trimmed instead of stretched)
+    const iw=art.width||art.naturalWidth||aw, ih=art.height||art.naturalHeight||ah, sc=Math.max(aw/iw,ah/ih), dw=iw*sc, dh=ih*sc;
+    c.save(); c.beginPath(); c.rect(ax,ay,aw,ah); c.clip(); c.drawImage(art,ax+(aw-dw)/2,ay+(ah-dh)/2,dw,dh); c.restore(); }
   if(cd.rarity!=="red"){ const p=((tms/2600)%1)*1.6-0.3, ag=c.createLinearGradient(ax,ay,ax+aw,ay+ah);
     ag.addColorStop(cl(p-0.15),"rgba(255,255,255,0)"); ag.addColorStop(cl(p),"rgba(255,255,255,"+(cd.rarity==="blue"?0.22:0.12)+")"); ag.addColorStop(cl(p+0.15),"rgba(255,255,255,0)");
     c.globalCompositeOperation="overlay"; c.fillStyle=ag; c.fillRect(ax,ay,aw,ah); c.globalCompositeOperation="source-over"; }
   // 3) the pixel frame on top, crisp
+  const frameImg=frameFor(cd);
   if(frameImg){ c.imageSmoothingEnabled=false; c.drawImage(frameImg,0,0,W,H); c.imageSmoothingEnabled=true; }
-  else { c.fillStyle="#0d0a17"; c.fillRect(30*u,6*u,120*u,13*u); c.fillRect(30*u,229*u,120*u,19*u); }
+  else { c.fillStyle="#0d0a17"; c.fillRect(PLATE_TOP.x0*u,PLATE_TOP.y0*u,(PLATE_TOP.x1-PLATE_TOP.x0+1)*u,(PLATE_TOP.y1-PLATE_TOP.y0+1)*u); c.fillRect(PLATE_BOT.x0*u,PLATE_BOT.y0*u,(PLATE_BOT.x1-PLATE_BOT.x0+1)*u,(PLATE_BOT.y1-PLATE_BOT.y0+1)*u); }
   // 4) recipe band: bullet points for the part of the recipe that made the frame on screen
   const seg=recipeSegment(cd,frameIdx==null?0:frameIdx);
   if(seg){ const maxW=aw-6*u; let fs=4.3*u, lines;
@@ -692,15 +722,16 @@ function drawCard(c,W,H,cd,art,tms,frameCount,frameIdx){
       if(ln.first){ c.fillStyle="#8affea"; c.fillText("•",ax+3*u,y); }
       c.fillStyle=(i===0)?"#ffffff":"#d9ccf2"; c.fillText(ln.t,ax+8*u,y); });
   }
-  // 5) text in the plates (name plate 30..149 × 6..18, info plate 30..149 × 229..247), always shrunk to fit
+  // 5) text in the plates (PLATE_TOP / PLATE_BOT), always shrunk to fit
+  const iy=PLATE_BOT.y0;
   c.textBaseline="middle";
   const rl=R.sym+" "+R.label; c.font="bold "+(5.2*u)+"px "+F; const rlw=c.measureText(rl).width;
   c.textAlign="right"; c.fillStyle=R.c1; c.fillText(rl,146*u,12.5*u);
   c.textAlign="left"; c.fillStyle="#fff"; c.fillText(fitFont(c,cd.name,146*u-rlw-4*u-34*u,7.5*u,4.5*u,"bold",F),34*u,12.5*u);
   const no=cd.no?"No. "+String(cd.no).padStart(4,"0"):"Not dreamed"; c.font="bold "+(5*u)+"px "+F; const nw=c.measureText(no).width;
-  c.textAlign="right"; c.fillStyle="#8affea"; c.fillText(no,146*u,234.5*u);
-  c.textAlign="left"; c.fillStyle="#c9a0ff"; c.fillText(fitFont(c,cd.detail||"",146*u-nw-4*u-34*u,5.2*u,3.6*u,"bold",F),34*u,234.5*u);
-  c.textAlign="center"; c.fillStyle="#b9a8d8"; c.fillText(fitFont(c,(seg&&seg.style)||cd.style||cd.townName+" generator",112*u,4.6*u,3.4*u,"",F),90*u,242.5*u);
+  c.textAlign="right"; c.fillStyle="#8affea"; c.fillText(no,146*u,(iy+5.5)*u);
+  c.textAlign="left"; c.fillStyle="#c9a0ff"; c.fillText(fitFont(c,cd.detail||"",146*u-nw-4*u-34*u,5.2*u,3.6*u,"bold",F),34*u,(iy+5.5)*u);
+  c.textAlign="center"; c.fillStyle="#b9a8d8"; c.fillText(fitFont(c,(seg&&seg.style)||cd.style||cd.townName+" generator",112*u,4.6*u,3.4*u,"",F),90*u,(iy+13.5)*u);
   // frame counter badge on the art
   if(frameCount>1){ const t=frameCount+" frames"; c.font="bold "+(5*u)+"px "+F; const tw=c.measureText(t).width+7*u;
     c.fillStyle="rgba(8,4,18,.75)"; c.fillRect(ax+3*u,ay+3*u,tw,9*u); c.fillStyle="#8affea"; c.textAlign="left"; c.fillText(t,ax+6.5*u,ay+7.6*u); }
@@ -732,7 +763,7 @@ function tick(t){
 }
 function layout(){
   const m=$("main"), aw=m.clientWidth, ah=m.clientHeight;
-  const hgt=Math.floor(Math.min(ah,aw*1.4)), wdt=Math.floor(hgt/1.4), dpr=Math.min(2,window.devicePixelRatio||1);
+  const R=CARD_H/CARD_W, hgt=Math.floor(Math.min(ah,aw*R)), wdt=Math.floor(hgt/R), dpr=Math.min(2,window.devicePixelRatio||1);
   cardCv.style.width=wdt+"px"; cardCv.style.height=hgt+"px"; cardCv.width=Math.round(wdt*dpr); cardCv.height=Math.round(hgt*dpr);
 }
 new ResizeObserver(layout).observe($("main"));
@@ -745,10 +776,10 @@ async function openPicker(){
   const section=(title,list)=>{ if(!list.length) return; const h=document.createElement("h3"); h.textContent=title; grid.appendChild(h); list.forEach(addTile); };
   const addTile=seed=>{
     const tile=document.createElement("button"); tile.className="tile"+(card&&card.seedKey===seed.key?" sel":""); tile.setAttribute("aria-label","Dream "+seed.name);
-    const cv=document.createElement("canvas"); cv.width=220; cv.height=308; tile.appendChild(cv); grid.appendChild(tile);
+    const cv=document.createElement("canvas"); cv.width=220; cv.height=391; tile.appendChild(cv); grid.appendChild(tile);
     const pseudo={name:seed.name,rarity:seed.rarity,detail:seed.label,style:"",townName:town.name,no:0};
-    drawCard(cv.getContext("2d"),220,308,pseudo,null,0,0);
-    const art=document.createElement("canvas"); renderSeedArt(seed,art,160,200).then(()=>drawCard(cv.getContext("2d"),220,308,pseudo,art,0,0));
+    drawCard(cv.getContext("2d"),220,391,pseudo,null,0,0);
+    const art=document.createElement("canvas"); renderSeedArt(seed,art,ART.w,ART.h).then(()=>drawCard(cv.getContext("2d"),220,391,pseudo,art,0,0));
     tile.onclick=async()=>{ if(await useSeed(seed)){ closePicker(); setStatus(seed.name+" is ready. Press Dream this card."); } };
   };
   section("Fusions",fus); section("Dreamlings",dex);
@@ -840,12 +871,12 @@ async function openGallery(){
   if(exps.length){ head("Videos & GIFs");
     for(const x of exps){
       const tile=document.createElement("button"); tile.className="tile"; tile.setAttribute("aria-label","Play "+x.name);
-      const cv=document.createElement("canvas"); cv.width=220; cv.height=308; tile.appendChild(cv);
+      const cv=document.createElement("canvas"); cv.width=220; cv.height=391; tile.appendChild(cv);
       const bd=document.createElement("span"); bd.className="badge"; bd.textContent=x.kind==="gif"?"GIF":"VIDEO"; tile.appendChild(bd);
       grid.appendChild(tile);
       const info=x.card||{name:x.name,rarity:"red",townName:town.name};
-      drawCard(cv.getContext("2d"),220,308,info,null,0,info.frameCount||0);
-      if(x.thumb) decodeBlob(x.thumb).then(im=>{ if(im) drawCard(cv.getContext("2d"),220,308,info,im,0,info.frameCount||0); });
+      drawCard(cv.getContext("2d"),220,391,info,null,0,info.frameCount||0);
+      if(x.thumb) decodeBlob(x.thumb).then(im=>{ if(im) drawCard(cv.getContext("2d"),220,391,info,im,0,info.frameCount||0); });
       tile.onclick=()=>{ showResult(x.blob,x.name,x.kind,x.id); };
     }
   }
@@ -853,11 +884,11 @@ async function openGallery(){
   for(const r of recs){
     if(!r.detail && r.seed) r.detail="Seed #"+r.seed;
     const tile=document.createElement("button"); tile.className="tile"; tile.setAttribute("aria-label","Open "+r.name);
-    const cv=document.createElement("canvas"); cv.width=220; cv.height=308; tile.appendChild(cv);
+    const cv=document.createElement("canvas"); cv.width=220; cv.height=391; tile.appendChild(cv);
     const del=document.createElement("button"); del.className="del"; del.textContent="✕"; del.setAttribute("aria-label","Delete "+r.name); tile.appendChild(del);
     grid.appendChild(tile);
-    drawCard(cv.getContext("2d"),220,308,r,null,0,r.frames.length);
-    if(r.frames.length) decodeBlob(r.frames[0]).then(im=>{ if(im) drawCard(cv.getContext("2d"),220,308,r,im,0,r.frames.length); });
+    drawCard(cv.getContext("2d"),220,391,r,null,0,r.frames.length);
+    if(r.frames.length) decodeBlob(r.frames[0]).then(im=>{ if(im) drawCard(cv.getContext("2d"),220,391,r,im,0,r.frames.length); });
     tile.onclick=()=>openKept(r);
     del.onclick=async e=>{ e.stopPropagation(); if(!confirm("Delete "+r.name+"?")) return; await idbDo("readwrite",st=>st.delete(r.id)); if(card&&card.id===r.id) card.saved=false; openGallery(); };
   }
@@ -898,7 +929,7 @@ async function exportGif(){
   if(!card||busy||zooming||!card.frames.length) return;
   busy=true; updateUI();
   try{
-    const W=GIF_W, H=Math.round(GIF_W*1.4), cv=document.createElement("canvas"); cv.width=W; cv.height=H; const c=cv.getContext("2d",{willReadFrequently:true});
+    const W=GIF_W, H=Math.round(GIF_W*CARD_H/CARD_W), cv=document.createElement("canvas"); cv.width=W; cv.height=H; const c=cv.getContext("2d",{willReadFrequently:true});
     const n=card.frames.length, fps=cardFps(card), L=seqLength(card), delay=Math.max(2,Math.round(100/fps)), count=Math.max(L,n===1?24:0);
     const enc=new GifEncoder(W,H); let im=null, imIdx=-1;
     for(let i=0;i<count;i++){
@@ -921,7 +952,7 @@ async function exportVideo(){
   const mime=videoMime(); if(mime===null){ setStatus("This browser can't record video. Try the GIF instead.",true); return; }
   busy=true; updateUI();
   try{
-    const cv=$("exportCv"), W=VIDEO_W, H=Math.round(VIDEO_W*1.4); cv.width=W; cv.height=H; const c=cv.getContext("2d");
+    const cv=$("exportCv"), W=VIDEO_W, H=Math.round(VIDEO_W*CARD_H/CARD_W); cv.width=W; cv.height=H; const c=cv.getContext("2d");
     const n=card.frames.length, fps=cardFps(card), L=seqLength(card), count=Math.max(L,Math.ceil(fps*3/L)*L);
     const imgs=[]; for(let i=0;i<n;i++){ imgs.push(await decodeBlob(card.frames[i])); setStatus("Preparing video… "+(i+1)+" / "+n); setBar((i+1)/n/2); if(i%10===9) await sleep(0); }
     drawCard(c,W,H,card,imgs[0],0,n,0);
