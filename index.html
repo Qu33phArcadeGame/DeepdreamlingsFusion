@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Dreamlings · Town 1</title>
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
@@ -24,6 +27,30 @@
   .rbtn{position:absolute;border-radius:50%;background:transparent;border:none;color:transparent;}
   .rbtn:active{background:rgba(255,255,255,.18);}
   video{display:none;}
+  /* ----- full-screen layouts (vertical "port" and horizontal "land"): visible controls ----- */
+  #safe{position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;
+    padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);}
+  #stage.port #cabImg, #stage.land #cabImg{display:none;}
+  #stage.port, #stage.land{background:radial-gradient(ellipse at 50% 120%, #1d0f3a 0%, #0a0512 60%);}
+  #stage.port .dp, #stage.land .dp{color:rgba(241,233,255,.85);font-size:var(--arrow,18px);display:flex;align-items:center;justify-content:center;
+    background:rgba(42,26,78,.72);border:2px solid rgba(201,160,255,.55);box-shadow:0 3px 0 rgba(0,0,0,.35);}
+  #stage.port .dp:active, #stage.land .dp:active{background:rgba(138,255,234,.42);transform:translateY(2px);box-shadow:none;}
+  #stage.port #dpad::after, #stage.land #dpad::after{content:"";position:absolute;left:30%;top:30%;width:40%;height:40%;background:rgba(42,26,78,.72);border-radius:6px;pointer-events:none;}
+  #stage.port .rbtn, #stage.land .rbtn{display:flex;align-items:center;justify-content:center;font:bold var(--btnfont,20px) Helvetica,Arial,sans-serif;color:#120a22;
+    box-shadow:0 4px 0 rgba(0,0,0,.4), inset 0 -4px 0 rgba(0,0,0,.18);}
+  #stage.port #aBtn, #stage.land #aBtn{background:radial-gradient(circle at 35% 30%, #c8fff4, #8affea 55%, #3fbfa8);}
+  #stage.port #bBtn, #stage.land #bBtn{background:radial-gradient(circle at 35% 30%, #ffd1e5, #ff8fbf 55%, #c9507f);}
+  #stage.port .rbtn:active, #stage.land .rbtn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.4);}
+  #stage.land.overlay .dp, #stage.land.overlay #dpad::after{background:rgba(20,10,40,.38);border-color:rgba(201,160,255,.35);}
+  #stage.land.overlay .rbtn{opacity:.72;}
+  #stage.nopad #dpad, #stage.nopad .rbtn{display:none;}
+  #fsBtn{position:absolute;z-index:12;width:38px;height:38px;border-radius:10px;border:1.5px solid rgba(201,160,255,.6);background:rgba(12,6,26,.62);
+    display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;}
+  #fsBtn svg{width:20px;height:20px;stroke:#e8dcff;stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+  #fsBtn:active{background:rgba(138,255,234,.35);}
+  #tip{position:absolute;z-index:13;left:50%;transform:translateX(-50%);padding:8px 14px;border-radius:10px;background:rgba(12,6,26,.9);
+    border:1.5px solid #c9a0ff;color:#f1e9ff;font:bold 13px Helvetica,Arial,sans-serif;white-space:nowrap;opacity:0;transition:opacity .4s;pointer-events:none;}
+  #tip.show{opacity:1;}
 </style>
 </head>
 <body>
@@ -34,8 +61,11 @@
   <div id="fx2"></div>
   <canvas id="uilayer" style="position:absolute;pointer-events:none;z-index:6;"></canvas>
   <div id="dpad"><div class="dp" id="up">▲</div><div class="dp" id="dn">▼</div><div class="dp" id="lf">◀</div><div class="dp" id="rt">▶</div></div>
-  <div class="rbtn" id="aBtn"></div>
-  <div class="rbtn" id="bBtn"></div>
+  <div class="rbtn" id="aBtn">A</div>
+  <div class="rbtn" id="bBtn">B</div>
+  <button id="fsBtn" aria-label="Full screen"><svg viewBox="0 0 24 24"><path id="fsIcon" d=""/></svg></button>
+  <div id="tip"></div>
+  <div id="safe"></div>
   <div id="err"></div>
 </div>
 <video id="vU" muted playsinline preload="auto"></video>
@@ -83,24 +113,6 @@ let visited=load("town_visited","{}");
 let compImg=null; (function(){ try{ var d=localStorage.getItem("town_companion_img"); if(d && typeof companion!=="number"){ compImg=new Image(); compImg.onload=function(){ if(typeof draw==="function") draw(); }; compImg.src=d; } }catch(e){} })();
 function saveGame(){ try{ localStorage.setItem("qu33phDLDex",JSON.stringify(dmDex)); localStorage.setItem("qu33phDLHeld",JSON.stringify(dmHeld)); localStorage.setItem("qu33phDLRare",JSON.stringify(dmRare)); localStorage.setItem("qu33phDLFusions",JSON.stringify(dmFusions)); localStorage.setItem("town_tier",JSON.stringify(tier)); localStorage.setItem("town_tiers",JSON.stringify(tiers)); localStorage.setItem("town_companion",JSON.stringify(companion)); localStorage.setItem("town_visited",JSON.stringify(visited)); }catch(e){} }
 function areaCount(){ var n=0; for(var i=area.first;i<=area.last;i++) if(dmDex.indexOf(i)>=0) n++; return n; }
-
-// ===== DREAM FLOATERS: dreamed in the generator, they float around their town =====
-// Keeping a card saves small dream thumbnails to localStorage ("dl_floaters"); the town
-// replays them zooming inside the dreamed dreamling's form.
-let floaters=[];
-function loadFloaters(){
-  floaters=[];
-  let recs=[]; try{ recs=JSON.parse(localStorage.getItem("dl_floaters")||"[]"); }catch(e){}
-  const cols=M?M.cols:20, rows=M?M.rows:15;
-  recs.forEach(function(r){
-    if(!r||r.town!==currentMap||!(r.thumbs&&r.thumbs.length)) return;
-    const imgs=[];
-    r.thumbs.forEach(function(t){ const im=new Image(); im.onload=function(){ if(typeof draw==="function") draw(); }; im.src=t; imgs.push(im); });
-    floaters.push({ rec:r, imgs:imgs, num:(r.comp&&r.comp.length)?r.comp[0]:null,
-      hx:2+Math.random()*Math.max(2,cols-4), hy:2+Math.random()*Math.max(2,rows-4),
-      ph:Math.random()*6.28, sp:0.00010+Math.random()*0.00016, rg:1.2+Math.random()*2.2 });
-  });
-}
 
 // ===== ASSETS: PIXEL sprites (dreamlingP), photo fallback =====
 const sprP={}, sprPhoto={};
@@ -208,24 +220,94 @@ const ui=document.getElementById("uilayer"), ux=ui.getContext("2d");
 cabImg.onerror=()=>{ cabImg.style.display="none"; }; cabImg.src=CAB_SRC;
 let W,H,DPR;
 function place(el,cx,cy,d){ el.style.left=(cx-d/2)+"px"; el.style.top=(cy-d/2)+"px"; el.style.width=d+"px"; el.style.height=d+"px"; }
+// Three layouts, picked from the window's shape every time it changes:
+//  "cab"  : the handheld picture (portrait, normal mode)
+//  "port" : vertical full screen - the game fills the top, big controls underneath
+//  "land" : horizontal (any window wider than tall, e.g. a phone turned sideways) - the game
+//           fills the screen; touch controls sit beside it when there's room, else float over it
+let fsMode=false; try{ fsMode=sessionStorage.getItem("dl_fs")==="1"; }catch(e){}
+const IS_TOUCH=(window.matchMedia&&matchMedia("(pointer:coarse)").matches)||("ontouchstart" in window)||(navigator.maxTouchPoints>0);
+let layoutKind="cab";
+function insets(){ const cs=getComputedStyle(document.getElementById("safe")); return {t:parseFloat(cs.paddingTop)||0,r:parseFloat(cs.paddingRight)||0,b:parseFloat(cs.paddingBottom)||0,l:parseFloat(cs.paddingLeft)||0}; }
 function layout(){
-  const sw=stage.clientWidth, sh=stage.clientHeight;
-  const scale=Math.min(sw/PF_PNG_W, sh/PF_PNG_H), rw=PF_PNG_W*scale, rh=PF_PNG_H*scale, ox=(sw-rw)/2, oy=(sh-rh)/2;
-  cabImg.style.left=ox+"px"; cabImg.style.top=oy+"px"; cabImg.style.width=rw+"px"; cabImg.style.height=rh+"px";
-  const scX=PF_SCREEN[0],scY=PF_SCREEN[1],scW=PF_SCREEN[2]-PF_SCREEN[0],scH=PF_SCREEN[3]-PF_SCREEN[1];
-  const cl=ox+scX*rw, ct=oy+scY*rh, cw=scW*rw, ch=scH*rh;
+  const sw=stage.clientWidth, sh=stage.clientHeight, si=insets();
+  const dp=document.getElementById("dpad"), aB=document.getElementById("aBtn"), bB=document.getElementById("bBtn"), fb=document.getElementById("fsBtn");
+  let cl,ct,cw,ch, dpx,dpy,dsz, ax,ay,bx,by,bd, cls;
+  layoutKind = sw>sh*1.05 ? "land" : (fsMode ? "port" : "cab");
+  if(layoutKind==="cab"){
+    const scale=Math.min(sw/PF_PNG_W, sh/PF_PNG_H), rw=PF_PNG_W*scale, rh=PF_PNG_H*scale, ox=(sw-rw)/2, oy=(sh-rh)/2;
+    cabImg.style.left=ox+"px"; cabImg.style.top=oy+"px"; cabImg.style.width=rw+"px"; cabImg.style.height=rh+"px";
+    cl=ox+PF_SCREEN[0]*rw; ct=oy+PF_SCREEN[1]*rh; cw=(PF_SCREEN[2]-PF_SCREEN[0])*rw; ch=(PF_SCREEN[3]-PF_SCREEN[1])*rh;
+    dsz=DP_SZ*rw; dpx=ox+DP_C[0]*rw; dpy=oy+DP_C[1]*rh; bd=0.15*rw; ax=ox+A_POS[0]*rw; ay=oy+A_POS[1]*rh; bx=ox+B_POS[0]*rw; by=oy+B_POS[1]*rh;
+    cls="cab";
+    fb.style.right=(Math.max(8,ox+8,si.r+8))+"px"; fb.style.left="auto"; fb.style.top=(Math.max(8,si.t+8))+"px";
+  } else if(layoutKind==="port"){
+    // controls get about a third of the height (never so little they're fiddly, never more than they need)
+    const ctrlH=IS_TOUCH ? Math.round(Math.max(170, Math.min(sh*0.34, sw*0.78, 320))) : 0;
+    cl=si.l; ct=si.t; cw=sw-si.l-si.r; ch=sh-si.t-si.b-ctrlH;
+    const mid=ct+ch+ctrlH/2;
+    dsz=Math.min(ctrlH*0.82, sw*0.44); dpx=si.l+sw*0.05+dsz/2; dpy=mid;
+    bd=Math.min(ctrlH*0.34, sw*0.2); ax=sw-si.r-sw*0.05-bd/2; ay=mid-bd*0.38; bx=ax-bd*1.28; by=mid+bd*0.42;
+    cls="port"+(IS_TOUCH?"":" nopad");
+    fb.style.right=(si.r+8)+"px"; fb.style.left="auto"; fb.style.top=(si.t+8)+"px";
+  } else {
+    const D=Math.round(Math.max(112, Math.min(sh*0.38, 176))); dsz=D; bd=Math.round(D*0.44);
+    const side=IS_TOUCH ? D*1.18 : 0, wl=si.l+side, wr=si.r+side;
+    const sideOK=IS_TOUCH && (sw-wl-wr)/sh>=1.2;   // room for controls beside a wide-enough game?
+    if(sideOK){
+      cl=wl; ct=0; cw=sw-wl-wr; ch=sh;
+      const cy=sh*0.6; dpx=si.l+side/2; dpy=cy; const rc=sw-si.r-side/2;
+      ax=rc+bd*0.6; ay=cy-bd*0.5; bx=rc-bd*0.6; by=cy+bd*0.5;
+      cls="land side";
+    } else {
+      cl=0; ct=0; cw=sw; ch=sh;
+      dpx=si.l+18+D/2; dpy=sh-si.b-14-D/2; ax=sw-si.r-22-bd/2; ay=sh-si.b-D*0.72; bx=ax-bd*1.3; by=ay+bd*0.62;
+      cls="land overlay"+(IS_TOUCH?"":" nopad");
+    }
+    fb.style.right=(si.r+10)+"px"; fb.style.left="auto"; fb.style.top=(si.t+10)+"px";
+  }
+  stage.className=cls;
   cv.style.left=cl+"px"; cv.style.top=ct+"px"; cv.style.width=cw+"px"; cv.style.height=ch+"px";
-  var PIXEL=0.8;   // 1 = no pixelation, 0.4 = chunky. 0.8 = subtle retro softness
-  W=cw; H=ch; DPR=devicePixelRatio||1; cv.width=Math.max(64,Math.round(cw*PIXEL)); cv.height=Math.max(48,Math.round(ch*PIXEL)); x.setTransform(PIXEL,0,0,PIXEL,0,0);
+  // retro softness, but never more than ~1600 pixels across (keeps big monitors smooth)
+  var PIXEL=Math.min(0.8, 1600/Math.max(cw,ch,1));
+  W=cw; H=ch; DPR=Math.min(devicePixelRatio||1, 2.5); cv.width=Math.max(64,Math.round(cw*PIXEL)); cv.height=Math.max(48,Math.round(ch*PIXEL)); x.setTransform(PIXEL,0,0,PIXEL,0,0);
   ui.style.left=cl+"px"; ui.style.top=ct+"px"; ui.style.width=cw+"px"; ui.style.height=ch+"px";
   ui.width=Math.round(cw*DPR); ui.height=Math.round(ch*DPR); ux.setTransform(DPR,0,0,DPR,0,0);
   var fx=document.getElementById("fx"), fx2=document.getElementById("fx2");
   [fx,fx2].forEach(function(el){ if(el){ el.style.left=cl+"px"; el.style.top=ct+"px"; el.style.width=cw+"px"; el.style.height=ch+"px"; } });
-  const dp=document.getElementById("dpad"), dsz=DP_SZ*rw;
-  dp.style.left=(ox+DP_C[0]*rw-dsz/2)+"px"; dp.style.top=(oy+DP_C[1]*rh-dsz/2)+"px"; dp.style.width=dsz+"px"; dp.style.height=dsz+"px";
-  const bd=0.15*rw; place(document.getElementById("aBtn"), ox+A_POS[0]*rw, oy+A_POS[1]*rh, bd); place(document.getElementById("bBtn"), ox+B_POS[0]*rw, oy+B_POS[1]*rh, bd);
+  dp.style.left=(dpx-dsz/2)+"px"; dp.style.top=(dpy-dsz/2)+"px"; dp.style.width=dsz+"px"; dp.style.height=dsz+"px";
+  dp.style.setProperty("--arrow",Math.round(dsz*0.13)+"px");
+  place(aB,ax,ay,bd); place(bB,bx,by,bd); aB.style.setProperty("--btnfont",Math.round(bd*0.38)+"px"); bB.style.setProperty("--btnfont",Math.round(bd*0.38)+"px");
+  fsIconUpdate();
   draw();
 }
+// ----- full-screen button -----
+function fsActive(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+function reqFS(){ const el=document.documentElement, f=el.requestFullscreen||el.webkitRequestFullscreen; if(f&&!fsActive()){ try{ const p=f.call(el,{navigationUI:"hide"}); if(p&&p.catch)p.catch(function(){}); }catch(e){} } }
+function exitFS(){ const f=document.exitFullscreen||document.webkitExitFullscreen; if(f&&fsActive()){ try{ const p=f.call(document); if(p&&p.catch)p.catch(function(){}); }catch(e){} } }
+function fsIconUpdate(){ const on=fsMode||fsActive();
+  document.getElementById("fsIcon").setAttribute("d", on ? "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" : "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5");
+  document.getElementById("fsBtn").setAttribute("aria-label", on?"Exit full screen":"Full screen"); }
+let tipTimer=null;
+function showTip(t){ const el=document.getElementById("tip"); el.textContent=t; el.style.top=(insets().t+56)+"px"; el.classList.add("show"); clearTimeout(tipTimer); tipTimer=setTimeout(function(){ el.classList.remove("show"); },3200); }
+function toggleFS(){
+  const on=!(fsMode||fsActive());
+  fsMode=on; try{ sessionStorage.setItem("dl_fs",on?"1":"0"); }catch(e){}
+  if(on){ reqFS(); if(IS_TOUCH && layoutKind!=="land") showTip("Tip: turn your phone sideways for the wide view"); }
+  else exitFS();
+  layout();
+}
+(function(){ const b=document.getElementById("fsBtn");
+  b.addEventListener("click",function(e){ e.preventDefault(); toggleFS(); });
+  b.addEventListener("touchstart",function(e){ e.stopPropagation(); },{passive:true}); })();
+function onFsChange(){ if(!fsActive() && fsMode && !onFsChange.keep){ fsMode=false; try{ sessionStorage.setItem("dl_fs","0"); }catch(e){} } layout(); }
+document.addEventListener("fullscreenchange",onFsChange); document.addEventListener("webkitfullscreenchange",onFsChange);
+// full screen was on before this page loaded (coming back from the generator / binder):
+// browsers only allow it after a tap, so turn it back on with the first one
+if(fsMode){ const again=function(){ reqFS(); removeEventListener("pointerdown",again,true); }; addEventListener("pointerdown",again,true); }
+// the layout follows the phone as it turns
+addEventListener("orientationchange",function(){ setTimeout(layout,250); });
+if(window.visualViewport) visualViewport.addEventListener("resize",function(){ clearTimeout(layout.t); layout.t=setTimeout(layout,60); });
 addEventListener("resize",layout);
 
 // ===== MAP / WALK =====
@@ -234,7 +316,7 @@ function loadMap(name,entry){
   fetch(name+".json").then(r=>{ if(!r.ok) throw new Error(name+".json ("+r.status+")"); return r.json(); })
    .then(d=>{ M=d; T=d.tileSize||64; currentMap=name; setArea(name); if(name===BOB.map) bobShown=false; tiles=(d.tiles||[]).map(n=>{const im=tileImg(n); if(!im.complete)im.addEventListener("load",draw); return im;});
      const sp=(d.spawns||[]).find(s=>s.name===entry)||(d.spawns||[]).find(s=>s.name==="start")||(d.spawns||[])[0];
-     px=sp?sp.x:Math.floor((d.cols||1)/2); py=sp?sp.y:Math.floor((d.rows||1)/2); if(retPos){ px=retPos.x; py=retPos.y; if(retPos.f) guyFace=retPos.f; retPos=null; } inZone=zoneAt(px,py); loadFloaters(); layout(); })
+     px=sp?sp.x:Math.floor((d.cols||1)/2); py=sp?sp.y:Math.floor((d.rows||1)/2); if(retPos){ px=retPos.x; py=retPos.y; if(retPos.f) guyFace=retPos.f; retPos=null; } inZone=zoneAt(px,py); layout(); })
    .catch(e=>{ const el=document.getElementById("err"); el.innerHTML="Couldn't load <b>"+name+".json</b>.<br>"+e.message; el.style.display="flex"; });
 }
 function solidAt(c,r){ if(!M) return true; if(c<0||r<0||c>=M.cols||r>=M.rows) return true; if(genAt(c,r)) return true; return !!(M.solid&&M.solid[r][c]); }
@@ -246,6 +328,73 @@ function walkStep(dx,dy){ if(!M||dialogue) return; if(dx<0)guyFace="L"; else if(
   const w=(M.warps||[]).find(o=>o.x===px&&o.y===py); if(w){ loadMap(w.toMap,w.entry||"start"); return; }
   if(!waterSaid && isWater(M.map[py][px])){ waterSaid=true; try{localStorage.setItem("town_water_said","1");}catch(e){} say("Am I dreaming? I'm walking on this water"); draw(); return; }
   const nz=zoneAt(px,py); if(nz&&!inZone){ inZone=true; startEncounter(); return; } if(!nz) inZone=false; draw(); }
+
+// ===== FLOATING DREAMS =====
+// Dreams made in this town's Dream Generator drift around it: the creature's outline with the
+// dream playing inside. generator.html writes them to sessionStorage ("dl_floaters"), so they
+// last while this browser tab is open and aren't saved anywhere else.
+let floaters=[], floatersFor=null;
+function loadFloaters(){
+  let list=[]; try{ list=JSON.parse(sessionStorage.getItem("dl_floaters")||"[]")||[]; }catch(e){}
+  const keep=floaters; floaters=[]; floatersFor=currentMap; let changed=false;
+  list.forEach(function(rec){ if(rec.town!==currentMap) return;
+    const old=keep.find(f=>f.rec.id===rec.id);
+    const f=old||{rec:rec, frames:[], edge:null, ready:false};
+    if(!old){ const g=genHere();
+      if(rec.fresh && g){ f.x=g.x+(g.w||3)/2+(Math.random()-0.5); f.y=g.y+(g.h||2)+0.4; rec.fresh=false; changed=true; }   // new: comes out of the door
+      else { f.x=2+Math.random()*Math.max(1,(M.cols||10)-4); f.y=2+Math.random()*Math.max(1,(M.rows||10)-4); }
+      f.tx=f.x; f.ty=f.y; f.ph=Math.random()*6.28; buildFloater(f); }
+    floaters.push(f); });
+  if(changed){ try{ sessionStorage.setItem("dl_floaters",JSON.stringify(list)); }catch(e){} }
+}
+function buildFloater(f){
+  const r=f.rec, S=r.S||88, mask=new Image(), sheet=new Image(); let got=0;
+  const done=function(){ if(++got<2) return;
+    const col=TAG_COLOR[r.rarity]||"#ff5555";
+    // outline: the shape grown by 3px, in the rarity colour
+    const e=document.createElement("canvas"); e.width=e.height=S+8; const ec=e.getContext("2d");
+    for(let dy=-3;dy<=3;dy++) for(let dx=-3;dx<=3;dx++) if(dx*dx+dy*dy<=10) ec.drawImage(mask,4+dx,4+dy);
+    ec.globalCompositeOperation="source-in"; ec.fillStyle=col; ec.fillRect(0,0,S+8,S+8);
+    f.edge=e;
+    for(let k=0;k<(r.n||1);k++){ const c=document.createElement("canvas"); c.width=c.height=S; const cc=c.getContext("2d");
+      cc.drawImage(sheet,k*S,0,S,S,0,0,S,S); cc.globalCompositeOperation="destination-in"; cc.drawImage(mask,0,0); f.frames.push(c); }
+    f.ready=true; };
+  mask.onload=done; sheet.onload=done; mask.src=r.mask; sheet.src=r.sheet;
+}
+function drawFloaters(camx,camy,s,sz,now,pcx,pcy){
+  if(floatersFor!==currentMap) loadFloaters();
+  if(!floaters.length) return;
+  const dt=Math.min(0.1,(now-(drawFloaters.last||now))/1000); drawFloaters.last=now;
+  floaters.forEach(function(f,i){
+    // drift toward a wander point (about half a tile per second), then pick another
+    const dx=f.tx-f.x, dy=f.ty-f.y, d=Math.hypot(dx,dy);
+    if(d<0.2){ f.tx=1.5+Math.random()*Math.max(1,M.cols-3); f.ty=1.5+Math.random()*Math.max(1,M.rows-3); }
+    else { const v=0.55*dt/d; f.x+=dx*v; f.y+=dy*v; }
+    if(!f.ready) return;
+    const size=sz*2.1, bob=Math.sin(now/520+f.ph)*sz*0.08;
+    const cx=(f.x*T-camx)*s, cy=(f.y*T-camy)*s-sz*0.55+bob;
+    if(cx<-size||cy<-size||cx>W+size||cy>H+size*1.5) return;
+    shadow(cx, cy+size*0.62-bob, size*0.26, size*0.07);
+    const n=f.frames.length, L=n>2?2*n-2:n, k=Math.floor(now/160+i*3)%L, fi=k<n?k:L-k;
+    const S=f.rec.S||88, k2=size/S;
+    x.save(); x.imageSmoothingEnabled=false;
+    x.globalAlpha=0.85+0.15*Math.sin(now/300+f.ph);
+    x.drawImage(f.edge, cx-size/2-4*k2, cy-size/2-4*k2, (S+8)*k2, (S+8)*k2);
+    x.globalAlpha=1; x.imageSmoothingEnabled=true;
+    x.drawImage(f.frames[fi], cx-size/2, cy-size/2, size, size);
+    x.restore();
+    if(Math.abs(cx-pcx)<sz*1.6 && Math.abs(cy-pcy)<sz*1.8){
+      ux.font="bold 12px sans-serif"; ux.textAlign="center"; ux.textBaseline="bottom";
+      const tw=ux.measureText(f.rec.name).width+12; ux.fillStyle="rgba(8,5,18,.8)"; roundRectC(ux,cx-tw/2,cy-size/2-20,tw,17,6); ux.fill();
+      ux.fillStyle=TAG_COLOR[f.rec.rarity]||"#fff"; ux.fillText(f.rec.name,cx,cy-size/2-5); }
+  });
+}
+
+// tiles on screen scale with the screen's area (about 22 x 12 tiles' worth), so tall phones,
+// wide monitors and the handheld picture all show a similar amount of town
+// keep the camera inside the map (a map smaller than the screen sits in the middle)
+function clampCam(c,view,size){ return size<=view ? (size-view)/2 : Math.max(0,Math.min(size-view,c)); }
+function viewScale(){ return Math.max(0.45,Math.min(4,Math.sqrt(W*H/264)/T)); }
 
 // ===== DRAW ROUTER =====
 function draw(){ if(!W) return; x.clearRect(0,0,W,H); ux.clearRect(0,0,W,H); ux.filter="none"; ux.globalAlpha=1; x.filter="none"; x.globalAlpha=1; x.globalCompositeOperation="source-over";
@@ -261,7 +410,7 @@ function shadow(cx,cy,rw,rh){ x.save(); x.filter="none"; x.globalAlpha=0.32; x.f
 
 function drawWalk(){
   if(!M){ x.fillStyle="#0d0a17"; x.fillRect(0,0,W,H); return; }
-  const s=Math.max(0.45,Math.min(2.6,W/(22*T))), sz=T*s; let camx=(px+0.5)*T-W/(2*s), camy=(py+0.5)*T-H/(2*s);
+  const s=viewScale(), sz=T*s; let camx=(px+0.5)*T-W/(2*s), camy=(py+0.5)*T-H/(2*s); camx=clampCam(camx,W/s,M.cols*T); camy=clampCam(camy,H/s,M.rows*T);
   const c0=Math.max(0,Math.floor(camx/T)),r0=Math.max(0,Math.floor(camy/T)),c1=Math.min(M.cols-1,Math.floor((camx+W/s)/T)),r1=Math.min(M.rows-1,Math.floor((camy+H/s)/T));
   const now=Date.now(); const treeCells=[]; x.imageSmoothingEnabled=true;
   for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ const idx=M.map[r][c]; if(idx<0||!tiles[idx]||!tiles[idx].complete||!tiles[idx].naturalWidth) continue;
@@ -281,7 +430,7 @@ function drawWalk(){
   if(gim&&gim.complete&&gim.naturalWidth){ const pw2=sz*1.05, ph2=sz*1.5; x.drawImage(gim, ppx+sz/2-pw2/2, ppy+sz-ph2+sz*0.12+bounceY+idleY, pw2, ph2); }
   else { x.fillStyle="#8affea";x.strokeStyle="#0d0a17";x.lineWidth=Math.max(2,sz*0.06);x.beginPath();x.arc(pcx,pcy+bounceY+idleY,sz*0.3,0,7);x.fill();x.stroke(); }
   if(hasComp){ var oa2=orbit, ox3=pcx+Math.cos(oa2)*sz*0.9, oy3=pcy+Math.sin(oa2)*sz*0.5-sz*0.1; if(Math.sin(oa2)>=0){ shadow(ox3,oy3+sz*0.42,sz*0.3,sz*0.1); drawCompanionSprite(ox3,oy3,sz*1.15); } }
-  drawFloaters(camx,camy,s,sz,now);
+  drawFloaters(camx,camy,s,sz,now,pcx,pcy);
   updateLeaves(now,treeCells); drawLeaves(); updateMotes(now); drawMotes();
   ux.fillStyle="rgba(13,10,23,.72)"; roundRectC(ux,6,6,226,24,7); ux.fill(); ux.fillStyle="#c9a0ff"; ux.font="bold 12px sans-serif"; ux.textAlign="left"; ux.textBaseline="middle"; ux.fillText(area.name+" · "+areaCount()+"/"+(area.last-area.first+1)+" · B=Binder",13,19);
 }
@@ -291,37 +440,6 @@ function drawLeaves(){ x.filter="none"; x.imageSmoothingEnabled=true; for(var i=
 function updateMotes(now){ if(motes.length<14&&Math.random()<0.12){ motes.push({x:Math.random()*W,y:H+8,vx:(Math.random()-0.5)*0.3,vy:-0.12-Math.random()*0.28,ph:Math.random()*6,r:2+Math.random()*3.2,col:MOTE_COLORS[Math.floor(Math.random()*MOTE_COLORS.length)]}); }
   for(var i=0;i<motes.length;i++){ var m=motes[i]; m.ph+=0.02; m.x+=m.vx+Math.sin(m.ph)*0.25; m.y+=m.vy; } motes=motes.filter(function(m){return m.y>-12;}); }
 function drawMotes(){ x.filter="none"; for(var i=0;i<motes.length;i++){ var m=motes[i]; var a=0.25+0.25*Math.sin(m.ph*1.5); var g=x.createRadialGradient(m.x,m.y,0,m.x,m.y,m.r*4); g.addColorStop(0,m.col); g.addColorStop(1,"rgba(0,0,0,0)"); x.globalAlpha=a; x.fillStyle=g; x.beginPath(); x.arc(m.x,m.y,m.r*4,0,7); x.fill(); } x.globalAlpha=1; }
-const _ftmp=document.createElement("canvas");
-function drawFloaters(camx,camy,s,sz,now){
-  if(!floaters.length) return;
-  const S=Math.max(8,Math.round(sz*1.25));
-  if(_ftmp.width!==S){ _ftmp.width=S; _ftmp.height=S; }
-  const fx=_ftmp.getContext("2d");
-  for(let i=0;i<floaters.length;i++){
-    const f=floaters[i];
-    const wx=f.hx+Math.sin(now*f.sp+f.ph)*f.rg, wy=f.hy+Math.cos(now*f.sp*0.77+f.ph*1.3)*f.rg*0.7;
-    const sx=Math.round((wx*T-camx)*s), sy=Math.round((wy*T-camy)*s);
-    if(sx<-S||sy<-S||sx>W+S||sy>H+S) continue;
-    const thumb=f.imgs.length?f.imgs[Math.floor(now/240)%f.imgs.length]:null;
-    if(!thumb||!thumb.complete||!thumb.naturalWidth) continue;
-    const bob=Math.sin(now/600+f.ph)*sz*0.09, cxp=sx+S/2, cyp=sy+S/2+bob;
-    shadow(cxp, sy+S+bob+sz*0.06, S*0.30, sz*0.08);
-    const gl=x.createRadialGradient(cxp,cyp,0,cxp,cyp,S*0.75);
-    gl.addColorStop(0,"rgba(190,150,255,0.28)"); gl.addColorStop(1,"rgba(0,0,0,0)");
-    x.fillStyle=gl; x.beginPath(); x.arc(cxp,cyp,S*0.75,0,7); x.fill();
-    // the dream, clipped inside the dreamed dreamling's form
-    fx.globalCompositeOperation="source-over"; fx.clearRect(0,0,S,S); fx.imageSmoothingEnabled=true;
-    const tw=thumb.naturalWidth, th=thumb.naturalHeight, sc=Math.max(S/tw,S/th), dw=tw*sc, dh=th*sc;
-    fx.drawImage(thumb,(S-dw)/2,(S-dh)/2,dw,dh);
-    const spr=(f.num!=null)?pixSpr(f.num):null;
-    fx.globalCompositeOperation="destination-in";
-    if(spr&&spr.ok) fx.drawImage(spr.img,0,0,S,S);
-    else { fx.beginPath(); fx.arc(S/2,S/2,S*0.42,0,7); fx.fill(); }
-    fx.globalCompositeOperation="source-over";
-    x.imageSmoothingEnabled=true;
-    x.drawImage(_ftmp,sx,sy+bob);
-  }
-}
 
 // ===== ENCOUNTER (video + slot machine) =====
 const DIRV={U:[0,-1],D:[0,1],L:[-1,0],R:[1,0]};
@@ -380,7 +498,7 @@ function drawFusedReveal(b,p){
   x.globalAlpha=1;
 }
 function drawMapBg(){ if(!M){ x.fillStyle="#0d0a17"; x.fillRect(0,0,W,H); return; }
-  const s=Math.max(0.45,Math.min(2.6,W/(22*T))), sz=T*s; let camx=(px+0.5)*T-W/(2*s), camy=(py+0.5)*T-H/(2*s);
+  const s=viewScale(), sz=T*s; let camx=(px+0.5)*T-W/(2*s), camy=(py+0.5)*T-H/(2*s); camx=clampCam(camx,W/s,M.cols*T); camy=clampCam(camy,H/s,M.rows*T);
   const c0=Math.max(0,Math.floor(camx/T)),r0=Math.max(0,Math.floor(camy/T)),c1=Math.min(M.cols-1,Math.floor((camx+W/s)/T)),r1=Math.min(M.rows-1,Math.floor((camy+H/s)/T));
   x.imageSmoothingEnabled=true;
   for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){ const idx=M.map[r][c]; if(idx<0||!tiles[idx]||!tiles[idx].complete||!tiles[idx].naturalWidth) continue; const dx=Math.round((c*T-camx)*s),dy=Math.round((r*T-camy)*s); x.drawImage(tiles[idx],dx,dy,Math.ceil(sz)+1,Math.ceil(sz)+1); } }
@@ -476,9 +594,10 @@ function onDir(dx,dy){ if(mode==="walk") walkStep(dx,dy); }
 function onA(){ if(dialogue){ dialogue=null; var act=dialogueAction; dialogueAction=null; if(act){ act(); return; } draw(); return; } if(mode==="prompt") promptYes(); else if(mode==="encounter") handleEncounterA(); }
 function onB(){ if(dialogue && dialogueAction){ dialogue=null; dialogueAction=null; draw(); return; } if(mode==="walk"){ try{localStorage.setItem("town_pos",JSON.stringify({x:px,y:py,f:guyFace,map:currentMap}));}catch(e){} saveGame(); location.href=ARCADE_FILE+"?view=binder&town=1"; } else if(mode==="prompt") promptNo(); }
 let running=false;
+const STEP_MS=105, STEP_RUN_MS=55;   // ms per tile while a direction is held: walk / run (hold A, or Shift on a keyboard)
 function bindHold(id,fn){ const el=document.getElementById(id); let t=null, held=false;
-  function step(){ if(!held) return; fn(); t=setTimeout(step, running?70:150); }
-  const on=e=>{ e.preventDefault(); if(held) return; held=true; fn(); t=setTimeout(step, running?70:150); };
+  function step(){ if(!held) return; fn(); t=setTimeout(step, running?STEP_RUN_MS:STEP_MS); }
+  const on=e=>{ e.preventDefault(); if(held) return; held=true; fn(); t=setTimeout(step, running?STEP_RUN_MS:STEP_MS); };
   const off=e=>{ if(e)e.preventDefault(); held=false; clearTimeout(t); };
   el.addEventListener("touchstart",on,{passive:false}); el.addEventListener("touchend",off); el.addEventListener("touchcancel",off); el.addEventListener("mousedown",on); el.addEventListener("mouseup",off); el.addEventListener("mouseleave",off); }
 bindHold("up",()=>onDir(0,-1)); bindHold("dn",()=>onDir(0,1)); bindHold("lf",()=>onDir(-1,0)); bindHold("rt",()=>onDir(1,0));
@@ -486,7 +605,18 @@ bindHold("up",()=>onDir(0,-1)); bindHold("dn",()=>onDir(0,1)); bindHold("lf",()=
   a.addEventListener("touchstart",down,{passive:false}); a.addEventListener("touchend",up); a.addEventListener("touchcancel",up); a.addEventListener("mousedown",down); a.addEventListener("mouseup",up); a.addEventListener("mouseleave",up); })();
 function tapBtn(id,fn){ const el=document.getElementById(id); el.addEventListener("touchstart",e=>{e.preventDefault();fn();},{passive:false}); el.addEventListener("mousedown",e=>{e.preventDefault();fn();}); }
 tapBtn("bBtn",onB);
-addEventListener("keydown",e=>{ const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key]; if(m){e.preventDefault();onDir(m[0],m[1]);} else if(e.key==="a"||e.key==="Enter"||e.key===" "){e.preventDefault();onA();} else if(e.key==="b"){onB();} });
+// keyboard: arrows walk (our own steady repeat), Shift runs, A/Enter/Space/Z = A, B/X/Escape = B, F = full screen
+const KEYDIR={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]};
+let keyHeld=null, keyTimer=null, shiftRun=false;
+function keyStep(){ if(!keyHeld) return; onDir(keyHeld[0],keyHeld[1]); keyTimer=setTimeout(keyStep,(shiftRun||running)?STEP_RUN_MS:STEP_MS); }
+addEventListener("keydown",e=>{ shiftRun=e.shiftKey; const k=e.key.length===1?e.key.toLowerCase():e.key, m=KEYDIR[k];
+  if(m){ e.preventDefault(); if(e.repeat) return; keyHeld=m; clearTimeout(keyTimer); keyStep(); return; }
+  if(e.repeat) return;
+  if(k==="a"||k==="z"||e.key==="Enter"||e.key===" "){ e.preventDefault(); onA(); }
+  else if(k==="b"||k==="x"||e.key==="Escape"){ if(e.key==="Escape"&&fsActive()) return; onB(); }
+  else if(k==="f"){ toggleFS(); } });
+addEventListener("keyup",e=>{ shiftRun=e.shiftKey; const k=e.key.length===1?e.key.toLowerCase():e.key, m=KEYDIR[k]; if(m&&keyHeld===m){ keyHeld=null; clearTimeout(keyTimer); } });
+addEventListener("blur",()=>{ keyHeld=null; clearTimeout(keyTimer); });
 function loop(){ draw(); requestAnimationFrame(loop); }
 requestAnimationFrame(loop);
 
