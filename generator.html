@@ -949,19 +949,6 @@ async function keepCard(){
     if(cur){ tmpCv.width=card.w; tmpCv.height=card.h; await tensorToCanvas(cur,tmpCv); card.lastPng=await toBlob(tmpCv,"image/png"); }
     await idbDo("readwrite",st=>st.put(cardRecord(card)));
     card.saved=true; card.dirty=false; setStatus(card.name+" is in your Gallery.");
-    // Floater for the town: this dreamed dreamling now floats around the town it
-    // was made in, with the dream zooming inside it.
-    try{
-      const thumbs=await floaterThumbs();
-      if(thumbs.length){
-        let fl=[]; try{ fl=JSON.parse(localStorage.getItem("dl_floaters")||"[]"); }catch(e){}
-        const rec={ id:card.id, town:card.town, name:card.name, comp:(card.seedComp||[]).slice(), tier:card.rarity, thumbs:thumbs, created:Date.now() };
-        const ix=fl.findIndex(function(f){ return f&&f.id===card.id; });
-        if(ix>=0) fl[ix]=rec; else fl.push(rec);
-        while(fl.length>24) fl.shift();
-        try{ localStorage.setItem("dl_floaters",JSON.stringify(fl)); setStatus(card.name+" is in your Gallery — it floated out into "+card.townName+"!"); }catch(e){}
-      }
-    }catch(e){ console.error(e); }
   }catch(e){ console.error(e); setStatus("Couldn't keep the card: "+(e&&e.message||e)+". Browser storage may be full — try exporting instead.",true); }
   busy=false; updateUI();
 }
@@ -1083,6 +1070,20 @@ async function exportVideo(){
     const type=(rec.mimeType||mime||"video/webm").split(";")[0], ext=type.indexOf("mp4")>=0?"mp4":"webm";
     const vb=new Blob(chunks,{type:type}), vn=fileBase()+"."+ext; const vid=await saveExport(vb,vn,"video");
     showResult(vb,vn,"video",vid); setStatus(vid?"Video ready — also saved to your Gallery.":"Video ready.");
+    // Floater for the town: every card turned into a video floats around the town it
+    // was made in, with the dream zooming inside the dreamed dreamling's form.
+    // Re-exporting after more zoom updates the same floater.
+    try{
+      const thumbs=await floaterThumbs();
+      if(thumbs.length){
+        let fl=[]; try{ fl=JSON.parse(localStorage.getItem("dl_floaters")||"[]"); }catch(e){}
+        const rec={ id:card.id, town:card.town, townName:card.townName, name:card.name, comp:(card.seedComp||[]).slice(), tier:card.rarity, thumbs:thumbs, created:Date.now() };
+        const ix=fl.findIndex(function(f){ return f&&f.id===card.id; });
+        if(ix>=0) fl[ix]=rec; else fl.push(rec);
+        while(fl.length>24) fl.shift();
+        try{ localStorage.setItem("dl_floaters",JSON.stringify(fl)); }catch(e){}
+      }
+    }catch(e){ console.error(e); }
   }catch(e){ console.error(e); setStatus("Video export failed: "+(e&&e.message||e),true); }
   setBar(null); busy=false; updateUI();
 }
