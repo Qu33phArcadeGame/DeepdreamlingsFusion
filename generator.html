@@ -494,9 +494,12 @@ async function releaseDream(){
     const S=FLOAT_S;
     // shape: the creature sprites, layered like the card
     const mk=document.createElement("canvas"); mk.width=mk.height=S; const m=mk.getContext("2d"); m.imageSmoothingEnabled=false;
-    let drew=false;
-    for(const n of (card.comp||[])){ const im=await loadImg("dreamlingP"+n+".png"); if(im){ m.drawImage(im,0,0,S,S); drew=true; } }
-    if(!drew){ m.fillStyle="#fff"; m.beginPath(); m.ellipse(S/2,S/2,S*0.4,S*0.46,0,0,7); m.fill(); }
+    // which dreamlings: saved on the card, or read from its card id (cards kept before this update)
+    let comp=card.comp&&card.comp.length?card.comp.map(Number):[];
+    if(!comp.length){ const k=card.seedKey||""; let mm=k.match(/^f\d+:([\d-]+)/); if(mm) comp=mm[1].split("-").map(Number); else if((mm=k.match(/^[dw](\d+)/))) comp=[+mm[1]]; }
+    const blob=()=>{ m.fillStyle="#fff"; m.beginPath(); m.ellipse(S/2,S/2,S*0.36,S*0.42,0,0,7); m.fill(); };
+    for(const n of comp){ const im=await loadImg("dreamlingP"+n+".png"); if(im) m.drawImage(im,0,0,S,S); else blob(); }   // photo-only dreamlings: soft blob, like on the card
+    if(!comp.length) blob();
     // solidify: alpha > 40% is in
     const md=m.getImageData(0,0,S,S), a=md.data; let x0=S,y0=S,x1=-1,y1=-1;
     for(let i=0;i<S*S;i++){ const on=a[i*4+3]>100; a[i*4]=a[i*4+1]=a[i*4+2]=255; a[i*4+3]=on?255:0;

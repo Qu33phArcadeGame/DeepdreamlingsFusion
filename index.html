@@ -48,6 +48,11 @@
     display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;}
   #fsBtn svg{width:20px;height:20px;stroke:#e8dcff;stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round;}
   #fsBtn:active{background:rgba(138,255,234,.35);}
+  #binderBtn{position:absolute;z-index:12;height:38px;padding:0 12px 0 9px;border-radius:10px;border:1.5px solid rgba(201,160,255,.6);background:rgba(12,6,26,.62);
+    display:flex;align-items:center;gap:6px;cursor:pointer;color:#e8dcff;font:bold 13px Helvetica,Arial,sans-serif;}
+  #binderBtn svg{width:19px;height:19px;stroke:#e8dcff;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+  #binderBtn.icon{padding:0 9px;} #binderBtn.icon span{display:none;}
+  #binderBtn:active{background:rgba(138,255,234,.35);}
   #tip{position:absolute;z-index:13;left:50%;transform:translateX(-50%);padding:8px 14px;border-radius:10px;background:rgba(12,6,26,.9);
     border:1.5px solid #c9a0ff;color:#f1e9ff;font:bold 13px Helvetica,Arial,sans-serif;white-space:nowrap;opacity:0;transition:opacity .4s;pointer-events:none;}
   #tip.show{opacity:1;}
@@ -63,6 +68,7 @@
   <div id="dpad"><div class="dp" id="up">▲</div><div class="dp" id="dn">▼</div><div class="dp" id="lf">◀</div><div class="dp" id="rt">▶</div></div>
   <div class="rbtn" id="aBtn">A</div>
   <div class="rbtn" id="bBtn">B</div>
+  <button id="binderBtn" aria-label="Binder"><svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path d="M9 8h6"/></svg><span>Binder</span></button>
   <button id="fsBtn" aria-label="Full screen"><svg viewBox="0 0 24 24"><path id="fsIcon" d=""/></svg></button>
   <div id="tip"></div>
   <div id="safe"></div>
@@ -267,6 +273,9 @@ function layout(){
     fb.style.right=(si.r+10)+"px"; fb.style.left="auto"; fb.style.top=(si.t+10)+"px";
   }
   stage.className=cls;
+  // binder button sits just left of the full-screen button
+  const bnb=document.getElementById("binderBtn"); bnb.style.top=fb.style.top; bnb.style.right=(parseFloat(fb.style.right)+46)+"px";
+  bnb.classList.toggle("icon", sw<430);   // narrow phones: just the book icon, so it clears the town name
   cv.style.left=cl+"px"; cv.style.top=ct+"px"; cv.style.width=cw+"px"; cv.style.height=ch+"px";
   // retro softness, but never more than ~1600 pixels across (keeps big monitors smooth)
   var PIXEL=Math.min(0.8, 1600/Math.max(cw,ch,1));
@@ -330,36 +339,77 @@ function walkStep(dx,dy){ if(!M||dialogue) return; if(dx<0)guyFace="L"; else if(
   const nz=zoneAt(px,py); if(nz&&!inZone){ inZone=true; startEncounter(); return; } if(!nz) inZone=false; draw(); }
 
 // ===== FLOATING DREAMS =====
-// Dreams made in this town's Dream Generator drift around it: the creature's outline with the
-// dream playing inside. generator.html writes them to sessionStorage ("dl_floaters"), so they
-// last while this browser tab is open and aren't saved anywhere else.
-let floaters=[], floatersFor=null;
-function loadFloaters(){
-  let list=[]; try{ list=JSON.parse(sessionStorage.getItem("dl_floaters")||"[]")||[]; }catch(e){}
-  const keep=floaters; floaters=[]; floatersFor=currentMap; let changed=false;
-  list.forEach(function(rec){ if(rec.town!==currentMap) return;
-    const old=keep.find(f=>f.rec.id===rec.id);
-    const f=old||{rec:rec, frames:[], edge:null, ready:false};
-    if(!old){ const g=genHere();
-      if(rec.fresh && g){ f.x=g.x+(g.w||3)/2+(Math.random()-0.5); f.y=g.y+(g.h||2)+0.4; rec.fresh=false; changed=true; }   // new: comes out of the door
-      else { f.x=2+Math.random()*Math.max(1,(M.cols||10)-4); f.y=2+Math.random()*Math.max(1,(M.rows||10)-4); }
-      f.tx=f.x; f.ty=f.y; f.ph=Math.random()*6.28; buildFloater(f); }
-    floaters.push(f); });
-  if(changed){ try{ sessionStorage.setItem("dl_floaters",JSON.stringify(list)); }catch(e){} }
+// Every dream card made in a town drifts around that town: the dreamling's (or fusion's) shape with
+// the dream playing inside, outlined in its rarity colour.
+//  - kept cards: read straight from the Dream Generator's gallery (IndexedDB), all of them
+//  - dreams you didn't keep: generator.html leaves them in sessionStorage ("dl_floaters") for this tab
+const FL_S=88, FL_F=8, FL_MAX_TOWN=24;
+let floaters=[], floatersFor=null, floatToken=0;
+function loadImgP(src){ return new Promise(function(res){ const im=new Image(); im.onload=function(){res(im);}; im.onerror=function(){res(null);}; im.src=src; }); }
+// which dreamlings are on a card: saved list, or read from its card id (cards kept before this update)
+function compOf(r){ if(r.comp&&r.comp.length) return r.comp.map(Number);
+  const k=r.seedKey||""; let m=k.match(/^f\d+:([\d-]+)/); if(m) return m[1].split("-").map(Number);
+  m=k.match(/^[dw](\d+)/); if(m) return [+m[1]]; return []; }
+// the creature's shape: its pixel sprites layered like the card (photo-only dreamlings are a soft round blob, like on the card)
+async function shapeMask(comp,S){
+  const mk=document.createElement("canvas"); mk.width=mk.height=S; const m=mk.getContext("2d"); m.imageSmoothingEnabled=false;
+  for(const n of comp){ const im=await loadImgP("dreamlingP"+n+".png");
+    if(im) m.drawImage(im,0,0,S,S); else { m.fillStyle="#fff"; m.beginPath(); m.ellipse(S/2,S/2,S*0.36,S*0.42,0,0,7); m.fill(); } }
+  if(!comp.length){ m.fillStyle="#fff"; m.beginPath(); m.ellipse(S/2,S/2,S*0.36,S*0.42,0,0,7); m.fill(); }
+  const md=m.getImageData(0,0,S,S), a=md.data; let x0=S,y0=S,x1=-1,y1=-1;
+  for(let i=0;i<S*S;i++){ const on=a[i*4+3]>100; a[i*4]=a[i*4+1]=a[i*4+2]=255; a[i*4+3]=on?255:0;
+    if(on){ const xx=i%S, yy=(i/S)|0; if(xx<x0)x0=xx; if(xx>x1)x1=xx; if(yy<y0)y0=yy; if(yy>y1)y1=yy; } }
+  m.putImageData(md,0,0); if(x1<x0){ x0=y0=0; x1=y1=S-1; }
+  return {mask:mk, x0:x0, y0:y0, bw:x1-x0+1, bh:y1-y0+1};
 }
-function buildFloater(f){
-  const r=f.rec, S=r.S||88, mask=new Image(), sheet=new Image(); let got=0;
+function makeEdge(mask,S,rarity){
+  const e=document.createElement("canvas"); e.width=e.height=S+8; const ec=e.getContext("2d");
+  for(let dy=-3;dy<=3;dy++) for(let dx=-3;dx<=3;dx++) if(dx*dx+dy*dy<=10) ec.drawImage(mask,4+dx,4+dy);
+  ec.globalCompositeOperation="source-in"; ec.fillStyle=TAG_COLOR[rarity]||"#c46bff"; ec.fillRect(0,0,S+8,S+8); return e;
+}
+async function decodeAny(b){ try{ if(window.createImageBitmap) return await createImageBitmap(b); }catch(e){} const u=URL.createObjectURL(b); const im=await loadImgP(u); URL.revokeObjectURL(u); return im; }
+// a kept gallery card -> floater
+async function floaterFromCard(rec,f){
+  const S=FL_S, sh=await shapeMask(compOf(rec),S), n=(rec.frames||[]).length; if(!n) return;
+  const picks=[]; for(let k=0;k<FL_F;k++){ const fi=n<=1?0:Math.round(k*(n-1)/(FL_F-1)); if(picks.indexOf(fi)<0) picks.push(fi); }
+  for(const fi of picks){ const im=await decodeAny(rec.frames[fi]); if(!im) continue;
+    const iw=im.width||im.naturalWidth, ih=im.height||im.naturalHeight, sc=Math.max(sh.bw/iw,sh.bh/ih), dw=iw*sc, dh=ih*sc;
+    const c=document.createElement("canvas"); c.width=c.height=S; const cc=c.getContext("2d");
+    cc.drawImage(im,sh.x0+(sh.bw-dw)/2,sh.y0+(sh.bh-dh)/2,dw,dh); if(im.close) im.close();
+    cc.globalCompositeOperation="destination-in"; cc.drawImage(sh.mask,0,0); f.frames.push(c); }
+  f.edge=makeEdge(sh.mask,S,f.rarity); f.ready=f.frames.length>0;
+}
+// a dream you didn't keep (already cut out by the generator) -> floater
+function floaterFromSession(r,f){
+  const S=r.S||FL_S, mask=new Image(), sheet=new Image(); let got=0;
   const done=function(){ if(++got<2) return;
-    const col=TAG_COLOR[r.rarity]||"#ff5555";
-    // outline: the shape grown by 3px, in the rarity colour
-    const e=document.createElement("canvas"); e.width=e.height=S+8; const ec=e.getContext("2d");
-    for(let dy=-3;dy<=3;dy++) for(let dx=-3;dx<=3;dx++) if(dx*dx+dy*dy<=10) ec.drawImage(mask,4+dx,4+dy);
-    ec.globalCompositeOperation="source-in"; ec.fillStyle=col; ec.fillRect(0,0,S+8,S+8);
-    f.edge=e;
+    f.edge=makeEdge(mask,S,f.rarity);
     for(let k=0;k<(r.n||1);k++){ const c=document.createElement("canvas"); c.width=c.height=S; const cc=c.getContext("2d");
       cc.drawImage(sheet,k*S,0,S,S,0,0,S,S); cc.globalCompositeOperation="destination-in"; cc.drawImage(mask,0,0); f.frames.push(c); }
     f.ready=true; };
   mask.onload=done; sheet.onload=done; mask.src=r.mask; sheet.src=r.sheet;
+}
+function keptCards(){ return new Promise(function(res){
+  try{ const rq=indexedDB.open("deepdreamlings_generator",2);
+    rq.onupgradeneeded=function(){ const db=rq.result; if(!db.objectStoreNames.contains("cards")) db.createObjectStore("cards",{keyPath:"id"}); if(!db.objectStoreNames.contains("exports")) db.createObjectStore("exports",{keyPath:"id"}); };
+    rq.onsuccess=function(){ try{ const g=rq.result.transaction("cards","readonly").objectStore("cards").getAll(); g.onsuccess=function(){ res(g.result||[]); }; g.onerror=function(){ res([]); }; }catch(e){ res([]); } };
+    rq.onerror=function(){ res([]); };
+  }catch(e){ res([]); } }); }
+function townOfCard(r){ if(r.town) return r.town; for(const k in AREAS) if(AREAS[k].name===String(r.townName||"").toUpperCase()) return k; return "map"; }
+async function loadFloaters(){
+  const tok=++floatToken, map=currentMap; floatersFor=map; floaters=[];
+  let sess=[]; try{ sess=JSON.parse(sessionStorage.getItem("dl_floaters")||"[]")||[]; }catch(e){}
+  const kept=(await keptCards()).filter(function(r){ return townOfCard(r)===map && r.frames && r.frames.length; }).sort(function(a,b){ return (b.created||0)-(a.created||0); });
+  if(tok!==floatToken) return;
+  const g=genHere(), door=g?{x:g.x+(g.w||3)/2, y:g.y+(g.h||2)+0.4}:null; let changed=false;
+  const add=function(id,name,rarity,fresh){ const f={id:id,name:name,rarity:rarity==="purple"?"purple":(rarity||"red"),frames:[],edge:null,ready:false,ph:Math.random()*6.28};
+    if(fresh&&door){ f.x=door.x+(Math.random()-0.5); f.y=door.y; } else { f.x=2+Math.random()*Math.max(1,M.cols-4); f.y=2+Math.random()*Math.max(1,M.rows-4); }
+    f.tx=f.x; f.ty=f.y; floaters.push(f); return f; };
+  const freshIds={}; sess.forEach(function(r){ if(r.town===map&&r.fresh){ freshIds[r.id]=1; r.fresh=false; changed=true; } });
+  kept.slice(0,FL_MAX_TOWN).forEach(function(r){ floaterFromCard(r, add(r.id,r.name,r.rarity,freshIds[r.id])); });
+  const keptIds={}; kept.forEach(function(r){ keptIds[r.id]=1; });
+  sess.forEach(function(r){ if(r.town!==map||keptIds[r.id]) return; floaterFromSession(r, add(r.id,r.name,r.rarity,freshIds[r.id])); });
+  if(changed){ try{ sessionStorage.setItem("dl_floaters",JSON.stringify(sess)); }catch(e){} }
 }
 function drawFloaters(camx,camy,s,sz,now,pcx,pcy){
   if(floatersFor!==currentMap) loadFloaters();
@@ -374,24 +424,22 @@ function drawFloaters(camx,camy,s,sz,now,pcx,pcy){
     const size=sz*2.1, bob=Math.sin(now/520+f.ph)*sz*0.08;
     const cx=(f.x*T-camx)*s, cy=(f.y*T-camy)*s-sz*0.55+bob;
     if(cx<-size||cy<-size||cx>W+size||cy>H+size*1.5) return;
-    shadow(cx, cy+size*0.62-bob, size*0.26, size*0.07);
+    shadow(cx, cy+size*0.42-bob, size*0.24, size*0.06);
     const n=f.frames.length, L=n>2?2*n-2:n, k=Math.floor(now/160+i*3)%L, fi=k<n?k:L-k;
-    const S=f.rec.S||88, k2=size/S;
+    const S=FL_S, k2=size/S;
     x.save(); x.imageSmoothingEnabled=false;
     x.globalAlpha=0.85+0.15*Math.sin(now/300+f.ph);
     x.drawImage(f.edge, cx-size/2-4*k2, cy-size/2-4*k2, (S+8)*k2, (S+8)*k2);
-    x.globalAlpha=1; x.imageSmoothingEnabled=true;
+    x.globalAlpha=1;
     x.drawImage(f.frames[fi], cx-size/2, cy-size/2, size, size);
     x.restore();
     if(Math.abs(cx-pcx)<sz*1.6 && Math.abs(cy-pcy)<sz*1.8){
       ux.font="bold 12px sans-serif"; ux.textAlign="center"; ux.textBaseline="bottom";
-      const tw=ux.measureText(f.rec.name).width+12; ux.fillStyle="rgba(8,5,18,.8)"; roundRectC(ux,cx-tw/2,cy-size/2-20,tw,17,6); ux.fill();
-      ux.fillStyle=TAG_COLOR[f.rec.rarity]||"#fff"; ux.fillText(f.rec.name,cx,cy-size/2-5); }
+      const tw=ux.measureText(f.name).width+12; ux.fillStyle="rgba(8,5,18,.8)"; roundRectC(ux,cx-tw/2,cy-size/2-20,tw,17,6); ux.fill();
+      ux.fillStyle=TAG_COLOR[f.rarity]||"#c46bff"; ux.fillText(f.name,cx,cy-size/2-5); }
   });
 }
 
-// tiles on screen scale with the screen's area (about 22 x 12 tiles' worth), so tall phones,
-// wide monitors and the handheld picture all show a similar amount of town
 // keep the camera inside the map (a map smaller than the screen sits in the middle)
 function clampCam(c,view,size){ return size<=view ? (size-view)/2 : Math.max(0,Math.min(size-view,c)); }
 function viewScale(){ return Math.max(0.45,Math.min(4,Math.sqrt(W*H/264)/T)); }
@@ -432,7 +480,7 @@ function drawWalk(){
   if(hasComp){ var oa2=orbit, ox3=pcx+Math.cos(oa2)*sz*0.9, oy3=pcy+Math.sin(oa2)*sz*0.5-sz*0.1; if(Math.sin(oa2)>=0){ shadow(ox3,oy3+sz*0.42,sz*0.3,sz*0.1); drawCompanionSprite(ox3,oy3,sz*1.15); } }
   drawFloaters(camx,camy,s,sz,now,pcx,pcy);
   updateLeaves(now,treeCells); drawLeaves(); updateMotes(now); drawMotes();
-  ux.fillStyle="rgba(13,10,23,.72)"; roundRectC(ux,6,6,226,24,7); ux.fill(); ux.fillStyle="#c9a0ff"; ux.font="bold 12px sans-serif"; ux.textAlign="left"; ux.textBaseline="middle"; ux.fillText(area.name+" · "+areaCount()+"/"+(area.last-area.first+1)+" · B=Binder",13,19);
+  ux.fillStyle="rgba(13,10,23,.72)"; roundRectC(ux,6,6,226,24,7); ux.fill(); ux.fillStyle="#c9a0ff"; ux.font="bold 12px sans-serif"; ux.textAlign="left"; ux.textBaseline="middle"; ux.fillText(area.name+" · "+areaCount()+"/"+(area.last-area.first+1)+(IS_TOUCH?"":" · I=Binder"),13,19);
 }
 function updateLeaves(now,treeCells){ if(treeCells&&treeCells.length&&leaves.length<22&&Math.random()<0.5){ var tc=treeCells[Math.floor(Math.random()*treeCells.length)]; leaves.push({x:tc.x+(Math.random()-0.5)*22,y:tc.y+(Math.random()-0.5)*16,vy:0.3+Math.random()*0.7,sway:0.5+Math.random()*1.1,ph:Math.random()*6,spin:(Math.random()-0.5)*0.12,rot:Math.random()*6,size:6+Math.random()*8,col:LEAF_COLORS[Math.floor(Math.random()*LEAF_COLORS.length)]}); }
   for(var i=0;i<leaves.length;i++){ var l=leaves[i]; l.y+=l.vy; l.x+=Math.sin(l.ph)*l.sway*0.5; l.ph+=0.03; l.rot+=l.spin; } leaves=leaves.filter(function(l){return l.y<H+16;}); }
@@ -592,7 +640,9 @@ function promptNo(){ prompt=null; mode="walk"; inZone=true; draw(); }
 // ===== INPUT =====
 function onDir(dx,dy){ if(mode==="walk") walkStep(dx,dy); }
 function onA(){ if(dialogue){ dialogue=null; var act=dialogueAction; dialogueAction=null; if(act){ act(); return; } draw(); return; } if(mode==="prompt") promptYes(); else if(mode==="encounter") handleEncounterA(); }
-function onB(){ if(dialogue && dialogueAction){ dialogue=null; dialogueAction=null; draw(); return; } if(mode==="walk"){ try{localStorage.setItem("town_pos",JSON.stringify({x:px,y:py,f:guyFace,map:currentMap}));}catch(e){} saveGame(); location.href=ARCADE_FILE+"?view=binder&town=1"; } else if(mode==="prompt") promptNo(); }
+// B: hold to run while walking; also "no" / close in dialogues and prompts. The binder has its own button up top.
+function onB(){ if(dialogue && dialogueAction){ dialogue=null; dialogueAction=null; draw(); return; } if(mode==="prompt") promptNo(); }
+function openBinder(){ if(mode!=="walk"||dialogue) return; try{localStorage.setItem("town_pos",JSON.stringify({x:px,y:py,f:guyFace,map:currentMap}));}catch(e){} saveGame(); location.href=ARCADE_FILE+"?view=binder&town=1"; }
 let running=false;
 const STEP_MS=105, STEP_RUN_MS=55;   // ms per tile while a direction is held: walk / run (hold A, or Shift on a keyboard)
 function bindHold(id,fn){ const el=document.getElementById(id); let t=null, held=false;
@@ -601,11 +651,13 @@ function bindHold(id,fn){ const el=document.getElementById(id); let t=null, held
   const off=e=>{ if(e)e.preventDefault(); held=false; clearTimeout(t); };
   el.addEventListener("touchstart",on,{passive:false}); el.addEventListener("touchend",off); el.addEventListener("touchcancel",off); el.addEventListener("mousedown",on); el.addEventListener("mouseup",off); el.addEventListener("mouseleave",off); }
 bindHold("up",()=>onDir(0,-1)); bindHold("dn",()=>onDir(0,1)); bindHold("lf",()=>onDir(-1,0)); bindHold("rt",()=>onDir(1,0));
-(function(){ var a=document.getElementById("aBtn"); function down(e){ e.preventDefault(); running=true; onA(); } function up(){ running=false; }
+(function(){ var a=document.getElementById("aBtn"); function down(e){ e.preventDefault(); onA(); } function up(){ running=false; }
   a.addEventListener("touchstart",down,{passive:false}); a.addEventListener("touchend",up); a.addEventListener("touchcancel",up); a.addEventListener("mousedown",down); a.addEventListener("mouseup",up); a.addEventListener("mouseleave",up); })();
 function tapBtn(id,fn){ const el=document.getElementById(id); el.addEventListener("touchstart",e=>{e.preventDefault();fn();},{passive:false}); el.addEventListener("mousedown",e=>{e.preventDefault();fn();}); }
-tapBtn("bBtn",onB);
-// keyboard: arrows walk (our own steady repeat), Shift runs, A/Enter/Space/Z = A, B/X/Escape = B, F = full screen
+(function(){ var bb=document.getElementById("bBtn"); function down(e){ e.preventDefault(); running=true; onB(); } function up(){ running=false; }
+  bb.addEventListener("touchstart",down,{passive:false}); bb.addEventListener("touchend",up); bb.addEventListener("touchcancel",up); bb.addEventListener("mousedown",down); bb.addEventListener("mouseup",up); bb.addEventListener("mouseleave",up); })();
+(function(){ var bn=document.getElementById("binderBtn"); bn.addEventListener("click",function(e){ e.preventDefault(); openBinder(); }); bn.addEventListener("touchstart",function(e){ e.stopPropagation(); },{passive:true}); })();
+// keyboard: arrows walk (our own steady repeat), hold B / X / Shift to run, A/Enter/Space/Z = A, I = binder, F = full screen
 const KEYDIR={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]};
 let keyHeld=null, keyTimer=null, shiftRun=false;
 function keyStep(){ if(!keyHeld) return; onDir(keyHeld[0],keyHeld[1]); keyTimer=setTimeout(keyStep,(shiftRun||running)?STEP_RUN_MS:STEP_MS); }
@@ -613,10 +665,12 @@ addEventListener("keydown",e=>{ shiftRun=e.shiftKey; const k=e.key.length===1?e.
   if(m){ e.preventDefault(); if(e.repeat) return; keyHeld=m; clearTimeout(keyTimer); keyStep(); return; }
   if(e.repeat) return;
   if(k==="a"||k==="z"||e.key==="Enter"||e.key===" "){ e.preventDefault(); onA(); }
-  else if(k==="b"||k==="x"||e.key==="Escape"){ if(e.key==="Escape"&&fsActive()) return; onB(); }
+  else if(k==="b"||k==="x"){ running=true; onB(); }
+  else if(e.key==="Escape"){ if(!fsActive()) onB(); }
+  else if(k==="i"){ openBinder(); }
   else if(k==="f"){ toggleFS(); } });
-addEventListener("keyup",e=>{ shiftRun=e.shiftKey; const k=e.key.length===1?e.key.toLowerCase():e.key, m=KEYDIR[k]; if(m&&keyHeld===m){ keyHeld=null; clearTimeout(keyTimer); } });
-addEventListener("blur",()=>{ keyHeld=null; clearTimeout(keyTimer); });
+addEventListener("keyup",e=>{ shiftRun=e.shiftKey; const kk=e.key.length===1?e.key.toLowerCase():e.key; if(kk==="b"||kk==="x") running=false; const k=e.key.length===1?e.key.toLowerCase():e.key, m=KEYDIR[k]; if(m&&keyHeld===m){ keyHeld=null; clearTimeout(keyTimer); } });
+addEventListener("blur",()=>{ keyHeld=null; clearTimeout(keyTimer); running=false; });
 function loop(){ draw(); requestAnimationFrame(loop); }
 requestAnimationFrame(loop);
 
