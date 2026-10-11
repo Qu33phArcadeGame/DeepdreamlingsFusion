@@ -1,0 +1,23 @@
+name: Build DeepDream VGG16 model
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install TensorFlow + converter
+        run: pip install "tensorflow>=2.13,<2.16" "tensorflowjs>=4.13,<4.18"
+      - name: Export VGG16 (Keras, ImageNet)
+        run: python tools/export_vgg16.py
+      - name: Commit model files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add models/vgg16
+          git commit -m "Add VGG16 model for the Dream Generator (4th area)" || echo "No changes"
+          git push
