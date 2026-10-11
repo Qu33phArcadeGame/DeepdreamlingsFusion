@@ -225,18 +225,26 @@ const MODELS = {
         layers:["InceptionV2/InceptionV2/Mixed_3b/concat","InceptionV2/InceptionV2/Mixed_3c/concat","InceptionV2/InceptionV2/Mixed_4a/concat","InceptionV2/InceptionV2/Mixed_4b/concat","InceptionV2/InceptionV2/Mixed_4c/concat","InceptionV2/InceptionV2/Mixed_4d/concat","InceptionV2/InceptionV2/Mixed_4e/concat","InceptionV2/InceptionV2/Mixed_5a/concat","InceptionV2/InceptionV2/Mixed_5b/concat","InceptionV2/InceptionV2/Mixed_5c/concat"],
         pref:["InceptionV2/InceptionV2/Mixed_4d/concat","InceptionV2/InceptionV2/Mixed_4e/concat"],
         note:"Low layers (Mixed_3b) make swirls and textures; mid layers (Mixed_4c–4e) make the classic eyes-and-creatures; high layers (Mixed_5c) make abstract shapes." },
-  // Template for the next model (VGG16, ResNet50, …). Same export pattern as tools/export_inceptionv3.py.
-  // vgg16: { short:"vgg16", label:"VGG16", kind:"layers", url:"models/vgg16/model.json", pre:"vgg",
-  //          layers:["block1_conv2","block2_conv2","block3_conv3","block4_conv3","block5_conv3"],
-  //          pref:["block4_conv3"],
-  //          note:"Early blocks make painterly textures; deep blocks make flowing organic shapes." },
+  vgg16: { short:"vgg16", label:"VGG16", kind:"layers", url:"models/vgg16/model.json", pre:"vgg",
+           layers:["block1_conv2","block2_conv2","block3_conv3","block4_conv3","block5_conv3"],
+           pref:["block4_conv3"],
+           note:"Early blocks make painterly swirls and textures; deep blocks (block4-5) make flowing organic shapes and ghostly forms." },
+  // Template for the next model (ResNet50, …). Same export pattern as tools/export_inceptionv3.py.
+  // next: { short:"next", label:"Next", kind:"layers", url:"models/next/model.json", pre:"vgg",
+  //          layers:["layer_a","layer_b"],
+  //          pref:["layer_a"],
+  //          note:"..." },
 };
 // Per-model pixel math. v1 (original DeepDream graph) works on pixels minus 117;
-// v2 (TF-Slim) and v3 (Keras) work on pixels scaled to [-1,1].
+// v2 (TF-Slim) and v3 (Keras) work on pixels scaled to [-1,1];
+// vgg (Keras VGG16) uses caffe preprocessing: RGB->BGR, minus the BGR means.
 const PRE = {
   v1: { norm:t=>t.sub(117),          denorm:t=>t.add(117).div(255), lo:-117, hi:138, noise:[-10,10] },
   v3: { norm:t=>t.div(127.5).sub(1), denorm:t=>t.add(1).div(2),     lo:-1,   hi:1,   noise:[-1,1] },
   v2: { norm:t=>t.div(127.5).sub(1), denorm:t=>t.add(1).div(2),     lo:-1,   hi:1,   noise:[-1,1] },
+  vgg: { norm:t=>t.reverse(-1).sub(tf.tensor1d([103.939,116.779,123.68])),
+         denorm:t=>t.add(tf.tensor1d([103.939,116.779,123.68])).reverse(-1).div(255),
+         lo:-103.939, hi:151.061, noise:[-10,10] },
 };
 const WASM_PATH = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/";
 const TOWN_FILE = "index.html?ret=1";
@@ -263,7 +271,8 @@ function seqFrame(c,k){ const n=c.frames.length; if(!(cardBoom(c)&&n>2)) return 
 const AREAS = {   // must match AREAS in index.html; each area dreams on its own model (see MODELS)
   "map":   { first:1,  last:11, name:"Dream Core",   model:"v1" },
   "woods": { first:12, last:22, name:"Waking Woods", model:"v2" },
-  "area3": { first:23, last:33, name:"Area 3",       model:"v3" }
+  "area3": { first:23, last:33, name:"Area 3",       model:"v3" },
+  "area4": { first:34, last:44, name:"AREA 4",       model:"vgg16" }
 };
 // Each zoom frame crops by zoomFactor around a centre that moves along the chosen path,
 // resizes back up, then runs `steps` gradient-ascent steps at learning rate `lr`.
@@ -341,6 +350,16 @@ const PRESETS = [
   { m:"v2", name:"V2: Root to sky", s:{ path:"square", frames:80, zoomFactor:0.965, steps:6, lr:0.04, range:0.08, segFrames:10, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_3b/concat","InceptionV2/InceptionV2/Mixed_4a/concat","InceptionV2/InceptionV2/Mixed_5a/concat"] } },
   { m:"v2", name:"V2: Crosscurrent", s:{ path:"triangle", frames:70, zoomFactor:0.97, steps:7, lr:0.04, range:0.1, segFrames:8, startSteps:0, sharpen:0.35, layers:["InceptionV2/InceptionV2/Mixed_4b/concat","InceptionV2/InceptionV2/Mixed_4d/concat","InceptionV2/InceptionV2/Mixed_5b/concat"] } },
   { m:"v2", name:"V2: Night garden", s:{ path:"straight", frames:80, zoomFactor:0.965, steps:6, lr:0.04, startSteps:0, sharpen:0.4, layers:["InceptionV2/InceptionV2/Mixed_3c/concat","InceptionV2/InceptionV2/Mixed_4d/concat","InceptionV2/InceptionV2/Mixed_5c/concat"] } },
+  { m:"vgg16", name:"VGG: Petal storm", s:{ path:"straight", frames:70, zoomFactor:0.965, steps:10, lr:0.05, startSteps:0, sharpen:0.35, layers:["block3_conv3"] } },
+  { m:"vgg16", name:"VGG: Deep kelp", s:{ path:"square", frames:70, zoomFactor:0.97, steps:10, lr:0.045, range:0.08, segFrames:8, startSteps:0, sharpen:0.35, layers:["block4_conv3"] } },
+  { m:"vgg16", name:"VGG: Ghost garden", s:{ path:"straight", frames:70, zoomFactor:0.97, steps:8, lr:0.04, startSteps:0, sharpen:0.3, layers:["block5_conv3"] } },
+  { m:"vgg16", name:"VGG: Porcelain static", s:{ path:"straight", frames:70, zoomFactor:0.96, steps:8, lr:0.05, startSteps:0, sharpen:0.4, layers:["block1_conv2"] } },
+  { m:"vgg16", name:"VGG: Tide lines", s:{ path:"triangle", frames:80, zoomFactor:0.97, steps:8, lr:0.05, range:0.1, segFrames:10, startSteps:0, sharpen:0.4, layers:["block2_conv2"] } },
+  { m:"vgg16", name:"VGG: Coral bloom", s:{ path:"square", frames:70, zoomFactor:0.965, steps:10, lr:0.05, range:0.08, segFrames:10, startSteps:0, sharpen:0.35, layers:["block3_conv3","block4_conv3"] } },
+  { m:"vgg16", name:"VGG: Ink drift", s:{ path:"straight", frames:80, zoomFactor:0.965, steps:8, lr:0.05, startSteps:0, sharpen:0.4, layers:["block1_conv2","block3_conv3"] } },
+  { m:"vgg16", name:"VGG: Sunken chapel", s:{ path:"triangle", frames:70, zoomFactor:0.97, steps:8, lr:0.04, range:0.08, segFrames:10, startSteps:0, sharpen:0.3, layers:["block4_conv3","block5_conv3"] } },
+  { m:"vgg16", name:"VGG: Paper lanterns", s:{ path:"square", frames:70, zoomFactor:0.97, steps:9, lr:0.045, range:0.08, segFrames:8, startSteps:0, sharpen:0.35, layers:["block2_conv2","block4_conv3"] } },
+  { m:"vgg16", name:"VGG: Full spectrum", s:{ path:"straight", frames:80, zoomFactor:0.965, steps:8, lr:0.045, startSteps:0, sharpen:0.35, layers:["block1_conv2","block5_conv3"] } },
 ];
 const FIELDS = [
   { k:"frames",     label:"Frames per run",       min:1,    max:100,  step:1,      note:"How many frames each press of Zoom makes ." },
