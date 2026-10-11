@@ -367,6 +367,7 @@ function checkStaircase(){
 }
 function revealBridge(){
   if(!M||!M.bridge||!M.solid) return;
+  // always_open bridges reveal immediately
   M.bridge.tiles.forEach(function(t){ if(M.solid[t.y]) M.solid[t.y][t.x]=0; });
   draw();
 }
@@ -375,7 +376,7 @@ const _origLoadMap=loadMap;
 loadMap=function(name,entry){
   _origLoadMap(name,entry);
   if(name==="area3"&&getAscents()>=7){
-    setTimeout(function(){ if(currentMap==="area3") revealBridge(); },100);
+    setTimeout(function(){ if(currentMap==="area3"&&(M.bridge.always_open||parseInt(localStorage["area3_ascents"]||"0")>=7)) revealBridge(); },100);
   }
 };
 
