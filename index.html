@@ -92,10 +92,12 @@ const START_MAP="map", START_ENTRY="start";
 const ARCADE_FILE="deepdreamlings.html";     // real binder + cards + fuse animation
 // Per-area config: map filename -> dreamling range, encounter-video prefix, character-sprite prefix
 const AREAS={
-  // slots: how many reels the dream slots have here (= how many dreamlings fuse per spin)
+  // slots: default reels if a zone doesn't specify per-tile (most zones now specify per-tile)
   "map":   { first:1,  last:11, vid:"encounter", guy:"dreamguy",  name:"DREAM CORE",   slots:2 },
   "woods": { first:12, last:22, vid:"woods",     guy:"dreamwood", name:"WAKING WOODS", slots:3 },
-  "area3": { first:23, last:33, vid:"area3",     guy:"dreamarea3", name:"AREA 3",      slots:3 }
+  "area3": { first:23, last:33, vid:"area3",     guy:"dreamarea3", name:"AREA 3",      slots:3 },
+  "area3sky": { first:23, last:33, vid:"area3",  guy:"dreamarea3", name:"AREA 3 SKY",  slots:3 },
+  "area4": { first:34, last:44, vid:"area4",     guy:"dreamarea4", name:"AREA 4",      slots:2 }
 };
 const DEFAULT_AREA=AREAS["map"];
 let area=AREAS[START_MAP]||DEFAULT_AREA;
@@ -140,9 +142,17 @@ function say(t){ dialogue=t; }
 // Drop a generator.png next to index.html to replace the drawn building with your own art.
 const GENERATOR_FILE="generator.html";
 const GENERATORS={
-  "map":   { x:8, y:20, w:3, h:2 },
-  "woods": { x:5, y:22, w:3, h:2 },
-  "area3": { x:11, y:6, w:3, h:2 }
+  "map":   { x:33, y:16, w:3, h:2, style:"core" },
+  "woods": { x:5, y:22, w:3, h:2, style:"woods" },
+  "area3sky": { x:9, y:6, w:3, h:2, style:"crystal" },
+  "area4": { x:11, y:6, w:3, h:2, style:"vgg" }
+};
+// Dream gen building styles per area (different color and style each)
+const GEN_STYLES={
+  "core":    { wall:"#7a5fc0", roof:"#4a3080", glow:"#c9a0ff", trim:"#ffd700" },
+  "woods":   { wall:"#5a8f3c", roof:"#2d5a1a", glow:"#8fff5a", trim:"#d4a017" },
+  "crystal": { wall:"#5fc0d0", roof:"#308090", glow:"#a0f0ff", trim:"#ff8fff" },
+  "vgg":     { wall:"#c05f7a", roof:"#80304a", glow:"#ff8fb0", trim:"#8fff8f" }
 };
 let dialogueAction=null;
 const genImg=new Image(); let genImgOk=false; genImg.onload=function(){ genImgOk=true; }; genImg.src="generator.png";
@@ -151,6 +161,7 @@ function genAt(c,r){ var g=genHere(); return !!(g && c>=g.x && c<g.x+(g.w||3) &&
 function enterGenerator(){ try{ localStorage.setItem("town_pos",JSON.stringify({x:px,y:py,f:guyFace,map:currentMap})); }catch(e){} saveGame(); location.href=GENERATOR_FILE+"?town="+encodeURIComponent(currentMap); }
 function drawGenerator(camx,camy,s,sz,now){
   var g=genHere(); if(!g) return; var gwT=g.w||3, ghT=g.h||2;
+  var st=GEN_STYLES[g.style||"core"]||GEN_STYLES["core"];
   var gx=Math.round((g.x*T-camx)*s), gy=Math.round((g.y*T-camy)*s), gw=gwT*sz, gh=ghT*sz;
   if(gx>W || gy-sz>H || gx+gw<0 || gy+gh<0) return;
   x.save(); x.filter="none"; x.imageSmoothingEnabled=true;
@@ -159,7 +170,7 @@ function drawGenerator(camx,camy,s,sz,now){
   var hue=(now/25)%360, pulse=0.5+0.5*Math.sin(now/380);
   var wl=gx+sz*0.1, wr=gx+gw-sz*0.1, wallTop=gy+sz*0.35, base=gy+gh-sz*0.04;
   // walls + bricks
-  var wg=x.createLinearGradient(0,wallTop,0,base); wg.addColorStop(0,"#3d2670"); wg.addColorStop(1,"#170d2e");
+  var wg=x.createLinearGradient(0,wallTop,0,base); wg.addColorStop(0,st.wall); wg.addColorStop(1,"#0a0614");
   x.fillStyle=wg; x.fillRect(wl,wallTop,wr-wl,base-wallTop);
   x.strokeStyle="rgba(0,0,0,0.28)"; x.lineWidth=Math.max(1,sz*0.02);
   for(var yy=wallTop+sz*0.17, row=0; yy<base; yy+=sz*0.17, row++){ x.beginPath(); x.moveTo(wl,yy); x.lineTo(wr,yy); x.stroke();
@@ -172,14 +183,14 @@ function drawGenerator(camx,camy,s,sz,now){
   // roof
   var rt=gy-sz*0.25;
   x.fillStyle="#140a24"; x.beginPath(); x.moveTo(gx-sz*0.06,wallTop+sz*0.06); x.lineTo(gx+gw*0.16,rt); x.lineTo(gx+gw*0.84,rt); x.lineTo(gx+gw+sz*0.06,wallTop+sz*0.06); x.closePath(); x.fill();
-  x.strokeStyle="#c9a0ff"; x.lineWidth=Math.max(1.5,sz*0.035); x.stroke();
+  x.strokeStyle=st.glow; x.lineWidth=Math.max(1.5,sz*0.035); x.stroke();
   // antenna + orb
   var ax=gx+gw*0.78; x.strokeStyle="#8a7aa8"; x.lineWidth=Math.max(1,sz*0.03); x.beginPath(); x.moveTo(ax,rt); x.lineTo(ax,rt-sz*0.45); x.stroke();
   var og=x.createRadialGradient(ax,rt-sz*0.5,0,ax,rt-sz*0.5,sz*(0.18+0.08*pulse)); og.addColorStop(0,"#fff"); og.addColorStop(0.35,"hsl("+hue+",100%,65%)"); og.addColorStop(1,"rgba(0,0,0,0)");
   x.fillStyle=og; x.beginPath(); x.arc(ax,rt-sz*0.5,sz*(0.18+0.08*pulse),0,7); x.fill();
   // sign
   x.font="bold "+Math.max(7,Math.round(sz*0.2))+"px sans-serif"; x.textAlign="center"; x.textBaseline="middle";
-  x.shadowColor="#8affea"; x.shadowBlur=sz*0.2*pulse; x.fillStyle="#8affea"; x.fillText("DREAM GEN", gx+gw/2, (rt+wallTop)/2+sz*0.02); x.shadowBlur=0;
+  x.shadowColor=st.glow; x.shadowBlur=sz*0.2*pulse; x.fillStyle=st.glow; x.fillText("DREAM GEN", gx+gw/2, (rt+wallTop)/2+sz*0.02); x.shadowBlur=0;
   // the dreaming eye (swirly iris)
   var ex=gx+gw/2, ey=wallTop+sz*0.5, er=sz*0.3;
   var eg=x.createRadialGradient(ex,ey,0,ex,ey,er); eg.addColorStop(0,"#05020a"); eg.addColorStop(0.28,"#05020a"); eg.addColorStop(0.32,"hsl("+hue+",100%,60%)"); eg.addColorStop(0.62,"hsl("+((hue+90)%360)+",100%,55%)"); eg.addColorStop(0.9,"hsl("+((hue+200)%360)+",90%,45%)"); eg.addColorStop(1,"#0a0614");
@@ -329,14 +340,44 @@ function loadMap(name,entry){
    .catch(e=>{ const el=document.getElementById("err"); el.innerHTML="Couldn't load <b>"+name+".json</b>.<br>"+e.message; el.style.display="flex"; });
 }
 function solidAt(c,r){ if(!M) return true; if(c<0||r<0||c>=M.cols||r>=M.rows) return true; if(genAt(c,r)) return true; return !!(M.solid&&M.solid[r][c]); }
-function zoneAt(c,r){ if(!M) return false; const g=M.encounter||M.enc; return !!(g&&g[r]&&g[r][c]); }
+function zoneAt(c,r){ if(!M) return 0; const g=M.encounter||M.enc; if(!g||!g[r]) return 0; var v=g[r][c]; if(!v) return 0; if(v===true) return area.slots||3; return v; }
+// Parse zone slot value: number = fixed, "a,b" = 80% a / 20% b, else area default
+function parseSlots(v){ if(typeof v==="number") return v; if(typeof v==="string"&&v.indexOf(",")>=0){ var p=v.split(",").map(Number); if(Math.random()<0.8) return p[0]; return p[1+Math.floor(Math.random()*(p.length-1))]; } return area.slots||3; }
 function walkStep(dx,dy){ if(!M||dialogue) return; if(dx<0)guyFace="L"; else if(dx>0)guyFace="R"; else if(dy<0)guyFace="B"; else if(dy>0)guyFace="F"; const nc=px+dx,nr=py+dy;
   if(currentMap===BOB.map && nc===BOB.x && nr===BOB.y){ bobTalks++; say(bobTalks>=2?"Be careful though, I get lost sometimes":BOB.text); draw(); return; }
   if(genAt(nc,nr)){ say("A Dream Generator hums inside. Step in?  A = yes, B = no"); dialogueAction=enterGenerator; draw(); return; }
   if(solidAt(nc,nr)){ draw(); return; } px=nc; py=nr; lastStepAt=Date.now();
   const w=(M.warps||[]).find(o=>o.x===px&&o.y===py); if(w){ loadMap(w.toMap,w.entry||"start"); return; }
   if(!waterSaid && isWater(M.map[py][px])){ waterSaid=true; try{localStorage.setItem("town_water_said","1");}catch(e){} say("Am I dreaming? I'm walking on this water"); draw(); return; }
-  const nz=zoneAt(px,py); if(nz&&!inZone){ inZone=true; startEncounter(); return; } if(!nz) inZone=false; draw(); }
+  const nz=zoneAt(px,py); if(nz&&!inZone){ inZone=nz; checkStaircase(); startEncounter(); return; } if(!nz) inZone=false; draw(); }
+
+// ===== ESCHER STAIRCASE (area3) =====
+// Track ascents up the impossible stairs. After 7, the floating bridge appears.
+function getAscents(){ try{ return parseInt(localStorage.getItem("area3_ascents")||"0"); }catch(e){ return 0; } }
+function setAscents(n){ try{ localStorage.setItem("area3_ascents",String(n)); }catch(e){} }
+let encReturnTo=null;
+function checkStaircase(){
+  if(currentMap!=="area3"||!M||!M.staircase) return;
+  var sc=M.staircase;
+  if(px===sc.summit.x&&py===sc.summit.y){
+    var asc=getAscents()+1; setAscents(asc);
+    encReturnTo={x:sc.base.x, y:sc.base.y};
+    if(asc>=7) revealBridge();
+  }
+}
+function revealBridge(){
+  if(!M||!M.bridge||!M.solid) return;
+  M.bridge.tiles.forEach(function(t){ if(M.solid[t.y]) M.solid[t.y][t.x]=0; });
+  draw();
+}
+// On map load, if ascents>=7, reveal bridge immediately
+const _origLoadMap=loadMap;
+loadMap=function(name,entry){
+  _origLoadMap(name,entry);
+  if(name==="area3"&&getAscents()>=7){
+    setTimeout(function(){ if(currentMap==="area3") revealBridge(); },100);
+  }
+};
 
 // ===== FLOATING DREAMS =====
 // Every dream card made in a town drifts around that town: the dreamling's (or fusion's) shape with
@@ -495,7 +536,7 @@ let enc=null;
 function randMonNum(){ return area.first+Math.floor(Math.random()*(area.last-area.first+1)); }
 function startEncounter(){
   var dir={B:"U",F:"D",L:"L",R:"R"}[guyFace]||"U";
-  var nSlots=area.slots||3;
+  var nSlots=parseSlots(inZone);
   var slots=[]; for(var i=0;i<nSlots;i++){ slots.push({num:randMonNum(), t:rollRarity(), show:randMonNum(), stopped:false, stopAt:(i+1)*38+18}); }
   enc={ dir:dir, grow:0, holdT:0, vidStarted:false,
         phase:"video",      // video -> ready -> spinning -> result
@@ -566,7 +607,22 @@ function fuseRareFromSlots(slots){ var allRare=true, anyRare=false; for(var i=0;
 function fuseTagsFromSlots(slots){ var seen={}, out=[]; for(var i=0;i<slots.length;i++){ if(!seen[slots[i].t]){ seen[slots[i].t]=1; out.push(slots[i].t); } } return out; }
 function rareTierOf(f){ return f.rare==="full"?"blue":(f.rare==="half"?"green":"red"); }
 function resolveSpin(){
-  // Every spin fuses all the rolled dreamlings together (2 in Dream Core, 3 later on), and you always keep the fusion.
+  var comp=enc.slots.map(function(s){ return s.num; });
+  if(comp.length===1){
+    // Single slot: catch the dreamling, no fusion
+    var n=comp[0], t=enc.slots[0].t;
+    if(dmDex.indexOf(n)<0) dmDex.push(n);
+    if(!tier[n]||TAG_VAL[t]>TAG_VAL[tier[n]]) tier[n]=t;
+    if(!tiers[n])tiers[n]=[];
+    if(tiers[n].indexOf(t)<0) tiers[n].push(t);
+    if(t!=="red"&&dmRare.indexOf(n)<0) dmRare.push(n);
+    saveGame();
+    enc.caught={num:n,t:t}; enc.phase="result";
+    enc.msg="Got #"+n+"! It's yours now.";
+    enc.pendingPrompt=n;
+    return;
+  }
+  // 2+ slots: fuse all the rolled dreamlings together, and you always keep the fusion.
   var comp=enc.slots.map(function(s){ return s.num; });
   var power=comp.reduce(function(a,b){ return a+b; },0);
   var rare=fuseRareFromSlots(enc.slots), tags=fuseTagsFromSlots(enc.slots);
@@ -609,9 +665,10 @@ function drawEncounter(){ if(!enc) return;
   }
   if(enc.phase==="fusing"){ enc.fuseT++; drawFusionAnim(b,slotGeom(b)); if(enc.fuseT>=FUSE_FRAMES) enc.phase="result"; }
   else if(enc.phase==="result" && enc.fused){ drawFusedReveal(b,1); }
+  else if(enc.phase==="result" && enc.caught){ var ccx=b.x+b.s/2, ccy=b.y+b.s*0.4; drawPix(enc.caught.num,ccx,ccy,b.s*0.45,enc.caught.t); }
   x.restore();
   ux.fillStyle="#c9a0ff"; ux.font="bold 13px sans-serif"; ux.textAlign="center"; ux.textBaseline="top";
-  var topMsg = enc.phase==="ready" ? (enc.slots.length===2?"Press A to spin — both will fuse!":"Press A to spin — all three will fuse!")
+  var topMsg = enc.phase==="ready" ? (enc.slots.length===1?"Press A to spin — catch it!":enc.slots.length===2?"Press A to spin — both will fuse!":enc.slots.length===4?"Press A to spin — all four will fuse!":"Press A to spin — all three will fuse!")
              : enc.phase==="spinning" ? "Spinning..."
              : enc.phase==="fusing" ? "Fusing!"
              : "Press A to continue";
@@ -622,9 +679,10 @@ function handleEncounterA(){ if(!enc) return;
   if(enc.phase==="ready") startSpin();
   else if(enc.phase==="result"){
     if(enc.pendingPrompt){ var p=enc.pendingPrompt; enc.pendingPrompt=null; promptCompanion(p); }
-    else { enc=null; mode="walk"; inZone=true; draw(); }
+    else { enc=null; mode="walk"; inZone=true; applyReturnTo(); draw(); }
   }
 }
+function applyReturnTo(){ if(encReturnTo){ px=encReturnTo.x; py=encReturnTo.y; encReturnTo=null; inZone=zoneAt(px,py); } }
 // ===== COMPANION PROMPT (also used for fusion captures) =====
 let prompt=null;
 function promptCompanion(val){ prompt={val:val}; mode="prompt"; draw(); }
@@ -634,8 +692,8 @@ function drawPrompt(){ ux.fillStyle="rgba(6,3,14,.85)"; ux.fillRect(0,0,W,H); ux
   ux.fillStyle="#3fe0b0"; roundRectC(ux,W/2-104,H/2,96,34,9); ux.fill(); ux.fillStyle="#ff8fbf"; roundRectC(ux,W/2+8,H/2,96,34,9); ux.fill();
   ux.fillStyle="#08120e"; ux.font="bold 14px sans-serif"; ux.fillText("YES (A)",W/2-56,H/2+17); ux.fillText("NO (B)",W/2+56,H/2+17);
   prompt._yes={x:W/2-104,y:H/2,w:96,h:34}; prompt._no={x:W/2+8,y:H/2,w:96,h:34}; }
-function promptYes(){ companion=prompt.val; compImg=null; try{localStorage.removeItem("town_companion_img");}catch(e){} saveGame(); prompt=null; mode="walk"; inZone=true; draw(); }
-function promptNo(){ prompt=null; mode="walk"; inZone=true; draw(); }
+function promptYes(){ companion=prompt.val; compImg=null; try{localStorage.removeItem("town_companion_img");}catch(e){} saveGame(); prompt=null; mode="walk"; applyReturnTo(); if(!encReturnTo) inZone=true; draw(); }
+function promptNo(){ prompt=null; mode="walk"; applyReturnTo(); if(!encReturnTo) inZone=true; draw(); }
 
 // ===== INPUT =====
 function onDir(dx,dy){ if(mode==="walk") walkStep(dx,dy); }
