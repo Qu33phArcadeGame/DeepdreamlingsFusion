@@ -269,10 +269,11 @@ function cardBoom(c){ return !c||c.boomerang!==false; }
 function seqLength(c){ const n=c.frames.length; return (cardBoom(c)&&n>2)?2*n-2:n; }
 function seqFrame(c,k){ const n=c.frames.length; if(!(cardBoom(c)&&n>2)) return k%n; const p=2*n-2, m=k%p; return m<n?m:p-m; }
 const AREAS = {   // must match AREAS in index.html; each area dreams on its own model (see MODELS)
-  "map":   { first:1,  last:11, name:"Dream Core",   model:"v1" },
-  "woods": { first:12, last:22, name:"Waking Woods", model:"v2" },
-  "area3": { first:23, last:33, name:"Area 3",       model:"v3" },
-  "area4": { first:34, last:44, name:"AREA 4",       model:"vgg16" }
+  "map":      { first:1,  last:11, name:"Dream Core",      model:"v1" },
+  "woods":    { first:12, last:22, name:"Waking Woods",    model:"v2" },
+  "area3":    { first:23, last:33, name:"Zentangle Meadow", model:"v3" },
+  "area3sky": { first:23, last:33, name:"Zentangle Sky",    model:"v3" },
+  "area4":    { first:34, last:44, name:"Synapse Grove",    model:"vgg16" }
 };
 // Each zoom frame crops by zoomFactor around a centre that moves along the chosen path,
 // resizes back up, then runs `steps` gradient-ascent steps at learning rate `lr`.
