@@ -97,7 +97,7 @@ const AREAS={
   "woods": { first:12, last:22, vid:"woods",     guy:"dreamwood", name:"WAKING WOODS", slots:3 },
   "area3": { first:23, last:33, vid:"area3",     guy:"dreamarea3", name:"ZENTANGLE MEADOW",      slots:3 },
   "area3sky": { first:23, last:33, vid:"area3",  guy:"dreamarea3", name:"ZENTANGLE SKY",  slots:3 },
-  "area4": { first:34, last:44, vid:"area4",     guy:"dreamarea4", name:"AREA 4",      slots:2 }
+  "area4": { first:34, last:44, vid:"area4",     guy:"dreamarea4", name:"SYNAPSE GROVE",      slots:2 }
 };
 const DEFAULT_AREA=AREAS["map"];
 let area=AREAS[START_MAP]||DEFAULT_AREA;
@@ -144,6 +144,7 @@ const GENERATOR_FILE="generator.html";
 const GENERATORS={
   "map":   { x:33, y:16, w:3, h:2, style:"core" },
   "woods": { x:5, y:22, w:3, h:2, style:"woods" },
+  "area3": { x:10, y:2, w:3, h:2, style:"zentangle" },
   "area3sky": { x:9, y:6, w:3, h:2, style:"crystal" },
   "area4": { x:11, y:6, w:3, h:2, style:"vgg" }
 };
