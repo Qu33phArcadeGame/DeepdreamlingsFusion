@@ -111,9 +111,23 @@ const VoxelEngine = (function() {
     return DIORAMA.groundHeight;
   }
 
-  // Check if tile is a tree (gets stacked trunk+canopy)
+  // Check if tile is a tree/prop (gets stacked trunk+canopy, stood up in 3D)
   function isTreeTile(name) {
-    return /tree/i.test(name || "");
+    if (/tree|bush|plant|shrub|foliage|leaf|leaves|palm|pine|oak/i.test(name || "")) return true;
+    return false;
+  }
+
+  // Structural fallback: a solid tile with no solid orthogonal neighbors is a
+  // standalone prop (tree, rock, statue) — stand it up even if the name is unknown.
+  function isIsolatedSolid(M, c, r) {
+    if (!M.solid || !M.solid[r] || !M.solid[r][c]) return false;
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for (const [dc, dr] of dirs) {
+      const nc = c + dc, nr = r + dr;
+      if (nc >= 0 && nr >= 0 && nc < M.cols && nr < M.rows &&
+          M.solid[nr] && M.solid[nr][nc]) return false;
+    }
+    return true;
   }
 
   // Check if tile is water (for material)
@@ -152,16 +166,20 @@ const VoxelEngine = (function() {
     // Create instanced voxel meshes per tile type
     const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 
-    // Collect tree positions for stacked trunk+canopy
+    // Collect tree/prop positions for stacked trunk+canopy (stood up in 3D)
     const treePositions = [];
 
     for (const name in byTile) {
       const list = byTile[name];
-      if (isTreeTile(name)) {
-        // Trees get custom stacked geometry — collect positions, skip normal instancing
-        for (const t of list) treePositions.push({ c: t.c, r: t.r, texName: name });
-        continue;
+      const namedTree = isTreeTile(name);
+      const treeList = [], flatList = [];
+      for (const t of list) {
+        // Named tree, or isolated solid prop (no solid neighbors) → stand it up
+        if (namedTree || isIsolatedSolid(M, t.c, t.r)) treeList.push(t);
+        else flatList.push(t);
       }
+      for (const t of treeList) treePositions.push({ c: t.c, r: t.r, texName: name });
+      if (!flatList.length) continue;
       const tex = getTileTexture(name);
       const isWater = isWaterTile(name);
 
@@ -172,7 +190,7 @@ const VoxelEngine = (function() {
         opacity: isWater ? 0.85 : 1.0,
       });
 
-      const im = new THREE.InstancedMesh(boxGeo, mat, list.length);
+      const im = new THREE.InstancedMesh(boxGeo, mat, flatList.length);
       im.castShadow = !isWater;
       im.receiveShadow = true;
 
@@ -181,8 +199,8 @@ const VoxelEngine = (function() {
       const pos = new THREE.Vector3();
       const scl = new THREE.Vector3();
 
-      for (let i = 0; i < list.length; i++) {
-        const t = list[i];
+      for (let i = 0; i < flatList.length; i++) {
+        const t = flatList[i];
         const h = tileHeight(name, t.solid);
         // x = col, z = row, y = height/2 (sitting on base)
         pos.set(t.c, h / 2, t.r);
@@ -197,32 +215,38 @@ const VoxelEngine = (function() {
     }
 
     // 3D TREES: stacked trunk + canopy blocks (lifted up, truly volumetric)
+    // Grouped by texture so mixed tree types keep their own look
     if (treePositions.length > 0) {
       const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2f });
       const trunkIM = new THREE.InstancedMesh(boxGeo, trunkMat, treePositions.length);
       trunkIM.castShadow = true; trunkIM.receiveShadow = true;
-      // Canopy uses the tree tile texture
-      const canopyTex = getTileTexture(treePositions[0].texName);
-      const canopyMat = new THREE.MeshLambertMaterial({ map: canopyTex });
-      const canopyIM = new THREE.InstancedMesh(boxGeo, canopyMat, treePositions.length);
-      canopyIM.castShadow = true; canopyIM.receiveShadow = true;
-
       const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3();
       q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0);
       for (let i = 0; i < treePositions.length; i++) {
         const t = treePositions[i];
-        // Trunk: brown block from ground up
         const th = DIORAMA.treeTrunkHeight;
         pos.set(t.c, th / 2, t.r); scl.set(0.45, th, 0.45);
         m4.compose(pos, q, scl); trunkIM.setMatrixAt(i, m4);
-        // Canopy: wide leafy block sitting on top of trunk
-        const ch = DIORAMA.treeCanopyHeight, cw = DIORAMA.treeCanopyWidth;
-        pos.set(t.c, th + ch / 2 - 0.1, t.r); scl.set(cw, ch, cw);
-        m4.compose(pos, q, scl); canopyIM.setMatrixAt(i, m4);
       }
       trunkIM.instanceMatrix.needsUpdate = true;
-      canopyIM.instanceMatrix.needsUpdate = true;
-      worldGroup.add(trunkIM); worldGroup.add(canopyIM);
+      worldGroup.add(trunkIM);
+      // Canopies grouped by tile texture
+      const byTex = {};
+      for (const t of treePositions) { (byTex[t.texName] = byTex[t.texName] || []).push(t); }
+      for (const texName in byTex) {
+        const grp = byTex[texName];
+        const canopyMat = new THREE.MeshLambertMaterial({ map: getTileTexture(texName) });
+        const canopyIM = new THREE.InstancedMesh(boxGeo, canopyMat, grp.length);
+        canopyIM.castShadow = true; canopyIM.receiveShadow = true;
+        for (let i = 0; i < grp.length; i++) {
+          const t = grp[i];
+          const th = DIORAMA.treeTrunkHeight, ch = DIORAMA.treeCanopyHeight, cw = DIORAMA.treeCanopyWidth;
+          pos.set(t.c, th + ch / 2 - 0.1, t.r); scl.set(cw, ch, cw);
+          m4.compose(pos, q, scl); canopyIM.setMatrixAt(i, m4);
+        }
+        canopyIM.instanceMatrix.needsUpdate = true;
+        worldGroup.add(canopyIM);
+      }
     }
 
     // Diorama base: wooden platform under the whole map
@@ -240,9 +264,11 @@ const VoxelEngine = (function() {
     updateCamera((cols - 1) / 2, (rows - 1) / 2, true);
   }
 
-  // Diorama camera: follows player, shifts angle as you walk for dynamic views
+  // Diorama camera: orbits the box — as you walk to a side of the world,
+  // the view swings around so you're always looking at that face head-on,
+  // like picking up a physical diorama and turning it toward you.
   let camTarget = { x: 0, z: 0 };
-  let camAngle = 0;           // slowly drifts for cinematic feel
+  let camOrbit = 0.6;          // current orbit angle (radians), smoothed
   let lastPx = 0, lastPz = 0;
   function updateCamera(px, pz, snap) {
     const tx = px, tz = pz;
@@ -250,26 +276,32 @@ const VoxelEngine = (function() {
       camTarget.x = tx; camTarget.z = tz;
       lastPx = tx; lastPz = tz;
     } else {
-      // Smooth follow
       camTarget.x += (tx - camTarget.x) * 0.08;
       camTarget.z += (tz - camTarget.z) * 0.08;
     }
-    // Detect movement: shift camera angle when walking
-    const dx = tx - lastPx, dz = tz - lastPz;
-    const moving = Math.abs(dx) + Math.abs(dz) > 0.001;
-    if (moving) {
-      // Tilt camera slightly toward movement direction for dynamic feel
-      camAngle += (Math.atan2(dx, dz) * 0.15 - camAngle) * 0.05;
+    // Desired orbit: angle from map center to player.
+    // Standing on the south edge → camera swings south; north edge → north, etc.
+    let want = camOrbit;
+    if (mapData && mapData.cols && mapData.rows) {
+      const cx = (mapData.cols - 1) / 2, cz = (mapData.rows - 1) / 2;
+      const vx = tx - cx, vz = tz - cz;
+      if (Math.abs(vx) + Math.abs(vz) > 0.75) {
+        want = Math.atan2(vx, vz);   // 0 = south face, PI = north face
+      }
     }
+    // Smoothly rotate toward the wanted angle (shortest path)
+    let d = want - camOrbit;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    camOrbit += d * 0.04;
     lastPx = tx; lastPz = tz;
-    // Base diorama angle + subtle dynamic offset
-    const baseOffX = 4.5, baseOffZ = 6.5, baseH = 7.5;
-    const dynX = Math.sin(camAngle) * 1.2;
-    const dynZ = Math.cos(camAngle * 0.7) * 0.8;
+
+    // Camera sits out from the player along the orbit direction, looking in
+    const dist = 8.0, height = 6.5;
     camera.position.set(
-      camTarget.x + baseOffX + dynX,
-      baseH + Math.sin(camAngle * 0.5) * 0.4,
-      camTarget.z + baseOffZ + dynZ
+      camTarget.x + Math.sin(camOrbit) * dist,
+      height,
+      camTarget.z + Math.cos(camOrbit) * dist
     );
     camera.lookAt(camTarget.x, 0.4, camTarget.z);
   }
@@ -416,20 +448,25 @@ const VoxelEngine = (function() {
   }
 
   // ===== 3D DREAM FLOATERS (billboard sprites in voxel space) =====
+  // Textures are pre-created once per thumbnail — never allocated in the frame loop.
   function setFloaters(list) {
-    // Remove old
     for (const s of floaterSprites) scene.remove(s);
     floaterSprites = [];
     for (const f of list) {
       if (!f.imgs || !f.imgs.length) continue;
-      const tex = new THREE.Texture(f.imgs[0]);
-      tex.needsUpdate = true;
-      tex.magFilter = THREE.NearestFilter;
-      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.9 });
+      const texes = f.imgs.map(function(im){
+        const tex = new THREE.Texture(im);
+        tex.needsUpdate = true;
+        tex.magFilter = THREE.NearestFilter;
+        return tex;
+      });
+      const mat = new THREE.SpriteMaterial({ map: texes[0], transparent: true, opacity: 0.92 });
       const spr = new THREE.Sprite(mat);
-      spr.scale.set(1.2, 1.2, 1);
-      spr.position.set(f.hx + 0.5, 1.5, f.hy + 0.5);
+      spr.scale.set(1.25, 1.25, 1);
+      spr.position.set(f.hx + 0.5, 1.6, f.hy + 0.5);
       spr.userData.floater = f;
+      spr.userData.texes = texes;
+      spr.userData.thumbIdx = -1;
       scene.add(spr);
       floaterSprites.push(spr);
     }
@@ -439,18 +476,20 @@ const VoxelEngine = (function() {
     for (const spr of floaterSprites) {
       const f = spr.userData.floater;
       if (!f) continue;
+      // Wander around their home tile
       const wx = f.hx + Math.sin(time * f.sp + f.ph) * f.rg;
       const wz = f.hy + Math.cos(time * f.sp * 0.77 + f.ph * 1.3) * f.rg * 0.7;
-      const bob = Math.sin(time / 600 + f.ph) * 0.15;
-      spr.position.set(wx + 0.5, 1.5 + bob, wz + 0.5);
-      // Cycle dream thumbnails
-      if (f.imgs && f.imgs.length > 1) {
-        const idx = Math.floor(time / 240) % f.imgs.length;
-        const tex = new THREE.Texture(f.imgs[idx]);
-        tex.needsUpdate = true;
-        tex.magFilter = THREE.NearestFilter;
-        spr.material.map = tex;
-        spr.material.needsUpdate = true;
+      const bob = Math.sin(time / 600 + f.ph) * 0.18;
+      spr.position.set(wx + 0.5, 1.6 + bob, wz + 0.5);
+      // Cycle the card's dream thumbnails (the inner animation)
+      const texes = spr.userData.texes;
+      if (texes && texes.length > 1) {
+        const idx = Math.floor(time / 240) % texes.length;
+        if (idx !== spr.userData.thumbIdx) {
+          spr.userData.thumbIdx = idx;
+          spr.material.map = texes[idx];
+          spr.material.needsUpdate = true;
+        }
       }
     }
     // Pulse the generator orb

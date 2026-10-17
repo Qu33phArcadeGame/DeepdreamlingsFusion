@@ -315,17 +315,21 @@ function drawEncounter3DBg(){
   VoxelEngine.animate(now);
 }
 function draw(){ if(!W) return;
-  // 3D voxel diorama always visible; 2D canvas overlays UI
+  // 3D voxel diorama always renders; 2D canvas overlays UI.
+  // z-order: in walk mode 3D is on top (2D hidden); in encounter mode 2D UI must be ABOVE 3D.
   cv3d.style.display="block";
   if(mode==="walk"){
     cv.style.display="none";
+    cv3d.style.zIndex="2";
     drawWalk3D();
     ux.clearRect(0,0,W,H);
     if(dialogue) drawDialogue();
     ux.fillStyle="rgba(13,10,23,.72)"; roundRectC(ux,6,6,226,24,7); ux.fill(); ux.fillStyle="#c9a0ff"; ux.font="bold 12px sans-serif"; ux.textAlign="left"; ux.textBaseline="middle"; ux.fillText(area.name+" · "+areaCount()+"/"+(area.last-area.first+1)+" · B=Binder",13,19);
   } else {
-    // Encounter/prompt: 3D world stays visible behind, 2D draws UI on top
+    // Encounter/prompt: 3D world behind (z 2), 2D encounter UI on top (z 3)
     cv.style.display="block";
+    cv.style.zIndex="3";
+    cv3d.style.zIndex="2";
     drawEncounter3DBg();
     x.clearRect(0,0,W,H); ux.clearRect(0,0,W,H); ux.filter="none"; ux.globalAlpha=1; x.filter="none"; x.globalAlpha=1; x.globalCompositeOperation="source-over";
     if(mode==="encounter") drawEncounter(); else if(mode==="prompt"){ drawEncounter(); drawPrompt(); }
@@ -585,6 +589,10 @@ requestAnimationFrame(loop);
   }
   fsb.addEventListener("click",function(e){ e.preventDefault(); toggle(); });
   fsb.addEventListener("touchstart",function(e){ e.preventDefault(); toggle(); },{passive:false});
+  // Re-layout when fullscreen engages/disengages so canvases + controls stay correct
+  function onFsChange(){ setTimeout(function(){ try{ layout(); }catch(e){} }, 60); }
+  document.addEventListener("fullscreenchange", onFsChange);
+  document.addEventListener("webkitfullscreenchange", onFsChange);
 })();
 
 // ===== START =====
