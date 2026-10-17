@@ -36,6 +36,7 @@
   <div id="dpad"><div class="dp" id="up">▲</div><div class="dp" id="dn">▼</div><div class="dp" id="lf">◀</div><div class="dp" id="rt">▶</div></div>
   <div class="rbtn" id="aBtn"></div>
   <div class="rbtn" id="bBtn"></div>
+  <button id="fsBtn" style="position:absolute;z-index:10;background:rgba(20,10,35,.7);color:#c9a0ff;border:1px solid #c9a0ff;border-radius:8px;font-size:11px;padding:4px 8px;font-family:sans-serif;cursor:pointer;">⛶</button>
   <div id="err"></div>
 </div>
 <video id="vU" muted playsinline preload="auto"></video>
@@ -234,6 +235,9 @@ function layout(){
   const dp=document.getElementById("dpad"), dsz=DP_SZ*rw;
   dp.style.left=(ox+DP_C[0]*rw-dsz/2)+"px"; dp.style.top=(oy+DP_C[1]*rh-dsz/2)+"px"; dp.style.width=dsz+"px"; dp.style.height=dsz+"px";
   const bd=0.15*rw; place(document.getElementById("aBtn"), ox+A_POS[0]*rw, oy+A_POS[1]*rh, bd); place(document.getElementById("bBtn"), ox+B_POS[0]*rw, oy+B_POS[1]*rh, bd);
+  // Fullscreen button (top-right of stage)
+  var fsb=document.getElementById("fsBtn");
+  fsb.style.left=(sw-52)+"px"; fsb.style.top="8px";
   initVoxel(); VoxelEngine.resize();
   draw();
 }
@@ -280,33 +284,49 @@ function initVoxel(){
 }
 function drawWalk3D(){
   if(!M||!voxelReady) return;
-  // Character sprite URL based on direction
-  var faceUrls={F:"_F",B:"_B",L:"_L",R:"_R"};
-  // guy[] holds Image objects; use their src
   var gim=guy[guyFace];
   if(gim&&gim.src){
     VoxelEngine.setCharacterTexture(gim.src);
   }
-  // Bounce animation (same as 2D)
   var now=Date.now();
   var bounce=Math.max(0,1-(now-lastStepAt)/240), bounceY=-Math.sin(bounce*Math.PI)*0.16, idleY=Math.sin(now/500)*0.05*(1-bounce);
-  // Position character at player tile (3D: x=col, z=row)
   VoxelEngine.setCharacter(gim?gim.src:"", px+0.5, py+0.5, bounceY+idleY);
-  // Render the diorama (camera follows player)
+  // Companion dreamling (animated, bobbing in 3D)
+  var hasComp=(companion!=null && companion!==-1);
+  if(hasComp){
+    var compNum=(typeof companion==="number")?companion:((companion&&companion.comp&&companion.comp.length)?companion.comp[0]:null);
+    if(compNum!=null){
+      // Orbit position (same as 2D logic)
+      var oa=(typeof orbit!=="undefined"?orbit:0);
+      var ocx=(px+0.5)+Math.cos(oa)*0.9, ocz=(py+0.5)+Math.sin(oa)*0.5;
+      VoxelEngine.setCompanion("dreamlingP"+compNum+".png", ocx, ocz, now);
+    }
+  } else {
+    VoxelEngine.setCompanion(null, 0, 0, now);
+  }
+  VoxelEngine.render(px+0.5, py+0.5);
+  VoxelEngine.animate(now);
+}
+// Keep the 3D world rendering behind encounter/prompt UI (no 2D map bg)
+function drawEncounter3DBg(){
+  if(!M||!voxelReady) return;
+  var now=Date.now();
   VoxelEngine.render(px+0.5, py+0.5);
   VoxelEngine.animate(now);
 }
 function draw(){ if(!W) return;
-  // 3D voxel diorama for walk mode, 2D canvas for encounters/UI
+  // 3D voxel diorama always visible; 2D canvas overlays UI
+  cv3d.style.display="block";
   if(mode==="walk"){
-    cv.style.display="none"; cv3d.style.display="block";
+    cv.style.display="none";
     drawWalk3D();
     ux.clearRect(0,0,W,H);
     if(dialogue) drawDialogue();
-    // HUD on 2D overlay
     ux.fillStyle="rgba(13,10,23,.72)"; roundRectC(ux,6,6,226,24,7); ux.fill(); ux.fillStyle="#c9a0ff"; ux.font="bold 12px sans-serif"; ux.textAlign="left"; ux.textBaseline="middle"; ux.fillText(area.name+" · "+areaCount()+"/"+(area.last-area.first+1)+" · B=Binder",13,19);
   } else {
-    cv.style.display="block"; cv3d.style.display="none";
+    // Encounter/prompt: 3D world stays visible behind, 2D draws UI on top
+    cv.style.display="block";
+    drawEncounter3DBg();
     x.clearRect(0,0,W,H); ux.clearRect(0,0,W,H); ux.filter="none"; ux.globalAlpha=1; x.filter="none"; x.globalAlpha=1; x.globalCompositeOperation="source-over";
     if(mode==="encounter") drawEncounter(); else if(mode==="prompt"){ drawEncounter(); drawPrompt(); }
   }
@@ -480,7 +500,9 @@ function drawEncounter(){ if(!enc) return;
   if(enc.holdT>HOLD){ if(!enc.vidStarted){ enc.vidStarted=true; var vv=encVid[enc.dir]; if(vv){ try{ vv.currentTime=0; var pr=vv.play(); if(pr&&pr.catch)pr.catch(function(){}); }catch(e){} } } if(enc.grow<1){ enc.grow=Math.min(1,enc.grow+0.08); } else if(enc.phase==="video"){ enc.phase="ready"; } }
   if(enc.phase==="spinning") stepSpin();
   var b=boxRect();
-  drawMapBg(); x.fillStyle="rgba(5,3,12,0.6)"; x.fillRect(0,0,W,H); var v=encVid[enc.dir];
+  // In 3D mode the voxel world is already rendering behind (see drawEncounter3DBg) — skip 2D map
+  if(!voxelReady) drawMapBg();
+  x.fillStyle="rgba(5,3,12,0.6)"; x.fillRect(0,0,W,H); var v=encVid[enc.dir];
   x.save(); roundRect(b.x,b.y,b.s,b.s,10); x.clip();
   if(enc.vidStarted && v && v.readyState>=2){ try{ x.imageSmoothingEnabled=true; x.drawImage(v,b.x,b.y,b.s,b.s); }catch(e){ encBg(b); } } else encBg(b);
   var pcx=b.x+0.5*b.s, pcy=b.y+0.78*b.s, psz=b.s*0.2, face=({U:"B",D:"F",L:"L",R:"R"})[enc.dir], gim=guy[face], bob=Math.sin(Date.now()/400)*psz*0.05;
@@ -550,6 +572,20 @@ tapBtn("bBtn",onB);
 addEventListener("keydown",e=>{ const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key]; if(m){e.preventDefault();onDir(m[0],m[1]);} else if(e.key==="a"||e.key==="Enter"||e.key===" "){e.preventDefault();onA();} else if(e.key==="b"){onB();} });
 function loop(){ draw(); requestAnimationFrame(loop); }
 requestAnimationFrame(loop);
+
+// ===== FULLSCREEN TOGGLE =====
+(function(){
+  var fsb=document.getElementById("fsBtn");
+  if(!fsb) return;
+  function toggle(){
+    try{
+      if(document.fullscreenElement){ document.exitFullscreen(); }
+      else { var el=document.getElementById("stage"); if(el.requestFullscreen) el.requestFullscreen(); }
+    }catch(e){}
+  }
+  fsb.addEventListener("click",function(e){ e.preventDefault(); toggle(); });
+  fsb.addEventListener("touchstart",function(e){ e.preventDefault(); toggle(); },{passive:false});
+})();
 
 // ===== START =====
 var _startMap=(retPos&&retPos.map)?retPos.map:START_MAP; setArea(_startMap); layout(); loadMap(_startMap,START_ENTRY);
