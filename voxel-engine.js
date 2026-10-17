@@ -101,18 +101,28 @@ const VoxelEngine = (function() {
     return tex;
   }
 
+  // Dirt tiles: tree7/tree8 are dirt-textured (misnamed "tree") — the dirt path.
+  // They sit sunken into the ground, never as pines.
+  function isDirtTile(name) {
+    const n = (name || "").toLowerCase();
+    return /dirt/.test(n) || /tree7|tree8/.test(n);
+  }
+
   // Determine voxel height by tile type
   function tileHeight(tileName, isSolid) {
     const n = (tileName || "").toLowerCase();
     if (/water/i.test(n)) return DIORAMA.waterHeight;
-    if (/path|dirt|road/i.test(n)) return DIORAMA.pathHeight;  // sunken paths
+    if (isDirtTile(n)) return 0.1;   // sunken dirt path
+    if (/path|road/i.test(n)) return DIORAMA.pathHeight;
     if (/tree/i.test(n)) return -1;  // trees get custom stacked geometry (see buildWorld)
     if (isSolid) return DIORAMA.solidHeight;
     return DIORAMA.groundHeight;
   }
 
-  // Check if tile is a tree/prop (gets stacked trunk+canopy, stood up in 3D)
+  // Check if tile is a tree/prop (gets stacked trunk+canopy, stood up in 3D).
+  // tree7/tree8 are dirt, not foliage — excluded.
   function isTreeTile(name) {
+    if (isDirtTile(name)) return false;
     if (/tree|bush|plant|shrub|foliage|leaf|leaves|palm|pine|oak/i.test(name || "")) return true;
     return false;
   }
@@ -172,10 +182,11 @@ const VoxelEngine = (function() {
     for (const name in byTile) {
       const list = byTile[name];
       const namedTree = isTreeTile(name);
+      const namedDirt = isDirtTile(name);
       const treeList = [], flatList = [];
       for (const t of list) {
-        // Named tree, or isolated solid prop (no solid neighbors) → stand it up
-        if (namedTree || isIsolatedSolid(M, t.c, t.r)) treeList.push(t);
+        // Named tree, or isolated solid prop → stand it up. Dirt never becomes a tree.
+        if (!namedDirt && (namedTree || isIsolatedSolid(M, t.c, t.r))) treeList.push(t);
         else flatList.push(t);
       }
       for (const t of treeList) treePositions.push({ c: t.c, r: t.r, texName: name });
@@ -273,7 +284,7 @@ const VoxelEngine = (function() {
     updateCamera((cols - 1) / 2, (rows - 1) / 2, true);
   }
 
-  // Diorama camera: fixed front angle — clean 2.5D look, no auto movement.
+  // Diorama camera: straight-on front view with just a slight tilt — clean 2.5D.
   // Follows the player smoothly, angle never changes.
   let camTarget = { x: 0, z: 0 };
   function updateCamera(px, pz, snap) {
@@ -283,8 +294,8 @@ const VoxelEngine = (function() {
       camTarget.x += (tx - camTarget.x) * 0.08;
       camTarget.z += (tz - camTarget.z) * 0.08;
     }
-    camera.position.set(camTarget.x + 4.5, 7.5, camTarget.z + 6.5);
-    camera.lookAt(camTarget.x, 0.4, camTarget.z);
+    camera.position.set(camTarget.x + 1.5, 4.2, camTarget.z + 9.0);
+    camera.lookAt(camTarget.x, 0.5, camTarget.z);
   }
 
   // Character sprite (billboard, preserves 2D art)
