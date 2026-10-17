@@ -572,7 +572,46 @@ bindHold("up",()=>onDir(0,-1)); bindHold("dn",()=>onDir(0,1)); bindHold("lf",()=
 (function(){ var a=document.getElementById("aBtn"); function down(e){ e.preventDefault(); running=true; onA(); } function up(){ running=false; }
   a.addEventListener("touchstart",down,{passive:false}); a.addEventListener("touchend",up); a.addEventListener("touchcancel",up); a.addEventListener("mousedown",down); a.addEventListener("mouseup",up); a.addEventListener("mouseleave",up); })();
 function tapBtn(id,fn){ const el=document.getElementById(id); el.addEventListener("touchstart",e=>{e.preventDefault();fn();},{passive:false}); el.addEventListener("mousedown",e=>{e.preventDefault();fn();}); }
-tapBtn("bBtn",onB);
+// ===== BLUE-BUTTON CAMERA JOYSTICK =====
+// The blue button is a mini joystick: drag left/right to orbit the 3D camera.
+// A quick tap (no drag) still fires the normal B-button action.
+(function(){
+  var el=document.getElementById("bBtn");
+  // Joystick nub that rides inside the blue button
+  var nub=document.createElement("div");
+  nub.style.cssText="position:absolute;left:50%;top:50%;width:38%;height:38%;margin:-19% 0 0 -19%;border-radius:50%;background:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.5);pointer-events:none;";
+  el.style.position="absolute";
+  el.appendChild(nub);
+  var dragging=false, sx=0, moved=0, t0=0, lastX=0;
+  function pt(e){ var t=e.touches&&e.touches[0]; return t?t:e; }
+  function down(e){
+    e.preventDefault();
+    var p=pt(e); dragging=true; sx=p.clientX; lastX=p.clientX; moved=0; t0=Date.now();
+  }
+  function move(e){
+    if(!dragging) return; e.preventDefault();
+    var p=pt(e), dx=p.clientX-lastX; lastX=p.clientX;
+    moved+=Math.abs(dx);
+    // Orbit the camera with horizontal drag
+    if(voxelReady && typeof VoxelEngine!=="undefined" && VoxelEngine.orbitCamera){
+      VoxelEngine.orbitCamera(dx*0.008);
+    }
+    // Nub follows the drag, clamped to the button
+    var total=p.clientX-sx, max=el.offsetWidth*0.28;
+    total=Math.max(-max,Math.min(max,total));
+    nub.style.transform="translateX("+total+"px)";
+  }
+  function up(e){
+    if(!dragging) return; dragging=false;
+    nub.style.transform="";
+    // Tap (not a drag) = B button
+    if(moved<8 && Date.now()-t0<400){ onB(); }
+  }
+  el.addEventListener("touchstart",down,{passive:false});
+  el.addEventListener("touchmove",move,{passive:false});
+  el.addEventListener("touchend",up); el.addEventListener("touchcancel",up);
+  el.addEventListener("mousedown",down); el.addEventListener("mousemove",move); el.addEventListener("mouseup",up);
+})();
 addEventListener("keydown",e=>{ const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key]; if(m){e.preventDefault();onDir(m[0],m[1]);} else if(e.key==="a"||e.key==="Enter"||e.key===" "){e.preventDefault();onA();} else if(e.key==="b"){onB();} });
 function loop(){ draw(); requestAnimationFrame(loop); }
 requestAnimationFrame(loop);

@@ -214,38 +214,47 @@ const VoxelEngine = (function() {
       tileMeshes[name] = im;
     }
 
-    // 3D TREES: stacked trunk + canopy blocks (lifted up, truly volumetric)
-    // Grouped by texture so mixed tree types keep their own look
+    // 3D TREES: proper voxel pine shape — brown trunk + 3 stacked canopy layers.
+    // Grouped by texture so mixed tree types keep their own look.
     if (treePositions.length > 0) {
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3();
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0);
+      // Trunk: single brown instanced mesh for all trees
       const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2f });
       const trunkIM = new THREE.InstancedMesh(boxGeo, trunkMat, treePositions.length);
       trunkIM.castShadow = true; trunkIM.receiveShadow = true;
-      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3();
-      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0);
+      const TRUNK_H = 1.3;
       for (let i = 0; i < treePositions.length; i++) {
         const t = treePositions[i];
-        const th = DIORAMA.treeTrunkHeight;
-        pos.set(t.c, th / 2, t.r); scl.set(0.45, th, 0.45);
+        pos.set(t.c, TRUNK_H / 2, t.r); scl.set(0.38, TRUNK_H, 0.38);
         m4.compose(pos, q, scl); trunkIM.setMatrixAt(i, m4);
       }
       trunkIM.instanceMatrix.needsUpdate = true;
       worldGroup.add(trunkIM);
-      // Canopies grouped by tile texture
+      // Canopy: 3 shrinking layers per tree, grouped by tile texture
       const byTex = {};
       for (const t of treePositions) { (byTex[t.texName] = byTex[t.texName] || []).push(t); }
+      // [width, height, yBaseOffset] for each layer, from bottom to top
+      const LAYERS = [
+        [1.7, 0.8, TRUNK_H - 0.25],
+        [1.25, 0.7, TRUNK_H + 0.35],
+        [0.75, 0.6, TRUNK_H + 0.85],
+      ];
       for (const texName in byTex) {
         const grp = byTex[texName];
         const canopyMat = new THREE.MeshLambertMaterial({ map: getTileTexture(texName) });
-        const canopyIM = new THREE.InstancedMesh(boxGeo, canopyMat, grp.length);
-        canopyIM.castShadow = true; canopyIM.receiveShadow = true;
-        for (let i = 0; i < grp.length; i++) {
-          const t = grp[i];
-          const th = DIORAMA.treeTrunkHeight, ch = DIORAMA.treeCanopyHeight, cw = DIORAMA.treeCanopyWidth;
-          pos.set(t.c, th + ch / 2 - 0.1, t.r); scl.set(cw, ch, cw);
-          m4.compose(pos, q, scl); canopyIM.setMatrixAt(i, m4);
+        for (let L = 0; L < LAYERS.length; L++) {
+          const [lw, lh, ly] = LAYERS[L];
+          const im = new THREE.InstancedMesh(boxGeo, canopyMat, grp.length);
+          im.castShadow = true; im.receiveShadow = true;
+          for (let i = 0; i < grp.length; i++) {
+            const t = grp[i];
+            pos.set(t.c, ly + lh / 2, t.r); scl.set(lw, lh, lw);
+            m4.compose(pos, q, scl); im.setMatrixAt(i, m4);
+          }
+          im.instanceMatrix.needsUpdate = true;
+          worldGroup.add(im);
         }
-        canopyIM.instanceMatrix.needsUpdate = true;
-        worldGroup.add(canopyIM);
       }
     }
 
@@ -264,38 +273,17 @@ const VoxelEngine = (function() {
     updateCamera((cols - 1) / 2, (rows - 1) / 2, true);
   }
 
-  // Diorama camera: orbits the box — as you walk to a side of the world,
-  // the view swings around so you're always looking at that face head-on,
-  // like picking up a physical diorama and turning it toward you.
+  // Diorama camera: manual orbit via the blue-button joystick.
+  // Auto-orbit is OFF (too crazy) — the player aims the camera.
   let camTarget = { x: 0, z: 0 };
-  let camOrbit = 0.6;          // current orbit angle (radians), smoothed
-  let lastPx = 0, lastPz = 0;
+  let camOrbit = 0.6;          // current orbit angle (radians), joystick-controlled
   function updateCamera(px, pz, snap) {
     const tx = px, tz = pz;
-    if (snap) {
-      camTarget.x = tx; camTarget.z = tz;
-      lastPx = tx; lastPz = tz;
-    } else {
+    if (snap) { camTarget.x = tx; camTarget.z = tz; }
+    else {
       camTarget.x += (tx - camTarget.x) * 0.08;
       camTarget.z += (tz - camTarget.z) * 0.08;
     }
-    // Desired orbit: angle from map center to player.
-    // Standing on the south edge → camera swings south; north edge → north, etc.
-    let want = camOrbit;
-    if (mapData && mapData.cols && mapData.rows) {
-      const cx = (mapData.cols - 1) / 2, cz = (mapData.rows - 1) / 2;
-      const vx = tx - cx, vz = tz - cz;
-      if (Math.abs(vx) + Math.abs(vz) > 0.75) {
-        want = Math.atan2(vx, vz);   // 0 = south face, PI = north face
-      }
-    }
-    // Smoothly rotate toward the wanted angle (shortest path)
-    let d = want - camOrbit;
-    while (d > Math.PI) d -= Math.PI * 2;
-    while (d < -Math.PI) d += Math.PI * 2;
-    camOrbit += d * 0.04;
-    lastPx = tx; lastPz = tz;
-
     // Camera sits out from the player along the orbit direction, looking in
     const dist = 8.0, height = 6.5;
     camera.position.set(
@@ -305,6 +293,8 @@ const VoxelEngine = (function() {
     );
     camera.lookAt(camTarget.x, 0.4, camTarget.z);
   }
+  // Joystick nudges the orbit angle (radians per call, smoothed by caller)
+  function orbitCamera(dTheta) { camOrbit += dTheta; }
 
   // Character sprite (billboard, preserves 2D art)
   function setCharacter(textureUrl, x, z, bounceY) {
@@ -448,25 +438,76 @@ const VoxelEngine = (function() {
   }
 
   // ===== 3D DREAM FLOATERS (billboard sprites in voxel space) =====
-  // Textures are pre-created once per thumbnail — never allocated in the frame loop.
+  // Each floater composites its dreamling silhouette (dreamlingP<num>.png) with the
+  // card's dream thumbnail cycling INSIDE the silhouette — the 2D look, as a 3D billboard.
+  // Thumbnails load async, so textures start blank and refresh on each image load.
+  const floaterSilhouettes = {};  // num -> HTMLImageElement
+  function getSilhouette(num) {
+    if (num == null) return null;
+    if (!floaterSilhouettes[num]) {
+      const im = new Image();
+      im.onload = function() { refreshFloaterTextures(); };
+      im.src = resolveUrl("dreamlingP" + num + ".png");
+      floaterSilhouettes[num] = im;
+    }
+    return floaterSilhouettes[num];
+  }
+  function compositeFloater(spr) {
+    const f = spr.userData.floater;
+    if (!f) return;
+    const cv = spr.userData.canvas, cx = cv.getContext("2d");
+    const S = cv.width;
+    cx.clearRect(0, 0, S, S);
+    const sil = getSilhouette(f.num);
+    const texes = spr.userData.texes;
+    const thumb = (texes && texes.length) ? texes[Math.floor(performance.now() / 240) % texes.length] : null;
+    if (sil && sil.complete && sil.naturalWidth) {
+      cx.drawImage(sil, 0, 0, S, S);
+      // Clip the dream thumbnail inside the silhouette
+      if (thumb && thumb.image && thumb.image.complete && thumb.image.naturalWidth) {
+        cx.save();
+        cx.globalCompositeOperation = "source-atop";
+        cx.drawImage(thumb.image, 0, 0, S, S);
+        cx.restore();
+      }
+    } else if (thumb && thumb.image) {
+      // Silhouette not ready yet — show thumbnail alone rather than blank
+      if (thumb.image.complete && thumb.image.naturalWidth) cx.drawImage(thumb.image, 0, 0, S, S);
+    }
+    spr.userData.ctex.needsUpdate = true;
+  }
+  function refreshFloaterTextures() {
+    for (const spr of floaterSprites) compositeFloater(spr);
+  }
   function setFloaters(list) {
     for (const s of floaterSprites) scene.remove(s);
     floaterSprites = [];
     for (const f of list) {
       if (!f.imgs || !f.imgs.length) continue;
+      // Wrap each thumbnail image; refresh composite when it loads
       const texes = f.imgs.map(function(im){
-        const tex = new THREE.Texture(im);
-        tex.needsUpdate = true;
-        tex.magFilter = THREE.NearestFilter;
-        return tex;
+        const rec = { image: im };
+        const old = im.onload;
+        im.onload = function(){ if (old) old(); refreshFloaterTextures(); };
+        // If already loaded (cached), trigger a refresh soon
+        if (im.complete && im.naturalWidth) setTimeout(refreshFloaterTextures, 0);
+        return rec;
       });
-      const mat = new THREE.SpriteMaterial({ map: texes[0], transparent: true, opacity: 0.92 });
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = 64;
+      const ctex = new THREE.CanvasTexture(cv);
+      ctex.magFilter = THREE.NearestFilter;
+      const mat = new THREE.SpriteMaterial({ map: ctex, transparent: true, opacity: 0.95 });
       const spr = new THREE.Sprite(mat);
-      spr.scale.set(1.25, 1.25, 1);
+      spr.scale.set(1.3, 1.3, 1);
       spr.position.set(f.hx + 0.5, 1.6, f.hy + 0.5);
       spr.userData.floater = f;
       spr.userData.texes = texes;
+      spr.userData.canvas = cv;
+      spr.userData.ctex = ctex;
       spr.userData.thumbIdx = -1;
+      getSilhouette(f.num);  // kick off silhouette load
+      compositeFloater(spr);
       scene.add(spr);
       floaterSprites.push(spr);
     }
@@ -481,14 +522,13 @@ const VoxelEngine = (function() {
       const wz = f.hy + Math.cos(time * f.sp * 0.77 + f.ph * 1.3) * f.rg * 0.7;
       const bob = Math.sin(time / 600 + f.ph) * 0.18;
       spr.position.set(wx + 0.5, 1.6 + bob, wz + 0.5);
-      // Cycle the card's dream thumbnails (the inner animation)
+      // Re-composite when the thumbnail cycles (the inner card animation)
       const texes = spr.userData.texes;
       if (texes && texes.length > 1) {
         const idx = Math.floor(time / 240) % texes.length;
         if (idx !== spr.userData.thumbIdx) {
           spr.userData.thumbIdx = idx;
-          spr.material.map = texes[idx];
-          spr.material.needsUpdate = true;
+          compositeFloater(spr);
         }
       }
     }
@@ -514,6 +554,7 @@ const VoxelEngine = (function() {
     setCharacter: setCharacter,
     setCharacterTexture: setCharacterTexture,
     setCompanion: setCompanion,
+    orbitCamera: orbitCamera,
     getScene: function() { return scene; },
     getCamera: function() { return camera; },
     isInitialized: function() { return initialized; },
