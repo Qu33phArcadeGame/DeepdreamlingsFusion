@@ -273,10 +273,9 @@ const VoxelEngine = (function() {
     updateCamera((cols - 1) / 2, (rows - 1) / 2, true);
   }
 
-  // Diorama camera: manual orbit via the blue-button joystick.
-  // Auto-orbit is OFF (too crazy) — the player aims the camera.
+  // Diorama camera: fixed front angle — clean 2.5D look, no auto movement.
+  // Follows the player smoothly, angle never changes.
   let camTarget = { x: 0, z: 0 };
-  let camOrbit = 0.6;          // current orbit angle (radians), joystick-controlled
   function updateCamera(px, pz, snap) {
     const tx = px, tz = pz;
     if (snap) { camTarget.x = tx; camTarget.z = tz; }
@@ -284,17 +283,9 @@ const VoxelEngine = (function() {
       camTarget.x += (tx - camTarget.x) * 0.08;
       camTarget.z += (tz - camTarget.z) * 0.08;
     }
-    // Camera sits out from the player along the orbit direction, looking in
-    const dist = 8.0, height = 6.5;
-    camera.position.set(
-      camTarget.x + Math.sin(camOrbit) * dist,
-      height,
-      camTarget.z + Math.cos(camOrbit) * dist
-    );
+    camera.position.set(camTarget.x + 4.5, 7.5, camTarget.z + 6.5);
     camera.lookAt(camTarget.x, 0.4, camTarget.z);
   }
-  // Joystick nudges the orbit angle (radians per call, smoothed by caller)
-  function orbitCamera(dTheta) { camOrbit += dTheta; }
 
   // Character sprite (billboard, preserves 2D art)
   function setCharacter(textureUrl, x, z, bounceY) {
@@ -554,7 +545,6 @@ const VoxelEngine = (function() {
     setCharacter: setCharacter,
     setCharacterTexture: setCharacterTexture,
     setCompanion: setCompanion,
-    orbitCamera: orbitCamera,
     getScene: function() { return scene; },
     getCamera: function() { return camera; },
     isInitialized: function() { return initialized; },
