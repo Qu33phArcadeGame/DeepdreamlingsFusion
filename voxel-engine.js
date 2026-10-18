@@ -114,6 +114,7 @@ const VoxelEngine = (function() {
     if (/water/i.test(n)) return DIORAMA.waterHeight;
     if (isDirtTile(n)) return 0.1;   // sunken dirt path
     if (/path|road/i.test(n)) return DIORAMA.pathHeight;
+    if (/grass/i.test(n)) return DIORAMA.groundHeight;  // grass is always flat ground, even if solid
     if (/tree/i.test(n)) return -1;  // trees get custom stacked geometry (see buildWorld)
     if (isSolid) return DIORAMA.solidHeight;
     return DIORAMA.groundHeight;
