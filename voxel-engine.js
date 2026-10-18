@@ -415,70 +415,69 @@ const VoxelEngine = (function() {
     renderer.render(scene, camera);
   }
 
-  // ===== 3D GENERATOR BUILDING (voxel diorama version) =====
-  // Builds a proper 3D structure: tall walls, roof with overhang, glowing details
+  // ===== 3D BUILDINGS (generator + warp huts) =====
+  // buildGenerator clears and builds the main generator; addBuilding adds extra
+  // structures (warp huts, Bob's house) without clearing.
   function buildGenerator(gx, gy, gw, gh) {
     clearGenerator();
     genGroup = new THREE.Group();
-    const wallMat = new THREE.MeshLambertMaterial({ color: 0x3d2670 });
-    const trimMat = new THREE.MeshLambertMaterial({ color: 0x6a4a9a });
-    const roofMat = new THREE.MeshLambertMaterial({ color: 0x1a0f2e });
-    const glowMat = new THREE.MeshBasicMaterial({ color: 0x8affea });
-    const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-    const WALL_H = 2.2;
+    worldGroup.add(genGroup);
+    addBuildingTo(genGroup, gx, gy, gw, gh, "generator");
+    genGroup.userData.orb = genGroup.userData.orb || null;
+  }
 
-    // Walls: tall voxel boxes forming the building body
+  function addBuilding(gx, gy, gw, gh, style) {
+    if (!genGroup) { genGroup = new THREE.Group(); worldGroup.add(genGroup); }
+    addBuildingTo(genGroup, gx, gy, gw, gh, style || "hut");
+  }
+
+  function addBuildingTo(group, gx, gy, gw, gh, style) {
+    const isGen = (style === "generator");
+    const wallMat = new THREE.MeshLambertMaterial({ color: isGen ? 0x3d2670 : 0x8a6a4a });
+    const trimMat = new THREE.MeshLambertMaterial({ color: isGen ? 0x6a4a9a : 0x6b4a2f });
+    const roofMat = new THREE.MeshLambertMaterial({ color: isGen ? 0x1a0f2e : 0x4a3020 });
+    const glowMat = new THREE.MeshBasicMaterial({ color: isGen ? 0x8affea : 0xffd27a });
+    const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+    const WALL_H = isGen ? 2.2 : 1.8;
+
     for (let cx = 0; cx < gw; cx++) {
       for (let cz = 0; cz < gh; cz++) {
         const wall = new THREE.Mesh(boxGeo, wallMat);
         wall.position.set(gx + cx + 0.5, WALL_H / 2, gy + cz + 0.5);
         wall.scale.set(0.96, WALL_H, 0.96);
-        wall.castShadow = true;
-        wall.receiveShadow = true;
-        genGroup.add(wall);
+        wall.castShadow = true; wall.receiveShadow = true;
+        group.add(wall);
       }
     }
-    // Trim: decorative band at top of walls
     const trim = new THREE.Mesh(boxGeo, trimMat);
     trim.position.set(gx + gw / 2, WALL_H + 0.08, gy + gh / 2);
     trim.scale.set(gw + 0.15, 0.16, gh + 0.15);
     trim.castShadow = true;
-    genGroup.add(trim);
-    // Roof: thick slab with overhang
+    group.add(trim);
     const roof = new THREE.Mesh(boxGeo, roofMat);
     roof.position.set(gx + gw / 2, WALL_H + 0.32, gy + gh / 2);
     roof.scale.set(gw + 0.5, 0.35, gh + 0.5);
     roof.castShadow = true;
-    genGroup.add(roof);
-    // Roof peak: smaller raised block in center
-    const peak = new THREE.Mesh(boxGeo, trimMat);
-    peak.position.set(gx + gw / 2, WALL_H + 0.62, gy + gh / 2);
-    peak.scale.set(gw * 0.5, 0.25, gh * 0.5);
-    peak.castShadow = true;
-    genGroup.add(peak);
-    // Glowing sign orb on top (the dreaming eye)
-    const orb = new THREE.Mesh(
-      new THREE.SphereGeometry(0.35, 16, 16),
-      new THREE.MeshBasicMaterial({ color: 0xc9a0ff })
-    );
-    orb.position.set(gx + gw / 2, WALL_H + 1.0, gy + gh / 2);
-    genGroup.add(orb);
-    genGroup.userData.orb = orb;
-    // Door: glowing entrance on front face
+    group.add(roof);
+    if (isGen) {
+      const peak = new THREE.Mesh(boxGeo, trimMat);
+      peak.position.set(gx + gw / 2, WALL_H + 0.62, gy + gh / 2);
+      peak.scale.set(gw * 0.5, 0.25, gh * 0.5);
+      peak.castShadow = true;
+      group.add(peak);
+      const orb = new THREE.Mesh(
+        new THREE.SphereGeometry(0.35, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0xc9a0ff })
+      );
+      orb.position.set(gx + gw / 2, WALL_H + 1.0, gy + gh / 2);
+      group.add(orb);
+      group.userData.orb = orb;
+    }
+    // Door glow on front face
     const door = new THREE.Mesh(boxGeo, glowMat);
     door.position.set(gx + gw / 2, 0.55, gy + gh + 0.03);
     door.scale.set(0.6, 1.1, 0.08);
-    genGroup.add(door);
-    // Windows: glowing strips on sides
-    for (let s = 0; s < 2; s++) {
-      const win = new THREE.Mesh(boxGeo, glowMat);
-      const wx = s ? gx + gw + 0.02 : gx - 0.02;
-      win.position.set(wx, WALL_H * 0.6, gy + gh / 2);
-      win.scale.set(0.06, 0.5, 0.7);
-      genGroup.add(win);
-    }
-
-    worldGroup.add(genGroup);
+    group.add(door);
   }
 
   function clearGenerator() {
@@ -508,23 +507,24 @@ const VoxelEngine = (function() {
     if (!f) return;
     const cv = spr.userData.canvas, cx = cv.getContext("2d");
     const S = cv.width;
+    cx.globalCompositeOperation = "source-over";
     cx.clearRect(0, 0, S, S);
-    const sil = getSilhouette(f.num);
     const texes = spr.userData.texes;
-    const thumb = (texes && texes.length) ? texes[Math.floor(performance.now() / 240) % texes.length] : null;
+    const thumb = (texes && texes.length) ? texes[Math.floor(performance.now() / 120) % texes.length] : null;
+    if (!thumb || !thumb.image || !thumb.image.complete || !thumb.image.naturalWidth) return;
+    // Draw the dream thumbnail, scaled to cover
+    const tw = thumb.image.naturalWidth, th = thumb.image.naturalHeight;
+    const sc = Math.max(S / tw, S / th), dw = tw * sc, dh = th * sc;
+    cx.drawImage(thumb.image, (S - dw) / 2, (S - dh) / 2, dw, dh);
+    // Clip to the dreamling silhouette (or a circle if silhouette isn't ready) — never a square
+    cx.globalCompositeOperation = "destination-in";
+    const sil = getSilhouette(f.num);
     if (sil && sil.complete && sil.naturalWidth) {
       cx.drawImage(sil, 0, 0, S, S);
-      // Clip the dream thumbnail inside the silhouette
-      if (thumb && thumb.image && thumb.image.complete && thumb.image.naturalWidth) {
-        cx.save();
-        cx.globalCompositeOperation = "source-atop";
-        cx.drawImage(thumb.image, 0, 0, S, S);
-        cx.restore();
-      }
-    } else if (thumb && thumb.image) {
-      // Silhouette not ready yet — show thumbnail alone rather than blank
-      if (thumb.image.complete && thumb.image.naturalWidth) cx.drawImage(thumb.image, 0, 0, S, S);
+    } else {
+      cx.beginPath(); cx.arc(S / 2, S / 2, S * 0.42, 0, 7); cx.fill();
     }
+    cx.globalCompositeOperation = "source-over";
     spr.userData.ctex.needsUpdate = true;
   }
   function refreshFloaterTextures() {
@@ -574,10 +574,10 @@ const VoxelEngine = (function() {
       const wz = f.hy + Math.cos(time * wsp * 0.77 + f.ph * 1.3) * f.rg * 0.7;
       const bob = Math.sin(time / 450 + f.ph) * 0.22;
       spr.position.set(wx + 0.5, 1.6 + bob, wz + 0.5);
-      // Re-composite when the thumbnail cycles (the inner card animation)
+      // Re-composite when the thumbnail cycles (fast card animation)
       const texes = spr.userData.texes;
       if (texes && texes.length > 1) {
-        const idx = Math.floor(time / 240) % texes.length;
+        const idx = Math.floor(time / 120) % texes.length;
         if (idx !== spr.userData.thumbIdx) {
           spr.userData.thumbIdx = idx;
           compositeFloater(spr);
@@ -613,6 +613,7 @@ const VoxelEngine = (function() {
     isInitialized: function() { return initialized; },
     buildGenerator: buildGenerator,
     clearGenerator: clearGenerator,
+    addBuilding: addBuilding,
     setFloaters: setFloaters,
   };
 })();
