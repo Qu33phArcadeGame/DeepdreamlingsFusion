@@ -101,6 +101,26 @@ const VoxelEngine = (function() {
     return tex;
   }
 
+  // Procedural mottled grass texture — consistent green, no stripes, no variants.
+  let procGrassTex = null;
+  function getProceduralGrass() {
+    if (procGrassTex) return procGrassTex;
+    const c = document.createElement("canvas"); c.width = c.height = 64;
+    const x = c.getContext("2d");
+    x.fillStyle = "#5aa84a"; x.fillRect(0, 0, 64, 64);
+    // mottled darker/lighter patches
+    for (let i = 0; i < 380; i++) {
+      const g = 140 + Math.floor(Math.random() * 60);
+      x.fillStyle = "rgb(" + (g - 40) + "," + g + "," + (g - 50) + ")";
+      x.fillRect(Math.floor(Math.random() * 64), Math.floor(Math.random() * 64), 2, 2);
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter;
+    t.encoding = THREE.sRGBEncoding;
+    procGrassTex = t;
+    return t;
+  }
+
   // Dirt tiles: tree7/tree8 are dirt-textured (misnamed "tree") — the dirt path.
   // They sit sunken into the ground, never as pines.
   function isDirtTile(name) {
@@ -197,9 +217,14 @@ const VoxelEngine = (function() {
       }
       for (const t of treeList) treePositions.push({ c: t.c, r: t.r, texName: name });
       if (!flatList.length) continue;
-      // All grass tiles share one texture so there are no odd striped patches
-      const texName = /grass/i.test(name) ? "grass1.png" : name;
-      const tex = getTileTexture(texName);
+      // Procedural mottled grass for ALL ground tiles — no more striped variants.
+      // (The striped tile was a grass variant with vertical lines; this replaces it.)
+      let tex;
+      if (/grass/i.test(name)) {
+        tex = getProceduralGrass();
+      } else {
+        tex = getTileTexture(name);
+      }
       const isWater = isWaterTile(name);
 
       // Material: textured top, slightly darker sides for voxel depth
@@ -352,19 +377,27 @@ const VoxelEngine = (function() {
   }
   function setCharacter(textureUrl, x, z, bounceY) {
     if (!charSprite) {
-      // REAL 3D character: voxel humanoid built from boxes. Head, torso, arms, legs.
+      // REAL 3D character: voxel humanoid with Coby's sprite texture on the face/torso.
       charSprite = new THREE.Group();
+      const rurl = resolveUrl(textureUrl);
+      const faceTex = new THREE.TextureLoader().load(rurl);
+      faceTex.magFilter = THREE.NearestFilter;
       const skinMat = new THREE.MeshLambertMaterial({ color: 0xf0c8a0 });
+      const faceMat = new THREE.MeshLambertMaterial({ map: faceTex, transparent: true, alphaTest: 0.1 });
       const shirtMat = new THREE.MeshLambertMaterial({ color: 0x4a8a4a });
+      const shirtFaceMat = new THREE.MeshLambertMaterial({ map: faceTex, transparent: true, alphaTest: 0.1 });
       const pantsMat = new THREE.MeshLambertMaterial({ color: 0x3a5a8a });
       const hairMat = new THREE.MeshLambertMaterial({ color: 0x2a2018 });
-      // Head (with hair cap)
-      const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 0.45), skinMat);
+      charSprite.userData.faceTex = faceTex;
+      charSprite.userData.faceMat = faceMat;
+      charSprite.userData.shirtFaceMat = shirtFaceMat;
+      // Head: sprite face on front, skin on other sides, hair cap on top
+      const headMats = [skinMat, skinMat, hairMat, skinMat, faceMat, skinMat];
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 0.45), headMats);
       head.position.y = 1.28; head.castShadow = true; charSprite.add(head);
-      const hair = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.18, 0.49), hairMat);
-      hair.position.y = 1.48; hair.castShadow = true; charSprite.add(hair);
-      // Torso
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.6, 0.32), shirtMat);
+      // Torso: sprite on front, shirt color elsewhere
+      const torsoMats = [shirtMat, shirtMat, shirtMat, shirtMat, shirtFaceMat, shirtMat];
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.6, 0.32), torsoMats);
       torso.position.y = 0.82; torso.castShadow = true; charSprite.add(torso);
       // Arms
       const armGeo = new THREE.BoxGeometry(0.16, 0.55, 0.16);
@@ -380,12 +413,11 @@ const VoxelEngine = (function() {
       const legR = new THREE.Mesh(legGeo, pantsMat);
       legR.position.set(0.14, 0.26, 0); legR.castShadow = true; charSprite.add(legR);
       charSprite.userData.legL = legL; charSprite.userData.legR = legR;
-      charSprite.userData.url = resolveUrl(textureUrl);
+      charSprite.userData.url = rurl;
       scene.add(charSprite);
     }
     const gy = groundYAt(x, z);
     charSprite.position.set(x, gy + (bounceY || 0), z);
-    // Walk swing: arms and legs swing opposite when moving (bounceY indicates motion)
     const swing = (bounceY ? Math.sin(performance.now() / 130) * 0.5 : 0);
     if (charSprite.userData.armL) {
       charSprite.userData.armL.rotation.x = swing;
@@ -402,8 +434,14 @@ const VoxelEngine = (function() {
       tex.magFilter = THREE.NearestFilter;
       charTextures[url] = tex;
     }
-    // Texture is cached; the 3D model uses solid colors (no sprite map needed)
-    if (charSprite) charSprite.userData.url = url;
+    // Swap the sprite texture on the 3D model's face and torso
+    if (charSprite && charSprite.userData.faceMat) {
+      charSprite.userData.faceMat.map = charTextures[url];
+      charSprite.userData.faceMat.needsUpdate = true;
+      charSprite.userData.shirtFaceMat.map = charTextures[url];
+      charSprite.userData.shirtFaceMat.needsUpdate = true;
+      charSprite.userData.url = url;
+    }
   }
 
   // Companion dreamling: animated billboard sprite that orbits/bobs in 3D
@@ -549,13 +587,15 @@ const VoxelEngine = (function() {
     roof.scale.set(gw + 0.5, 0.35, gh + 0.5);
     roof.castShadow = true;
     group.add(roof);
-    // PIZZAZZ: one small glowing window per side, centered, no overlap
+    // PIZZAZZ: one small glowing window per side, centered, no overlap.
+    // Front window sits high above the door with clear space between.
     const winMat = new THREE.MeshBasicMaterial({ color: isGen ? 0x8affea : 0xffe0a0 });
     const winGeo = new THREE.BoxGeometry(0.4, 0.5, 0.06);
     const winY = WALL_H * 0.62;
-    // front
+    const winYFront = WALL_H * 0.78;  // raised: clear gap above the door
+    // front (high)
     const wF = new THREE.Mesh(winGeo, winMat);
-    wF.position.set(cx0, winY, gy + gh + 0.02); group.add(wF);
+    wF.position.set(cx0, winYFront, gy + gh + 0.02); group.add(wF);
     // back
     const wB = new THREE.Mesh(winGeo, winMat);
     wB.position.set(cx0, winY, gy - 0.02); group.add(wB);
