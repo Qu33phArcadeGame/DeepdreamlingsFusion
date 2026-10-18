@@ -280,6 +280,32 @@ const VoxelEngine = (function() {
     baseMesh.receiveShadow = true;
     worldGroup.add(baseMesh);
 
+    // Decorative walk-through bushes: small green blobs scattered on grass.
+    // Purely visual — NOT in the collision map, you walk right through them.
+    (function addBushes(){
+      const grassSpots = [];
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        const idx = M.map[r][c];
+        if (idx < 0 || idx >= tiles.length) continue;
+        const nm = (tiles[idx] || "").toLowerCase();
+        if (/grass/i.test(nm) && !/tree/i.test(nm)) grassSpots.push({ c: c, r: r });
+      }
+      if (!grassSpots.length) return;
+      const bushGeo = new THREE.IcosahedronGeometry(0.32, 0);
+      const bushMat = new THREE.MeshLambertMaterial({ color: 0x3fae4a });
+      const bushMat2 = new THREE.MeshLambertMaterial({ color: 0x2e8b3a });
+      const N = Math.min(28, Math.floor(grassSpots.length / 8));
+      for (let i = 0; i < N; i++) {
+        const s = grassSpots[Math.floor(Math.random() * grassSpots.length)];
+        const b = new THREE.Mesh(bushGeo, Math.random() < 0.5 ? bushMat : bushMat2);
+        const sc = 0.7 + Math.random() * 0.7;
+        b.scale.set(sc, sc * 0.75, sc);
+        b.position.set(s.c + 0.5 + (Math.random() - 0.5) * 0.3, 0.35 + 0.18 * sc, s.r + 0.5 + (Math.random() - 0.5) * 0.3);
+        b.castShadow = true;
+        worldGroup.add(b);
+      }
+    })();
+
     // Soft ground plane far below for shadow catching (diorama sits in space)
     // Actually skip — fog handles the void
 
@@ -321,12 +347,21 @@ const VoxelEngine = (function() {
     if (!charSprite) {
       const tex = new THREE.TextureLoader().load(resolveUrl(textureUrl));
       tex.magFilter = THREE.NearestFilter;
-      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
-      charSprite = new THREE.Sprite(mat);
-      charSprite.scale.set(1.1, 1.5, 1);
+      // 3D character: two crossed planes (X-shape) with the sprite texture.
+      // Looks like the 2D sprite from the front, has real depth from the side.
+      const mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, alphaTest: 0.1 });
+      charSprite = new THREE.Group();
+      const geo = new THREE.PlaneGeometry(1.1, 1.5);
+      const p1 = new THREE.Mesh(geo, mat);
+      const p2 = new THREE.Mesh(geo, mat);
+      p2.rotation.y = Math.PI / 2;
+      p1.castShadow = p2.castShadow = true;
+      charSprite.add(p1); charSprite.add(p2);
+      charSprite.userData.mat = mat;
+      charSprite.userData.url = resolveUrl(textureUrl);
       scene.add(charSprite);
     }
-    // Sprite center sits at half its height above the ground tile
+    // Group origin at feet; planes are centered, so lift by half height
     const gy = groundYAt(x, z);
     charSprite.position.set(x, gy + 0.75 + (bounceY || 0), z);
   }
@@ -338,9 +373,10 @@ const VoxelEngine = (function() {
       tex.magFilter = THREE.NearestFilter;
       charTextures[url] = tex;
     }
-    if (charSprite) {
-      charSprite.material.map = charTextures[url];
-      charSprite.material.needsUpdate = true;
+    if (charSprite && charSprite.userData.mat) {
+      charSprite.userData.mat.map = charTextures[url];
+      charSprite.userData.mat.needsUpdate = true;
+      charSprite.userData.url = url;
     }
   }
 
@@ -385,25 +421,29 @@ const VoxelEngine = (function() {
     if (!companionSprite) {
       const tex = new THREE.TextureLoader().load(rurl);
       tex.magFilter = THREE.NearestFilter;
-      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
-      companionSprite = new THREE.Sprite(mat);
-      companionSprite.scale.set(1.0, 1.0, 1);
+      // 3D companion: thin extruded slab like the floaters
+      const mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
+      const geo = new THREE.BoxGeometry(1.0, 1.0, 0.2);
+      companionSprite = new THREE.Mesh(geo, mat);
+      companionSprite.castShadow = true;
+      companionSprite.userData.mat = mat;
       scene.add(companionSprite);
       companionTexCache[rurl] = tex;
     } else if (!companionTexCache[rurl]) {
       const tex = new THREE.TextureLoader().load(rurl);
       tex.magFilter = THREE.NearestFilter;
       companionTexCache[rurl] = tex;
-      companionSprite.material.map = tex;
-      companionSprite.material.needsUpdate = true;
-    } else if (companionSprite.material.map !== companionTexCache[rurl]) {
-      companionSprite.material.map = companionTexCache[rurl];
-      companionSprite.material.needsUpdate = true;
+      companionSprite.userData.mat.map = tex;
+      companionSprite.userData.mat.needsUpdate = true;
+    } else if (companionSprite.userData.mat.map !== companionTexCache[rurl]) {
+      companionSprite.userData.mat.map = companionTexCache[rurl];
+      companionSprite.userData.mat.needsUpdate = true;
     }
     // Bobbing animation (dreamlings float)
     const bob = Math.sin(time / 450) * 0.18;
     const sway = Math.sin(time / 700) * 0.12;
     companionSprite.position.set(x + sway, 1.1 + bob, z);
+    companionSprite.rotation.y = Math.sin(time / 800) * 0.3;
     // Gentle pulsing scale (breathing)
     const pulse = 1 + Math.sin(time / 600) * 0.06;
     companionSprite.scale.set(pulse, pulse, 1);
@@ -553,21 +593,27 @@ const VoxelEngine = (function() {
       cv.width = cv.height = 64;
       const ctex = new THREE.CanvasTexture(cv);
       ctex.magFilter = THREE.NearestFilter;
-      const mat = new THREE.SpriteMaterial({ map: ctex, transparent: true, opacity: 0.95 });
-      const spr = new THREE.Sprite(mat);
-      spr.scale.set(1.3, 1.3, 1);
-      spr.position.set(f.hx + 0.5, 1.6, f.hy + 0.5);
-      spr.userData.floater = f;
-      spr.userData.canvas = cv;
-      spr.userData.ctex = ctex;
-      spr.userData.thumbIdx = -1;
+      // 3D dreamling: a thin extruded slab (box) with the dreamling outline as alpha.
+      // The dream video plays on the faces, cycling thumbnails. Real depth from the side.
+      const mat = new THREE.MeshLambertMaterial({ map: ctex, transparent: true, alphaTest: 0.1 });
+      const geo = new THREE.BoxGeometry(1.3, 1.3, 0.25);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true;
+      mesh.position.set(f.hx + 0.5, 1.6, f.hy + 0.5);
+      // Face the camera-ish: rotate to face the fixed camera angle
+      mesh.rotation.y = -0.15;
+      mesh.userData.floater = f;
+      mesh.userData.canvas = cv;
+      mesh.userData.ctex = ctex;
+      mesh.userData.thumbIdx = -1;
+      mesh.userData.isFloaterMesh = true;
       if (hasLegacy) {
-        spr.userData.texes = f.imgs.map(function(im){ return { image: im }; });
+        mesh.userData.texes = f.imgs.map(function(im){ return { image: im }; });
         getSilhouette(f.num);
       }
-      compositeFloater(spr);
-      scene.add(spr);
-      floaterSprites.push(spr);
+      compositeFloater(mesh);
+      scene.add(mesh);
+      floaterSprites.push(mesh);
     }
   }
 
@@ -581,10 +627,19 @@ const VoxelEngine = (function() {
       const wz = f.hy + Math.cos(time * wsp * 0.77 + f.ph * 1.3) * f.rg * 0.7;
       const bob = Math.sin(time / 450 + f.ph) * 0.22;
       spr.position.set(wx + 0.5, 1.6 + bob, wz + 0.5);
+      // Gentle spin so the 3D extrusion reads from all angles
+      if (spr.userData.isFloaterMesh) spr.rotation.y = -0.15 + Math.sin(time / 900 + f.ph) * 0.35;
       // Re-composite when the thumbnail cycles (fast card animation)
       const texes = spr.userData.texes;
       if (texes && texes.length > 1) {
         const idx = Math.floor(time / 120) % texes.length;
+        if (idx !== spr.userData.thumbIdx) {
+          spr.userData.thumbIdx = idx;
+          compositeFloater(spr);
+        }
+      } else if (f.sheet) {
+        // New format: 8 thumbnails in the sheet, cycle every 120ms
+        const idx = Math.floor(time / 120) % 8;
         if (idx !== spr.userData.thumbIdx) {
           spr.userData.thumbIdx = idx;
           compositeFloater(spr);
