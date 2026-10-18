@@ -185,8 +185,8 @@ const VoxelEngine = (function() {
       const namedDirt = isDirtTile(name);
       const treeList = [], flatList = [];
       for (const t of list) {
-        // Named tree, or isolated solid prop → stand it up. Dirt never becomes a tree.
-        if (!namedDirt && (namedTree || isIsolatedSolid(M, t.c, t.r))) treeList.push(t);
+        // Only explicitly-named foliage trees become pines. Dirt never becomes a tree.
+        if (!namedDirt && namedTree) treeList.push(t);
         else flatList.push(t);
       }
       for (const t of treeList) treePositions.push({ c: t.c, r: t.r, texName: name });
@@ -488,10 +488,10 @@ const VoxelEngine = (function() {
   }
 
   // ===== 3D DREAM FLOATERS (billboard sprites in voxel space) =====
-  // Each floater composites its dreamling silhouette (dreamlingP<num>.png) with the
-  // card's dream thumbnail cycling INSIDE the silhouette — the 2D look, as a 3D billboard.
-  // Thumbnails load async, so textures start blank and refresh on each image load.
-  const floaterSilhouettes = {};  // num -> HTMLImageElement
+  // New format: f.sheet = JPEG strip of thumbnails, f.mask = PNG dreamling shape.
+  // Legacy: f.imgs[] thumbnails, f.num for dreamlingP silhouette.
+  // The sprite is ALWAYS the dreamling's outline — never a square, never a circle.
+  const floaterSilhouettes = {};
   function getSilhouette(num) {
     if (num == null) return null;
     if (!floaterSilhouettes[num]) {
@@ -509,23 +509,34 @@ const VoxelEngine = (function() {
     const S = cv.width;
     cx.globalCompositeOperation = "source-over";
     cx.clearRect(0, 0, S, S);
-    const texes = spr.userData.texes;
-    const thumb = (texes && texes.length) ? texes[Math.floor(performance.now() / 120) % texes.length] : null;
-    if (!thumb || !thumb.image || !thumb.image.complete || !thumb.image.naturalWidth) return;
-    // Draw the dream thumbnail, scaled to cover
-    const tw = thumb.image.naturalWidth, th = thumb.image.naturalHeight;
-    const sc = Math.max(S / tw, S / th), dw = tw * sc, dh = th * sc;
-    cx.drawImage(thumb.image, (S - dw) / 2, (S - dh) / 2, dw, dh);
-    // Clip to the dreamling silhouette (or a circle if silhouette isn't ready) — never a square
-    cx.globalCompositeOperation = "destination-in";
-    const sil = getSilhouette(f.num);
-    if (sil && sil.complete && sil.naturalWidth) {
-      cx.drawImage(sil, 0, 0, S, S);
-    } else {
-      cx.beginPath(); cx.arc(S / 2, S / 2, S * 0.42, 0, 7); cx.fill();
+    const idx = Math.floor(performance.now() / 120) % 8;
+    let drew = false;
+    if (f.sheet && f.sheet.complete && f.sheet.naturalWidth && f.mask && f.mask.complete && f.mask.naturalWidth) {
+      // New format: draw the current thumbnail from the sheet, clipped by the mask shape
+      const n = f.n || 8, sw = f.sheet.naturalWidth / n;
+      const sx = Math.min(idx, n - 1) * sw;
+      cx.drawImage(f.sheet, sx, 0, sw, f.sheet.naturalHeight, 0, 0, S, S);
+      cx.globalCompositeOperation = "destination-in";
+      // Draw mask slightly inset (2px) to shave off any outer halo ring — just the outline
+      cx.drawImage(f.mask, 2, 2, S - 4, S - 4);
+      drew = true;
+    } else if (f.imgs && f.imgs.length) {
+      // Legacy format
+      const texes = spr.userData.texes;
+      const thumb = (texes && texes.length) ? texes[idx % texes.length] : null;
+      if (thumb && thumb.image && thumb.image.complete && thumb.image.naturalWidth) {
+        const tw = thumb.image.naturalWidth, th = thumb.image.naturalHeight;
+        const sc = Math.max(S / tw, S / th), dw = tw * sc, dh = th * sc;
+        cx.drawImage(thumb.image, (S - dw) / 2, (S - dh) / 2, dw, dh);
+        cx.globalCompositeOperation = "destination-in";
+        const sil = getSilhouette(f.num);
+        if (sil && sil.complete && sil.naturalWidth) cx.drawImage(sil, 0, 0, S, S);
+        else { cx.beginPath(); cx.arc(S / 2, S / 2, S * 0.42, 0, 7); cx.fill(); }
+        drew = true;
+      }
     }
     cx.globalCompositeOperation = "source-over";
-    spr.userData.ctex.needsUpdate = true;
+    if (drew) spr.userData.ctex.needsUpdate = true;
   }
   function refreshFloaterTextures() {
     for (const spr of floaterSprites) compositeFloater(spr);
@@ -534,16 +545,9 @@ const VoxelEngine = (function() {
     for (const s of floaterSprites) scene.remove(s);
     floaterSprites = [];
     for (const f of list) {
-      if (!f.imgs || !f.imgs.length) continue;
-      // Wrap each thumbnail image; refresh composite when it loads
-      const texes = f.imgs.map(function(im){
-        const rec = { image: im };
-        const old = im.onload;
-        im.onload = function(){ if (old) old(); refreshFloaterTextures(); };
-        // If already loaded (cached), trigger a refresh soon
-        if (im.complete && im.naturalWidth) setTimeout(refreshFloaterTextures, 0);
-        return rec;
-      });
+      const hasNew = !!(f.sheet && f.mask);
+      const hasLegacy = !!(f.imgs && f.imgs.length);
+      if (!hasNew && !hasLegacy) continue;
       const cv = document.createElement("canvas");
       cv.width = cv.height = 64;
       const ctex = new THREE.CanvasTexture(cv);
@@ -553,11 +557,13 @@ const VoxelEngine = (function() {
       spr.scale.set(1.3, 1.3, 1);
       spr.position.set(f.hx + 0.5, 1.6, f.hy + 0.5);
       spr.userData.floater = f;
-      spr.userData.texes = texes;
       spr.userData.canvas = cv;
       spr.userData.ctex = ctex;
       spr.userData.thumbIdx = -1;
-      getSilhouette(f.num);  // kick off silhouette load
+      if (hasLegacy) {
+        spr.userData.texes = f.imgs.map(function(im){ return { image: im }; });
+        getSilhouette(f.num);
+      }
       compositeFloater(spr);
       scene.add(spr);
       floaterSprites.push(spr);

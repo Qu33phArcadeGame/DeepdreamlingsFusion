@@ -23,6 +23,17 @@
   #up{left:30%;top:0}#dn{left:30%;bottom:0}#lf{left:0;top:30%}#rt{right:0;top:30%}
   .rbtn{position:absolute;z-index:10;border-radius:50%;background:transparent;border:none;color:transparent;}
   .rbtn:active{background:rgba(255,255,255,.18);}
+  /* Landscape: visible thumb controls (no cabinet art to sit on) */
+  body.landscape #dpad{background:rgba(20,12,35,.55);border:2px solid rgba(201,160,255,.5);border-radius:50%;}
+  body.landscape #dpad .dp{color:#c9a0ff;font-size:28px;}
+  body.landscape #up::after{content:"▲";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
+  body.landscape #dn::after{content:"▼";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
+  body.landscape #lf::after{content:"◀";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
+  body.landscape #rt::after{content:"▶";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
+  body.landscape #aBtn{background:rgba(255,80,80,.75);border:2px solid #ffaaaa;color:#fff;font-size:14px;font-weight:bold;}
+  body.landscape #aBtn::after{content:"RUN";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
+  body.landscape #bBtn{background:rgba(80,140,255,.75);border:2px solid #aaccff;color:#fff;font-size:14px;font-weight:bold;}
+  body.landscape #bBtn::after{content:"SEL";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
   video{display:none;}
 </style>
 </head>
@@ -96,15 +107,36 @@ function areaCount(){ var n=0; for(var i=area.first;i<=area.last;i++) if(dmDex.i
 let floaters=[];
 function loadFloaters(){
   floaters=[];
-  let recs=[]; try{ recs=JSON.parse(localStorage.getItem("dl_floaters")||"[]"); }catch(e){}
+  // Generator writes to sessionStorage (new {mask,sheet} format); also check
+  // localStorage for the legacy {thumbs,comp} format.
+  let recs=[];
+  try{ recs=recs.concat(JSON.parse(sessionStorage.getItem("dl_floaters")||"[]")||[]); }catch(e){}
+  try{ recs=recs.concat(JSON.parse(localStorage.getItem("dl_floaters")||"[]")||[]); }catch(e){}
   const cols=M?M.cols:20, rows=M?M.rows:15;
+  const seen={};
   recs.forEach(function(r){
-    if(!r||r.town!==currentMap||!(r.thumbs&&r.thumbs.length)) return;
-    const imgs=[];
-    r.thumbs.forEach(function(t){ const im=new Image(); im.onload=function(){ if(typeof draw==="function") draw(); }; im.src=t; imgs.push(im); });
-    floaters.push({ rec:r, imgs:imgs, num:(r.comp&&r.comp.length)?r.comp[0]:null,
-      hx:2+Math.random()*Math.max(2,cols-4), hy:2+Math.random()*Math.max(2,rows-4),
-      ph:Math.random()*6.28, sp:0.00010+Math.random()*0.00016, rg:1.2+Math.random()*2.2 });
+    if(!r||r.town!==currentMap||seen[r.id]) return; seen[r.id]=1;
+    let f=null;
+    if (r.sheet && r.mask) {
+      // New format: sheet = JPEG strip of thumbnails, mask = PNG dreamling shape
+      const sheetIm=new Image(), maskIm=new Image();
+      sheetIm.onload=maskIm.onload=function(){
+        if(typeof VoxelEngine!=="undefined"&&VoxelEngine.refreshFloaterTextures) VoxelEngine.refreshFloaterTextures();
+        if(typeof draw==="function") draw();
+      };
+      sheetIm.src=r.sheet; maskIm.src=r.mask;
+      f={ rec:r, sheet:sheetIm, mask:maskIm, n:r.n||8, S:r.S||88,
+        hx:2+Math.random()*Math.max(2,cols-4), hy:2+Math.random()*Math.max(2,rows-4),
+        ph:Math.random()*6.28, sp:0.00010+Math.random()*0.00016, rg:1.2+Math.random()*2.2 };
+    } else if (r.thumbs && r.thumbs.length) {
+      // Legacy format
+      const imgs=[];
+      r.thumbs.forEach(function(t){ const im=new Image(); im.onload=function(){ if(typeof draw==="function") draw(); }; im.src=t; imgs.push(im); });
+      f={ rec:r, imgs:imgs, num:(r.comp&&r.comp.length)?r.comp[0]:null,
+        hx:2+Math.random()*Math.max(2,cols-4), hy:2+Math.random()*Math.max(2,rows-4),
+        ph:Math.random()*6.28, sp:0.00010+Math.random()*0.00016, rg:1.2+Math.random()*2.2 };
+    }
+    if(f) floaters.push(f);
   });
   // Push to 3D scene
   if(voxelReady && typeof VoxelEngine!=="undefined") VoxelEngine.setFloaters(floaters);
@@ -219,6 +251,7 @@ function place(el,cx,cy,d){ el.style.left=(cx-d/2)+"px"; el.style.top=(cy-d/2)+"
 function layout(){
   const sw=stage.clientWidth, sh=stage.clientHeight;
   const isLandscape = sw > sh * 1.1;  // landscape: thumb-friendly overlay controls
+  document.body.classList.toggle("landscape", isLandscape);
   if (isLandscape) {
     // Landscape: game screen fills the view, controls overlay at the edges
     cabImg.style.display="none";
@@ -637,8 +670,13 @@ requestAnimationFrame(loop);
   }
   fsb.addEventListener("click",function(e){ e.preventDefault(); toggle(); });
   fsb.addEventListener("touchstart",function(e){ e.preventDefault(); toggle(); },{passive:false});
-  // Re-layout when fullscreen engages/disengages so canvases + controls stay correct
-  function onFsChange(){ setTimeout(function(){ try{ layout(); }catch(e){} }, 60); }
+  // Re-layout when fullscreen engages/disengages so canvases + controls stay correct.
+  // Multiple retries: dimensions can take a moment to settle on mobile.
+  function onFsChange(){
+    [60, 300, 800].forEach(function(ms){
+      setTimeout(function(){ try{ layout(); }catch(e){} }, ms);
+    });
+  }
   document.addEventListener("fullscreenchange", onFsChange);
   document.addEventListener("webkitfullscreenchange", onFsChange);
   // Re-layout on rotation (portrait <-> landscape control modes)
