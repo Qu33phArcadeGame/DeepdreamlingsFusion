@@ -607,6 +607,7 @@ const VoxelEngine = (function() {
     setCharacterTexture: setCharacterTexture,
     setCompanion: setCompanion,
     setNPC: setNPC,
+    floaterCount: function() { return floaterSprites.length; },
     getScene: function() { return scene; },
     getCamera: function() { return camera; },
     isInitialized: function() { return initialized; },

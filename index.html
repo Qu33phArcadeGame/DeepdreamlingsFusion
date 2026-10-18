@@ -218,7 +218,31 @@ let W,H,DPR;
 function place(el,cx,cy,d){ el.style.left=(cx-d/2)+"px"; el.style.top=(cy-d/2)+"px"; el.style.width=d+"px"; el.style.height=d+"px"; }
 function layout(){
   const sw=stage.clientWidth, sh=stage.clientHeight;
+  const isLandscape = sw > sh * 1.1;  // landscape: thumb-friendly overlay controls
+  if (isLandscape) {
+    // Landscape: game screen fills the view, controls overlay at the edges
+    cabImg.style.display="none";
+    const gw=sw*0.94, gh=sh*0.94, gl=(sw-gw)/2, gt=(sh-gh)/2;
+    cv.style.left=gl+"px"; cv.style.top=gt+"px"; cv.style.width=gw+"px"; cv.style.height=gh+"px";
+    var cv3=document.getElementById("screen3d");
+    cv3.style.left=gl+"px"; cv3.style.top=gt+"px"; cv3.style.width=gw+"px"; cv3.style.height=gh+"px";
+    cv3.width=Math.round(gw); cv3.height=Math.round(gh);
+    var PIXEL=0.8;
+    W=gw; H=gh; DPR=devicePixelRatio||1; cv.width=Math.max(64,Math.round(gw*PIXEL)); cv.height=Math.max(48,Math.round(gh*PIXEL)); x.setTransform(PIXEL,0,0,PIXEL,0,0);
+    ui.style.left=gl+"px"; ui.style.top=gt+"px"; ui.style.width=gw+"px"; ui.style.height=gh+"px";
+    ui.width=Math.round(gw*DPR); ui.height=Math.round(gh*DPR); ux.setTransform(DPR,0,0,DPR,0,0);
+    var fx=document.getElementById("fx"), fx2=document.getElementById("fx2");
+    [fx,fx2].forEach(function(el){ if(el){ el.style.left=gl+"px"; el.style.top=gt+"px"; el.style.width=gw+"px"; el.style.height=gh+"px"; } });
+    // Overlay controls: dpad bottom-left, buttons bottom-right
+    const dsz=Math.min(sw,sh)*0.22;
+    const dp=document.getElementById("dpad");
+    dp.style.left="16px"; dp.style.top=(sh-dsz-16)+"px"; dp.style.width=dsz+"px"; dp.style.height=dsz+"px";
+    const bd=Math.min(sw,sh)*0.11;
+    place(document.getElementById("aBtn"), sw-bd*2.6-16, sh-bd-24, bd);
+    place(document.getElementById("bBtn"), sw-bd-16, sh-bd*2.4-16, bd);
+  } else {
   const scale=Math.min(sw/PF_PNG_W, sh/PF_PNG_H), rw=PF_PNG_W*scale, rh=PF_PNG_H*scale, ox=(sw-rw)/2, oy=(sh-rh)/2;
+  cabImg.style.display="block";
   cabImg.style.left=ox+"px"; cabImg.style.top=oy+"px"; cabImg.style.width=rw+"px"; cabImg.style.height=rh+"px";
   const scX=PF_SCREEN[0],scY=PF_SCREEN[1],scW=PF_SCREEN[2]-PF_SCREEN[0],scH=PF_SCREEN[3]-PF_SCREEN[1];
   const cl=ox+scX*rw, ct=oy+scY*rh, cw=scW*rw, ch=scH*rh;
@@ -235,6 +259,7 @@ function layout(){
   const dp=document.getElementById("dpad"), dsz=DP_SZ*rw;
   dp.style.left=(ox+DP_C[0]*rw-dsz/2)+"px"; dp.style.top=(oy+DP_C[1]*rh-dsz/2)+"px"; dp.style.width=dsz+"px"; dp.style.height=dsz+"px";
   const bd=0.15*rw; place(document.getElementById("aBtn"), ox+A_POS[0]*rw, oy+A_POS[1]*rh, bd); place(document.getElementById("bBtn"), ox+B_POS[0]*rw, oy+B_POS[1]*rh, bd);
+  }
   // Fullscreen button (top-right of stage)
   var fsb=document.getElementById("fsBtn");
   fsb.style.left=(sw-52)+"px"; fsb.style.top="8px";
@@ -284,6 +309,12 @@ function initVoxel(){
 }
 function drawWalk3D(){
   if(!M||!voxelReady) return;
+  // Resilient floater sync: if the 2D list changed (or was never pushed), re-push to 3D
+  if (typeof floaters !== "undefined" && floaters.length &&
+      typeof VoxelEngine.floaterCount === "function" &&
+      VoxelEngine.floaterCount() !== floaters.length) {
+    VoxelEngine.setFloaters(floaters);
+  }
   var gim=guy[guyFace];
   if(gim&&gim.src){
     VoxelEngine.setCharacterTexture(gim.src);
@@ -599,6 +630,11 @@ requestAnimationFrame(loop);
   function onFsChange(){ setTimeout(function(){ try{ layout(); }catch(e){} }, 60); }
   document.addEventListener("fullscreenchange", onFsChange);
   document.addEventListener("webkitfullscreenchange", onFsChange);
+  // Re-layout on rotation (portrait <-> landscape control modes)
+  var _rotT=null;
+  function onRot(){ clearTimeout(_rotT); _rotT=setTimeout(function(){ try{ layout(); }catch(e){} }, 120); }
+  window.addEventListener("orientationchange", onRot);
+  window.addEventListener("resize", onRot);
 })();
 
 // ===== START =====
