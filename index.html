@@ -304,6 +304,12 @@ function drawWalk3D(){
   } else {
     VoxelEngine.setCompanion(null, 0, 0, now);
   }
+  // BOB the NPC (water-warning guy) — show him in 3D when on his map
+  if (typeof BOB !== "undefined" && currentMap === BOB.map) {
+    VoxelEngine.setNPC("bob.png", BOB.x + 0.5, BOB.y + 0.5, now, true);
+  } else if (typeof VoxelEngine.setNPC === "function") {
+    VoxelEngine.setNPC(null, 0, 0, now, false);
+  }
   VoxelEngine.render(px+0.5, py+0.5);
   VoxelEngine.animate(now);
 }

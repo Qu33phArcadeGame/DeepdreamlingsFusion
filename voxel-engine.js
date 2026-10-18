@@ -234,22 +234,24 @@ const VoxelEngine = (function() {
       const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2f });
       const trunkIM = new THREE.InstancedMesh(boxGeo, trunkMat, treePositions.length);
       trunkIM.castShadow = true; trunkIM.receiveShadow = true;
-      const TRUNK_H = 1.3;
+      const TRUNK_H = 1.8, TRUNK_W = 0.5;
       for (let i = 0; i < treePositions.length; i++) {
         const t = treePositions[i];
-        pos.set(t.c, TRUNK_H / 2, t.r); scl.set(0.38, TRUNK_H, 0.38);
+        pos.set(t.c, TRUNK_H / 2, t.r); scl.set(TRUNK_W, TRUNK_H, TRUNK_W);
         m4.compose(pos, q, scl); trunkIM.setMatrixAt(i, m4);
       }
       trunkIM.instanceMatrix.needsUpdate = true;
       worldGroup.add(trunkIM);
-      // Canopy: 3 shrinking layers per tree, grouped by tile texture
+      // Canopy: 3 shrinking layers per tree, grouped by tile texture.
+      // Trunk is tall (1.8) so it's clearly visible from a straight-on front view —
+      // canopy starts above it, no more "green slab" look.
       const byTex = {};
       for (const t of treePositions) { (byTex[t.texName] = byTex[t.texName] || []).push(t); }
       // [width, height, yBaseOffset] for each layer, from bottom to top
       const LAYERS = [
-        [1.7, 0.8, TRUNK_H - 0.25],
-        [1.25, 0.7, TRUNK_H + 0.35],
-        [0.75, 0.6, TRUNK_H + 0.85],
+        [1.5, 0.7, TRUNK_H - 0.15],
+        [1.1, 0.6, TRUNK_H + 0.4],
+        [0.7, 0.5, TRUNK_H + 0.85],
       ];
       for (const texName in byTex) {
         const grp = byTex[texName];
@@ -298,7 +300,22 @@ const VoxelEngine = (function() {
     camera.lookAt(camTarget.x, 0.5, camTarget.z);
   }
 
-  // Character sprite (billboard, preserves 2D art)
+  // Character sprite (billboard, preserves 2D art).
+  // Y-position adjusts to the tile height so the character sits ON the ground
+  // (sunken paths, water edges) instead of floating.
+  function groundYAt(tx, tz) {
+    if (!mapData) return 0;
+    const c = Math.floor(tx), r = Math.floor(tz);
+    if (c < 0 || r < 0 || c >= mapData.cols || r >= mapData.rows) return 0;
+    const idx = mapData.map[r][c];
+    const tiles = mapData.tiles || [];
+    if (idx < 0 || idx >= tiles.length) return 0;
+    const name = tiles[idx];
+    const solid = mapData.solid && mapData.solid[r] && mapData.solid[r][c];
+    if (isTreeTile(name)) return 0;  // character never stands on a tree
+    const h = tileHeight(name, solid);
+    return h < 0 ? 0 : h;
+  }
   function setCharacter(textureUrl, x, z, bounceY) {
     if (!charSprite) {
       const tex = new THREE.TextureLoader().load(resolveUrl(textureUrl));
@@ -308,7 +325,9 @@ const VoxelEngine = (function() {
       charSprite.scale.set(1.1, 1.5, 1);
       scene.add(charSprite);
     }
-    charSprite.position.set(x, 0.9 + (bounceY || 0), z);
+    // Sprite center sits at half its height above the ground tile
+    const gy = groundYAt(x, z);
+    charSprite.position.set(x, gy + 0.75 + (bounceY || 0), z);
   }
 
   function setCharacterTexture(url) {
@@ -326,6 +345,36 @@ const VoxelEngine = (function() {
 
   // Companion dreamling: animated billboard sprite that orbits/bobs in 3D
   let companionTexCache = {};
+  // NPC sprite (BOB) — billboard like the character, with a gentle idle bob
+  let npcSprite = null, npcTexCache = {};
+  function setNPC(textureUrl, x, z, time, visible) {
+    if (!visible || !textureUrl) {
+      if (npcSprite) npcSprite.visible = false;
+      return;
+    }
+    const rurl = resolveUrl(textureUrl);
+    if (!npcSprite) {
+      const tex = new THREE.TextureLoader().load(rurl);
+      tex.magFilter = THREE.NearestFilter;
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+      npcSprite = new THREE.Sprite(mat);
+      npcSprite.scale.set(1.0, 1.4, 1);
+      scene.add(npcSprite);
+      npcTexCache[rurl] = tex;
+    } else if (npcSprite.material.map !== npcTexCache[rurl]) {
+      if (!npcTexCache[rurl]) {
+        const tex = new THREE.TextureLoader().load(rurl);
+        tex.magFilter = THREE.NearestFilter;
+        npcTexCache[rurl] = tex;
+      }
+      npcSprite.material.map = npcTexCache[rurl];
+      npcSprite.material.needsUpdate = true;
+    }
+    npcSprite.visible = true;
+    const bob = Math.sin(time / 500) * 0.05;
+    const gy = groundYAt(x, z);
+    npcSprite.position.set(x, gy + 0.7 + bob, z);
+  }
   function setCompanion(textureUrl, x, z, time) {
     if (!textureUrl) {
       if (companionSprite) { scene.remove(companionSprite); companionSprite = null; }
@@ -519,10 +568,11 @@ const VoxelEngine = (function() {
     for (const spr of floaterSprites) {
       const f = spr.userData.floater;
       if (!f) continue;
-      // Wander around their home tile
-      const wx = f.hx + Math.sin(time * f.sp + f.ph) * f.rg;
-      const wz = f.hy + Math.cos(time * f.sp * 0.77 + f.ph * 1.3) * f.rg * 0.7;
-      const bob = Math.sin(time / 600 + f.ph) * 0.18;
+      // Wander around their home tile — 3x the 2D speed so motion is clearly visible
+      const wsp = f.sp * 3;
+      const wx = f.hx + Math.sin(time * wsp + f.ph) * f.rg;
+      const wz = f.hy + Math.cos(time * wsp * 0.77 + f.ph * 1.3) * f.rg * 0.7;
+      const bob = Math.sin(time / 450 + f.ph) * 0.22;
       spr.position.set(wx + 0.5, 1.6 + bob, wz + 0.5);
       // Re-composite when the thumbnail cycles (the inner card animation)
       const texes = spr.userData.texes;
@@ -556,6 +606,7 @@ const VoxelEngine = (function() {
     setCharacter: setCharacter,
     setCharacterTexture: setCharacterTexture,
     setCompanion: setCompanion,
+    setNPC: setNPC,
     getScene: function() { return scene; },
     getCamera: function() { return camera; },
     isInitialized: function() { return initialized; },
