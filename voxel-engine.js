@@ -116,7 +116,12 @@ const VoxelEngine = (function() {
     if (/path|road/i.test(n)) return DIORAMA.pathHeight;
     if (/grass/i.test(n)) return DIORAMA.groundHeight;  // grass is always flat ground, even if solid
     if (/tree/i.test(n)) return -1;  // trees get custom stacked geometry (see buildWorld)
-    if (isSolid) return DIORAMA.solidHeight;
+    // Only structural tiles (doors, roofs, walls) stand tall. Everything else solid
+    // (vegetation, props, misc) renders flat — no more stray tall green boxes.
+    if (isSolid) {
+      if (/door|roof|wall|building|house/i.test(n)) return DIORAMA.solidHeight;
+      return DIORAMA.groundHeight;
+    }
     return DIORAMA.groundHeight;
   }
 
@@ -439,11 +444,14 @@ const VoxelEngine = (function() {
       companionSprite.userData.mat.map = companionTexCache[rurl];
       companionSprite.userData.mat.needsUpdate = true;
     }
-    // Bobbing animation (dreamlings float)
+    // Bobbing animation + ORBIT around the character (circles you, dreamling-style)
     const bob = Math.sin(time / 450) * 0.18;
-    const sway = Math.sin(time / 700) * 0.12;
-    companionSprite.position.set(x + sway, 1.1 + bob, z);
-    companionSprite.rotation.y = Math.sin(time / 800) * 0.3;
+    const orbitR = 1.4;
+    const orbitA = time / 1400;  // one lap every ~9 seconds
+    const ox = Math.cos(orbitA) * orbitR;
+    const oz = Math.sin(orbitA) * orbitR;
+    companionSprite.position.set(x + ox, 1.1 + bob, z + oz);
+    companionSprite.rotation.y = orbitA + Math.PI / 2;  // face tangent to orbit
     // Gentle pulsing scale (breathing)
     const pulse = 1 + Math.sin(time / 600) * 0.06;
     companionSprite.scale.set(pulse, pulse, 1);
@@ -480,6 +488,7 @@ const VoxelEngine = (function() {
     const glowMat = new THREE.MeshBasicMaterial({ color: isGen ? 0x8affea : 0xffd27a });
     const boxGeo = new THREE.BoxGeometry(1, 1, 1);
     const WALL_H = isGen ? 2.2 : 1.8;
+    const cx0 = gx + gw / 2, cz0 = gy + gh / 2;
 
     for (let cx = 0; cx < gw; cx++) {
       for (let cz = 0; cz < gh; cz++) {
@@ -490,35 +499,87 @@ const VoxelEngine = (function() {
         group.add(wall);
       }
     }
+    // PIZZAZZ: glowing trim strip along the top of the walls
+    const trimGlow = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({ color: isGen ? 0xb388ff : 0xffc36a }));
+    trimGlow.position.set(cx0, WALL_H + 0.02, cz0);
+    trimGlow.scale.set(gw + 0.1, 0.07, gh + 0.1);
+    group.add(trimGlow);
     const trim = new THREE.Mesh(boxGeo, trimMat);
-    trim.position.set(gx + gw / 2, WALL_H + 0.08, gy + gh / 2);
-    trim.scale.set(gw + 0.15, 0.16, gh + 0.15);
+    trim.position.set(cx0, WALL_H + 0.12, cz0);
+    trim.scale.set(gw + 0.15, 0.14, gh + 0.15);
     trim.castShadow = true;
     group.add(trim);
+    // PIZZAZZ: corner pillars
+    const pillarGeo = new THREE.BoxGeometry(0.22, WALL_H + 0.3, 0.22);
+    const pillarMat = new THREE.MeshLambertMaterial({ color: isGen ? 0x5a3a8a : 0x5a4028 });
+    [[gx, gy], [gx + gw, gy], [gx, gy + gh], [gx + gw, gy + gh]].forEach(function(p) {
+      const pil = new THREE.Mesh(pillarGeo, pillarMat);
+      pil.position.set(p[0] + 0.5 - (p[0] > gx ? 1 : 0) + (p[0] === gx ? -0.05 : 0.05), (WALL_H + 0.3) / 2, p[1] + 0.5 - (p[1] > gy ? 1 : 0) + (p[1] === gy ? -0.05 : 0.05));
+      pil.castShadow = true;
+      group.add(pil);
+      // glowing cap on each pillar
+      const cap = new THREE.Mesh(boxGeo, glowMat);
+      cap.position.set(pil.position.x, WALL_H + 0.32, pil.position.z);
+      cap.scale.set(0.28, 0.1, 0.28);
+      group.add(cap);
+    });
     const roof = new THREE.Mesh(boxGeo, roofMat);
-    roof.position.set(gx + gw / 2, WALL_H + 0.32, gy + gh / 2);
+    roof.position.set(cx0, WALL_H + 0.36, cz0);
     roof.scale.set(gw + 0.5, 0.35, gh + 0.5);
     roof.castShadow = true;
     group.add(roof);
+    // PIZZAZZ: glowing windows on the walls
+    const winMat = new THREE.MeshBasicMaterial({ color: isGen ? 0x8affea : 0xffe0a0 });
+    for (let i = 0; i < gw; i++) {
+      if ((i + (isGen ? 0 : 1)) % 2 === 0) continue;  // every other bay
+      const win = new THREE.Mesh(boxGeo, winMat);
+      win.position.set(gx + i + 0.5, WALL_H * 0.62, gy + gh + 0.02);
+      win.scale.set(0.45, 0.6, 0.06);
+      group.add(win);
+    }
     if (isGen) {
       const peak = new THREE.Mesh(boxGeo, trimMat);
-      peak.position.set(gx + gw / 2, WALL_H + 0.62, gy + gh / 2);
+      peak.position.set(cx0, WALL_H + 0.66, cz0);
       peak.scale.set(gw * 0.5, 0.25, gh * 0.5);
       peak.castShadow = true;
       group.add(peak);
+      // PIZZAZZ: bigger orb + glow ring + orbiting crystals
       const orb = new THREE.Mesh(
-        new THREE.SphereGeometry(0.35, 16, 16),
-        new THREE.MeshBasicMaterial({ color: 0xc9a0ff })
+        new THREE.SphereGeometry(0.42, 20, 20),
+        new THREE.MeshBasicMaterial({ color: 0xd0a0ff })
       );
-      orb.position.set(gx + gw / 2, WALL_H + 1.0, gy + gh / 2);
+      orb.position.set(cx0, WALL_H + 1.1, cz0);
       group.add(orb);
       group.userData.orb = orb;
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(0.62, 0.05, 8, 24),
+        new THREE.MeshBasicMaterial({ color: 0x8affea })
+      );
+      ring.position.copy(orb.position);
+      ring.rotation.x = Math.PI / 2.4;
+      group.add(ring);
+      group.userData.orbRing = ring;
+      // 3 floating crystals orbiting the orb
+      const cryGeo = new THREE.OctahedronGeometry(0.14);
+      const cryMat = new THREE.MeshBasicMaterial({ color: 0x8affea });
+      group.userData.crystals = [];
+      for (let i = 0; i < 3; i++) {
+        const c = new THREE.Mesh(cryGeo, cryMat);
+        group.add(c);
+        group.userData.crystals.push(c);
+      }
     }
     // Door glow on front face
     const door = new THREE.Mesh(boxGeo, glowMat);
-    door.position.set(gx + gw / 2, 0.55, gy + gh + 0.03);
+    door.position.set(cx0, 0.55, gy + gh + 0.03);
     door.scale.set(0.6, 1.1, 0.08);
     group.add(door);
+    // PIZZAZZ: door frame glow
+    const frame = new THREE.Mesh(boxGeo, trimMat);
+    frame.position.set(cx0, 0.55, gy + gh + 0.01);
+    frame.scale.set(0.78, 1.28, 0.05);
+    group.add(frame);
+    door.position.z = gy + gh + 0.04;  // door in front of frame
   }
 
   function clearGenerator() {
@@ -582,6 +643,113 @@ const VoxelEngine = (function() {
   function refreshFloaterTextures() {
     for (const spr of floaterSprites) compositeFloater(spr);
   }
+  // Returns true if the mask looks like the generator's circular blob fallback
+  // (ellipse, not a real dreamling outline). Those floaters are skipped entirely.
+  function isBlobMask(maskIm) {
+    try {
+      const mc = document.createElement("canvas"); mc.width = mc.height = 64;
+      const mx = mc.getContext("2d", { willReadFrequently: true });
+      mx.drawImage(maskIm, 0, 0, 64, 64);
+      const d = mx.getImageData(0, 0, 64, 64).data;
+      const alpha = function(x, y) { return d[(y * 64 + x) * 4 + 3]; };
+      let solidTop = 0;
+      for (const x of [20, 26, 32, 38, 44]) if (alpha(x, 8) > 100) solidTop++;
+      const leftSolid = alpha(10, 32) > 100, rightSolid = alpha(54, 32) > 100;
+      return solidTop >= 4 && leftSolid && rightSolid;
+    } catch (e) { return false; }
+  }
+  // Trace the outline of a mask image into a THREE.Shape (for extruded 3D dreamlings).
+  // Uses Moore-neighbor contour tracing on the alpha channel.
+  function maskToShape(maskIm) {
+    const S = 64;
+    const cv = document.createElement("canvas"); cv.width = cv.height = S;
+    const cx = cv.getContext("2d", { willReadFrequently: true });
+    cx.drawImage(maskIm, 0, 0, S, S);
+    const d = cx.getImageData(0, 0, S, S).data;
+    const solid = function(x, y) {
+      if (x < 0 || y < 0 || x >= S || y >= S) return false;
+      return d[(y * S + x) * 4 + 3] > 100;
+    };
+    // Find a starting edge pixel (leftmost solid pixel of the middle row band)
+    let sx = -1, sy = -1;
+    for (let y = 0; y < S && sx < 0; y++) for (let x = 0; x < S; x++) {
+      if (solid(x, y) && !solid(x - 1, y)) { sx = x; sy = y; break; }
+    }
+    if (sx < 0) return null;
+    // Moore-neighbor tracing (8-connectivity, clockwise)
+    const dirs = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+    const pts = [];
+    let cxp = sx, cyp = sy, dir = 6;  // start facing up
+    const maxSteps = 2000;
+    for (let step = 0; step < maxSteps; step++) {
+      pts.push([cxp, cyp]);
+      // Search neighbors clockwise starting from (dir+6)%8
+      let found = false;
+      for (let i = 0; i < 8; i++) {
+        const nd = (dir + 6 + i) % 8;
+        const nx = cxp + dirs[nd][0], ny = cyp + dirs[nd][1];
+        if (solid(nx, ny)) {
+          cxp = nx; cyp = ny; dir = nd; found = true;
+          break;
+        }
+      }
+      if (!found) break;
+      if (cxp === sx && cyp === sy && pts.length > 10) break;  // closed loop
+    }
+    if (pts.length < 10) return null;
+    // Simplify: keep every 3rd point to reduce vertex count
+    const simp = [];
+    for (let i = 0; i < pts.length; i += 3) simp.push(pts[i]);
+    // Build THREE.Shape (flip Y, center at origin, scale to ~1.3 units)
+    const shape = new THREE.Shape();
+    const sc = 1.3 / S;
+    simp.forEach(function(p, i) {
+      const x = (p[0] - S / 2) * sc, y = (S / 2 - p[1]) * sc;
+      if (i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
+    });
+    shape.closePath();
+    return shape;
+  }
+  // Cache of extruded geometries by mask URL (so we don't re-trace every time)
+  const extrudeGeoCache = {};
+  function getExtrudedDreamling(maskIm, maskKey) {
+    if (extrudeGeoCache[maskKey]) return extrudeGeoCache[maskKey];
+    const shape = maskToShape(maskIm);
+    if (!shape) return null;
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: 0.35, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 2
+    });
+    geo.center();
+    // Fix UVs: ExtrudeGeometry UVs are in shape units; remap to 0-1 for the texture
+    geo.computeBoundingBox();
+    const bb = geo.boundingBox, size = new THREE.Vector3();
+    bb.getSize(size);
+    const uv = geo.attributes.uv, pos = geo.attributes.position;
+    for (let i = 0; i < uv.count; i++) {
+      uv.setXY(i, (pos.getX(i) - bb.min.x) / size.x, (pos.getY(i) - bb.min.y) / size.y);
+    }
+    extrudeGeoCache[maskKey] = geo;
+    return geo;
+  }
+  // Returns true if the mask looks like the generator's circular blob fallback
+  // (ellipse, not a real dreamling outline). Those floaters are skipped entirely.
+  function isBlobMask(maskIm) {
+    try {
+      const mc = document.createElement("canvas"); mc.width = mc.height = 64;
+      const mx = mc.getContext("2d", { willReadFrequently: true });
+      mx.drawImage(maskIm, 0, 0, 64, 64);
+      const d = mx.getImageData(0, 0, 64, 64).data;
+      const alpha = function(x, y) { return d[(y * 64 + x) * 4 + 3]; };
+      // Blob ellipse: center (32,32), rx~23, ry~27. A real dreamling silhouette
+      // has transparent gaps near the top edge; the blob is solid there.
+      // Sample 5 points across the top of the blob area.
+      let solidTop = 0;
+      for (const x of [20, 26, 32, 38, 44]) if (alpha(x, 8) > 100) solidTop++;
+      // Also check: blob is symmetric — left and right edges at mid-height are solid
+      const leftSolid = alpha(10, 32) > 100, rightSolid = alpha(54, 32) > 100;
+      return solidTop >= 4 && leftSolid && rightSolid;
+    } catch (e) { return false; }
+  }
   function setFloaters(list) {
     for (const s of floaterSprites) scene.remove(s);
     floaterSprites = [];
@@ -593,25 +761,51 @@ const VoxelEngine = (function() {
       cv.width = cv.height = 64;
       const ctex = new THREE.CanvasTexture(cv);
       ctex.magFilter = THREE.NearestFilter;
-      // 3D dreamling: a thin extruded slab (box) with the dreamling outline as alpha.
-      // The dream video plays on the faces, cycling thumbnails. Real depth from the side.
+      // Dreamling as EXTRUDED 3D outline: the 2D silhouette traced and given depth.
+      // The dream video plays on its faces, cycling thumbnails. Not a sphere, not a billboard.
       const mat = new THREE.MeshLambertMaterial({ map: ctex, transparent: true, alphaTest: 0.1 });
-      const geo = new THREE.BoxGeometry(1.3, 1.3, 0.25);
-      const mesh = new THREE.Mesh(geo, mat);
+      const mesh = new THREE.Mesh(new THREE.BufferGeometry(), mat);  // geo swapped in when mask loads
       mesh.castShadow = true;
       mesh.position.set(f.hx + 0.5, 1.6, f.hy + 0.5);
-      // Face the camera-ish: rotate to face the fixed camera angle
-      mesh.rotation.y = -0.15;
       mesh.userData.floater = f;
       mesh.userData.canvas = cv;
       mesh.userData.ctex = ctex;
       mesh.userData.thumbIdx = -1;
       mesh.userData.isFloaterMesh = true;
+      mesh.userData.blobChecked = false;
+      mesh.userData.geoReady = false;
       if (hasLegacy) {
         mesh.userData.texes = f.imgs.map(function(im){ return { image: im }; });
         getSilhouette(f.num);
       }
-      compositeFloater(mesh);
+      // Build the extruded outline once the mask is ready. Blob masks are culled.
+      const buildGeo = function() {
+        if (mesh.userData.blobChecked) return;
+        mesh.userData.blobChecked = true;
+        if (!f.mask.complete || !f.mask.naturalWidth) return;
+        if (isBlobMask(f.mask)) {
+          scene.remove(mesh);
+          const i = floaterSprites.indexOf(mesh);
+          if (i >= 0) floaterSprites.splice(i, 1);
+          return;
+        }
+        const maskKey = f.mask.src || ("mask" + floaterSprites.length);
+        const geo = getExtrudedDreamling(f.mask, maskKey);
+        if (geo) {
+          mesh.geometry.dispose();
+          mesh.geometry = geo;
+          mesh.userData.geoReady = true;
+          compositeFloater(mesh);
+        }
+      };
+      if (f.mask) {
+        if (f.mask.complete && f.mask.naturalWidth) buildGeo();
+        else f.mask.onload = buildGeo;
+      } else {
+        // Legacy: no mask, use a simple extruded blob shape
+        mesh.userData.geoReady = true;
+        compositeFloater(mesh);
+      }
       scene.add(mesh);
       floaterSprites.push(mesh);
     }
@@ -627,8 +821,8 @@ const VoxelEngine = (function() {
       const wz = f.hy + Math.cos(time * wsp * 0.77 + f.ph * 1.3) * f.rg * 0.7;
       const bob = Math.sin(time / 450 + f.ph) * 0.22;
       spr.position.set(wx + 0.5, 1.6 + bob, wz + 0.5);
-      // Gentle spin so the 3D extrusion reads from all angles
-      if (spr.userData.isFloaterMesh) spr.rotation.y = -0.15 + Math.sin(time / 900 + f.ph) * 0.35;
+      // Gentle spin so the 3D form reads from all angles
+      if (spr.userData.isFloaterMesh) spr.rotation.y += 0.008;
       // Re-composite when the thumbnail cycles (fast card animation)
       const texes = spr.userData.texes;
       if (texes && texes.length > 1) {
@@ -646,10 +840,20 @@ const VoxelEngine = (function() {
         }
       }
     }
-    // Pulse the generator orb
+    // Pulse the generator orb + spin ring + orbit crystals
     if (genGroup && genGroup.userData.orb) {
       const s = 1 + Math.sin(time / 380) * 0.15;
       genGroup.userData.orb.scale.set(s, s, s);
+      if (genGroup.userData.orbRing) genGroup.userData.orbRing.rotation.z = time / 900;
+      if (genGroup.userData.crystals) {
+        const orbP = genGroup.userData.orb.position;
+        genGroup.userData.crystals.forEach(function(c, i) {
+          const a = time / 700 + i * 2.094;
+          c.position.set(orbP.x + Math.cos(a) * 0.85, orbP.y + Math.sin(time / 500 + i) * 0.18, orbP.z + Math.sin(a) * 0.85);
+          c.rotation.y = time / 400 + i;
+          c.rotation.x = time / 550;
+        });
+      }
     }
   }
 
