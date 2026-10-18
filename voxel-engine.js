@@ -197,7 +197,9 @@ const VoxelEngine = (function() {
       }
       for (const t of treeList) treePositions.push({ c: t.c, r: t.r, texName: name });
       if (!flatList.length) continue;
-      const tex = getTileTexture(name);
+      // All grass tiles share one texture so there are no odd striped patches
+      const texName = /grass/i.test(name) ? "grass1.png" : name;
+      const tex = getTileTexture(texName);
       const isWater = isWaterTile(name);
 
       // Material: textured top, slightly darker sides for voxel depth
@@ -350,25 +352,47 @@ const VoxelEngine = (function() {
   }
   function setCharacter(textureUrl, x, z, bounceY) {
     if (!charSprite) {
-      const tex = new THREE.TextureLoader().load(resolveUrl(textureUrl));
-      tex.magFilter = THREE.NearestFilter;
-      // 3D character: two crossed planes (X-shape) with the sprite texture.
-      // Looks like the 2D sprite from the front, has real depth from the side.
-      const mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, alphaTest: 0.1 });
+      // REAL 3D character: voxel humanoid built from boxes. Head, torso, arms, legs.
       charSprite = new THREE.Group();
-      const geo = new THREE.PlaneGeometry(1.1, 1.5);
-      const p1 = new THREE.Mesh(geo, mat);
-      const p2 = new THREE.Mesh(geo, mat);
-      p2.rotation.y = Math.PI / 2;
-      p1.castShadow = p2.castShadow = true;
-      charSprite.add(p1); charSprite.add(p2);
-      charSprite.userData.mat = mat;
+      const skinMat = new THREE.MeshLambertMaterial({ color: 0xf0c8a0 });
+      const shirtMat = new THREE.MeshLambertMaterial({ color: 0x4a8a4a });
+      const pantsMat = new THREE.MeshLambertMaterial({ color: 0x3a5a8a });
+      const hairMat = new THREE.MeshLambertMaterial({ color: 0x2a2018 });
+      // Head (with hair cap)
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 0.45), skinMat);
+      head.position.y = 1.28; head.castShadow = true; charSprite.add(head);
+      const hair = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.18, 0.49), hairMat);
+      hair.position.y = 1.48; hair.castShadow = true; charSprite.add(hair);
+      // Torso
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.6, 0.32), shirtMat);
+      torso.position.y = 0.82; torso.castShadow = true; charSprite.add(torso);
+      // Arms
+      const armGeo = new THREE.BoxGeometry(0.16, 0.55, 0.16);
+      const armL = new THREE.Mesh(armGeo, shirtMat);
+      armL.position.set(-0.36, 0.82, 0); armL.castShadow = true; charSprite.add(armL);
+      const armR = new THREE.Mesh(armGeo, shirtMat);
+      armR.position.set(0.36, 0.82, 0); armR.castShadow = true; charSprite.add(armR);
+      charSprite.userData.armL = armL; charSprite.userData.armR = armR;
+      // Legs
+      const legGeo = new THREE.BoxGeometry(0.2, 0.52, 0.2);
+      const legL = new THREE.Mesh(legGeo, pantsMat);
+      legL.position.set(-0.14, 0.26, 0); legL.castShadow = true; charSprite.add(legL);
+      const legR = new THREE.Mesh(legGeo, pantsMat);
+      legR.position.set(0.14, 0.26, 0); legR.castShadow = true; charSprite.add(legR);
+      charSprite.userData.legL = legL; charSprite.userData.legR = legR;
       charSprite.userData.url = resolveUrl(textureUrl);
       scene.add(charSprite);
     }
-    // Group origin at feet; planes are centered, so lift by half height
     const gy = groundYAt(x, z);
-    charSprite.position.set(x, gy + 0.75 + (bounceY || 0), z);
+    charSprite.position.set(x, gy + (bounceY || 0), z);
+    // Walk swing: arms and legs swing opposite when moving (bounceY indicates motion)
+    const swing = (bounceY ? Math.sin(performance.now() / 130) * 0.5 : 0);
+    if (charSprite.userData.armL) {
+      charSprite.userData.armL.rotation.x = swing;
+      charSprite.userData.armR.rotation.x = -swing;
+      charSprite.userData.legL.rotation.x = -swing;
+      charSprite.userData.legR.rotation.x = swing;
+    }
   }
 
   function setCharacterTexture(url) {
@@ -378,11 +402,8 @@ const VoxelEngine = (function() {
       tex.magFilter = THREE.NearestFilter;
       charTextures[url] = tex;
     }
-    if (charSprite && charSprite.userData.mat) {
-      charSprite.userData.mat.map = charTextures[url];
-      charSprite.userData.mat.needsUpdate = true;
-      charSprite.userData.url = url;
-    }
+    // Texture is cached; the 3D model uses solid colors (no sprite map needed)
+    if (charSprite) charSprite.userData.url = url;
   }
 
   // Companion dreamling: animated billboard sprite that orbits/bobs in 3D
@@ -528,15 +549,22 @@ const VoxelEngine = (function() {
     roof.scale.set(gw + 0.5, 0.35, gh + 0.5);
     roof.castShadow = true;
     group.add(roof);
-    // PIZZAZZ: glowing windows on the walls
+    // PIZZAZZ: one small glowing window per side, centered, no overlap
     const winMat = new THREE.MeshBasicMaterial({ color: isGen ? 0x8affea : 0xffe0a0 });
-    for (let i = 0; i < gw; i++) {
-      if ((i + (isGen ? 0 : 1)) % 2 === 0) continue;  // every other bay
-      const win = new THREE.Mesh(boxGeo, winMat);
-      win.position.set(gx + i + 0.5, WALL_H * 0.62, gy + gh + 0.02);
-      win.scale.set(0.45, 0.6, 0.06);
-      group.add(win);
-    }
+    const winGeo = new THREE.BoxGeometry(0.4, 0.5, 0.06);
+    const winY = WALL_H * 0.62;
+    // front
+    const wF = new THREE.Mesh(winGeo, winMat);
+    wF.position.set(cx0, winY, gy + gh + 0.02); group.add(wF);
+    // back
+    const wB = new THREE.Mesh(winGeo, winMat);
+    wB.position.set(cx0, winY, gy - 0.02); group.add(wB);
+    // left
+    const wL = new THREE.Mesh(winGeo, winMat);
+    wL.position.set(gx - 0.02, winY, cz0); wL.rotation.y = Math.PI / 2; group.add(wL);
+    // right
+    const wR = new THREE.Mesh(winGeo, winMat);
+    wR.position.set(gx + gw + 0.02, winY, cz0); wR.rotation.y = Math.PI / 2; group.add(wR);
     if (isGen) {
       const peak = new THREE.Mesh(boxGeo, trimMat);
       peak.position.set(cx0, WALL_H + 0.66, cz0);
@@ -717,7 +745,7 @@ const VoxelEngine = (function() {
     const shape = maskToShape(maskIm);
     if (!shape) return null;
     const geo = new THREE.ExtrudeGeometry(shape, {
-      depth: 0.35, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 2
+      depth: 0.7, bevelEnabled: true, bevelThickness: 0.18, bevelSize: 0.14, bevelSegments: 3
     });
     geo.center();
     // Fix UVs: ExtrudeGeometry UVs are in shape units; remap to 0-1 for the texture
