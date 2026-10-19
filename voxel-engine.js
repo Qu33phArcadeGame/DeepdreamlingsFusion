@@ -217,10 +217,11 @@ const VoxelEngine = (function() {
       }
       for (const t of treeList) treePositions.push({ c: t.c, r: t.r, texName: name });
       if (!flatList.length) continue;
-      // Procedural mottled grass for ALL ground tiles — no more striped variants.
-      // (The striped tile was a grass variant with vertical lines; this replaces it.)
+      // Procedural mottled grass for ALL flat ground tiles — kills the striped
+      // variants no matter what the tile is named. Water/dirt/path keep theirs.
       let tex;
-      if (/grass/i.test(name)) {
+      const ln = name.toLowerCase();
+      if (!/water|dirt|path|road|door|roof/i.test(ln)) {
         tex = getProceduralGrass();
       } else {
         tex = getTileTexture(name);
@@ -375,55 +376,58 @@ const VoxelEngine = (function() {
     const h = tileHeight(name, solid);
     return h < 0 ? 0 : h;
   }
+  // Character as EXTRUDED 3D sprite: Coby's actual sprite art traced and given depth.
+  // Like the dreamlings — the real outline, not a blocky humanoid.
+  const charGeoCache = {};
+  function getCharGeo(spriteIm, key) {
+    if (charGeoCache[key]) return charGeoCache[key];
+    const shape = maskToShape(spriteIm);
+    if (!shape) return null;
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: 0.45, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.08, bevelSegments: 2
+    });
+    geo.center();
+    geo.computeBoundingBox();
+    const bb = geo.boundingBox, size = new THREE.Vector3();
+    bb.getSize(size);
+    const uv = geo.attributes.uv, pos = geo.attributes.position;
+    for (let i = 0; i < uv.count; i++) {
+      uv.setXY(i, (pos.getX(i) - bb.min.x) / size.x, (pos.getY(i) - bb.min.y) / size.y);
+    }
+    charGeoCache[key] = geo;
+    return geo;
+  }
   function setCharacter(textureUrl, x, z, bounceY) {
+    const rurl = resolveUrl(textureUrl);
     if (!charSprite) {
-      // REAL 3D character: voxel humanoid with Coby's sprite texture on the face/torso.
       charSprite = new THREE.Group();
-      const rurl = resolveUrl(textureUrl);
-      const faceTex = new THREE.TextureLoader().load(rurl);
-      faceTex.magFilter = THREE.NearestFilter;
-      const skinMat = new THREE.MeshLambertMaterial({ color: 0xf0c8a0 });
-      const faceMat = new THREE.MeshLambertMaterial({ map: faceTex, transparent: true, alphaTest: 0.1 });
-      const shirtMat = new THREE.MeshLambertMaterial({ color: 0x4a8a4a });
-      const shirtFaceMat = new THREE.MeshLambertMaterial({ map: faceTex, transparent: true, alphaTest: 0.1 });
-      const pantsMat = new THREE.MeshLambertMaterial({ color: 0x3a5a8a });
-      const hairMat = new THREE.MeshLambertMaterial({ color: 0x2a2018 });
-      charSprite.userData.faceTex = faceTex;
-      charSprite.userData.faceMat = faceMat;
-      charSprite.userData.shirtFaceMat = shirtFaceMat;
-      // Head: sprite face on front, skin on other sides, hair cap on top
-      const headMats = [skinMat, skinMat, hairMat, skinMat, faceMat, skinMat];
-      const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.45, 0.45), headMats);
-      head.position.y = 1.28; head.castShadow = true; charSprite.add(head);
-      // Torso: sprite on front, shirt color elsewhere
-      const torsoMats = [shirtMat, shirtMat, shirtMat, shirtMat, shirtFaceMat, shirtMat];
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.6, 0.32), torsoMats);
-      torso.position.y = 0.82; torso.castShadow = true; charSprite.add(torso);
-      // Arms
-      const armGeo = new THREE.BoxGeometry(0.16, 0.55, 0.16);
-      const armL = new THREE.Mesh(armGeo, shirtMat);
-      armL.position.set(-0.36, 0.82, 0); armL.castShadow = true; charSprite.add(armL);
-      const armR = new THREE.Mesh(armGeo, shirtMat);
-      armR.position.set(0.36, 0.82, 0); armR.castShadow = true; charSprite.add(armR);
-      charSprite.userData.armL = armL; charSprite.userData.armR = armR;
-      // Legs
-      const legGeo = new THREE.BoxGeometry(0.2, 0.52, 0.2);
-      const legL = new THREE.Mesh(legGeo, pantsMat);
-      legL.position.set(-0.14, 0.26, 0); legL.castShadow = true; charSprite.add(legL);
-      const legR = new THREE.Mesh(legGeo, pantsMat);
-      legR.position.set(0.14, 0.26, 0); legR.castShadow = true; charSprite.add(legR);
-      charSprite.userData.legL = legL; charSprite.userData.legR = legR;
       charSprite.userData.url = rurl;
+      charSprite.userData.geoBuilt = false;
       scene.add(charSprite);
+      // Load the sprite, trace it, extrude it
+      const im = new Image();
+      im.onload = function() {
+        const geo = getCharGeo(im, rurl);
+        if (!geo || !charSprite) return;
+        const tex = new THREE.TextureLoader().load(rurl);
+        tex.magFilter = THREE.NearestFilter;
+        const mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow = true;
+        // Scale to character height (~1.5 units)
+        mesh.scale.set(1.4, 1.6, 1.4);
+        charSprite.add(mesh);
+        charSprite.userData.mesh = mesh;
+        charSprite.userData.mat = mat;
+        charSprite.userData.geoBuilt = true;
+      };
+      im.src = rurl;
     }
     const gy = groundYAt(x, z);
-    charSprite.position.set(x, gy + (bounceY || 0), z);
-    const swing = (bounceY ? Math.sin(performance.now() / 130) * 0.5 : 0);
-    if (charSprite.userData.armL) {
-      charSprite.userData.armL.rotation.x = swing;
-      charSprite.userData.armR.rotation.x = -swing;
-      charSprite.userData.legL.rotation.x = -swing;
-      charSprite.userData.legR.rotation.x = swing;
+    charSprite.position.set(x, gy + 0.8 + (bounceY || 0), z);
+    // Subtle lean into movement (bounceY indicates motion)
+    if (charSprite.userData.mesh && bounceY) {
+      charSprite.userData.mesh.rotation.y = Math.sin(performance.now() / 300) * 0.15;
     }
   }
 
@@ -434,13 +438,30 @@ const VoxelEngine = (function() {
       tex.magFilter = THREE.NearestFilter;
       charTextures[url] = tex;
     }
-    // Swap the sprite texture on the 3D model's face and torso
-    if (charSprite && charSprite.userData.faceMat) {
-      charSprite.userData.faceMat.map = charTextures[url];
-      charSprite.userData.faceMat.needsUpdate = true;
-      charSprite.userData.shirtFaceMat.map = charTextures[url];
-      charSprite.userData.shirtFaceMat.needsUpdate = true;
+    // Rebuild the extruded sprite with the new texture (different outfit/area)
+    if (charSprite && charSprite.userData.url !== url) {
       charSprite.userData.url = url;
+      charSprite.userData.geoBuilt = false;
+      // Clear old mesh
+      while (charSprite.children.length > 0) {
+        const c = charSprite.children[0];
+        charSprite.remove(c);
+        if (c.geometry) c.geometry.dispose();
+      }
+      const im = new Image();
+      im.onload = function() {
+        const geo = getCharGeo(im, url);
+        if (!geo || !charSprite) return;
+        const mat = new THREE.MeshLambertMaterial({ map: charTextures[url], transparent: true, alphaTest: 0.1 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow = true;
+        mesh.scale.set(1.4, 1.6, 1.4);
+        charSprite.add(mesh);
+        charSprite.userData.mesh = mesh;
+        charSprite.userData.mat = mat;
+        charSprite.userData.geoBuilt = true;
+      };
+      im.src = url;
     }
   }
 
