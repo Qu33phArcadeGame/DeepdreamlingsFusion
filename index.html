@@ -624,16 +624,49 @@ function drawEncounter(){ if(!enc) return;
   else if(gim&&gim.complete&&gim.naturalWidth){ shadow(pcx,pcy+psz*0.5+bob,psz*0.4,psz*0.14); var pw=psz*1.05, ph=psz*1.5; x.drawImage(gim,pcx-pw/2,pcy-ph+psz*0.5+bob,pw,ph); } else { x.fillStyle="#8affea"; x.beginPath(); x.arc(pcx,pcy+bob,psz*0.4,0,7); x.fill(); }
   if(enc.grow>=0.95 && (enc.phase==="ready"||enc.phase==="spinning")){
     var g=slotGeom(b);
+    var now2=Date.now();
+    // DEEPDREAM AESTHETIC: pulsing morphing glow behind the reels
+    var dg=x.createRadialGradient(b.x+b.s/2,b.y+b.s*0.35,10,b.x+b.s/2,b.y+b.s*0.35,b.s*0.55);
+    var hue=(now2/50)%360;
+    dg.addColorStop(0,"hsla("+hue+",80%,60%,0.25)");
+    dg.addColorStop(0.5,"hsla("+((hue+60)%360)+",70%,45%,0.15)");
+    dg.addColorStop(1,"rgba(0,0,0,0)");
+    x.fillStyle=dg; x.fillRect(b.x,b.y,b.s,b.s);
+    // Slot machine body with neon edge
     x.fillStyle="rgba(20,8,36,0.88)"; roundRect(g.mx0,g.my0,g.mw,g.mh,10); x.fill();
-    x.strokeStyle="#c9a0ff"; x.lineWidth=2; roundRect(g.mx0,g.my0,g.mw,g.mh,10); x.stroke();
+    x.strokeStyle="hsl("+hue+",90%,70%)"; x.lineWidth=3; roundRect(g.mx0,g.my0,g.mw,g.mh,10); x.stroke();
+    // Outer glow
+    x.save(); x.shadowColor="hsl("+hue+",90%,60%)"; x.shadowBlur=18;
+    x.strokeStyle="hsl("+hue+",90%,60%)"; x.lineWidth=1; roundRect(g.mx0,g.my0,g.mw,g.mh,10); x.stroke();
+    x.restore();
     for(var i=0;i<enc.slots.length;i++){ var s=enc.slots[i], r=g.reels[i];
-      x.fillStyle="rgba(6,3,14,0.9)"; roundRect(r.x,r.y,r.w,r.h,8); x.fill();
+      // Reel with deepdream-tinted background
+      var rg=x.createLinearGradient(r.x,r.y,r.x,r.y+r.h);
+      rg.addColorStop(0,"rgba(10,5,25,0.95)");
+      rg.addColorStop(0.5,"hsla("+((hue+i*40)%360)+",60%,25%,0.9)");
+      rg.addColorStop(1,"rgba(6,3,14,0.95)");
+      x.fillStyle=rg; roundRect(r.x,r.y,r.w,r.h,8); x.fill();
       x.save(); roundRect(r.x,r.y,r.w,r.h,8); x.clip();
       var showNum=(enc.phase==="ready")?s.num:s.show, showT=s.stopped?s.t:(enc.phase==="ready"?s.t:"red");
       var blur=(!s.stopped && enc.phase==="spinning")?Math.sin(enc.spinT*1.3)*r.h*0.06:0;
+      // Dream glow behind the dreamling
+      if(enc.phase==="spinning" && !s.stopped){
+        var sg=x.createRadialGradient(r.cx,r.cy+blur,5,r.cx,r.cy+blur,r.w*0.7);
+        sg.addColorStop(0,"hsla("+((hue+i*50)%360)+",90%,65%,0.5)");
+        sg.addColorStop(1,"rgba(0,0,0,0)");
+        x.fillStyle=sg; x.fillRect(r.x,r.y,r.w,r.h);
+      }
       drawPix(showNum,r.cx,r.cy+blur,g.csz,showT);
       x.restore();
-      x.strokeStyle=s.stopped?TAG_COLOR[s.t]:"#5a4a7a"; x.lineWidth=s.stopped?3:2; roundRect(r.x,r.y,r.w,r.h,8); x.stroke();
+      x.strokeStyle=s.stopped?TAG_COLOR[s.t]:"hsl("+((hue+i*30)%360)+",70%,60%)";
+      x.lineWidth=s.stopped?3:2; roundRect(r.x,r.y,r.w,r.h,8); x.stroke();
+    }
+    // "SPIN" hint with pulse
+    if(enc.phase==="ready"){
+      var pulse=0.6+0.4*Math.sin(now2/300);
+      x.fillStyle="rgba(201,160,255,"+pulse+")";
+      x.font="bold "+Math.round(b.s*0.045)+"px sans-serif"; x.textAlign="center";
+      x.fillText("▼ SPIN ▼", b.x+b.s/2, g.my0+g.mh+b.s*0.06);
     }
   }
   if(enc.phase==="fusing"){ enc.fuseT++; drawFusionAnim(b,slotGeom(b)); if(enc.fuseT>=FUSE_FRAMES) enc.phase="result"; }

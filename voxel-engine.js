@@ -313,6 +313,82 @@ const VoxelEngine = (function() {
     baseMesh.receiveShadow = true;
     worldGroup.add(baseMesh);
 
+    // SLOT MACHINE markers on water: 3D slot machines floating on each water region
+    // so players know there's something in the water (encounters live here).
+    (function addWaterSlots(){
+      // Find water tiles and group into contiguous regions via flood fill
+      const waterSet = {};
+      const waterTiles = [];
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        const idx = M.map[r][c];
+        if (idx < 0 || idx >= tiles.length) continue;
+        if (/water/i.test(tiles[idx] || "")) {
+          waterSet[c + "," + r] = true;
+          waterTiles.push({ c: c, r: r });
+        }
+      }
+      if (!waterTiles.length) return;
+      const visited = {}, regions = [];
+      waterTiles.forEach(function(t) {
+        const key = t.c + "," + t.r;
+        if (visited[key]) return;
+        const region = [], stack = [t];
+        visited[key] = true;
+        while (stack.length) {
+          const cur = stack.pop();
+          region.push(cur);
+          [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d) {
+            const nk = (cur.c + d[0]) + "," + (cur.r + d[1]);
+            if (waterSet[nk] && !visited[nk]) { visited[nk] = true; stack.push({ c: cur.c + d[0], r: cur.r + d[1] }); }
+          });
+        }
+        if (region.length >= 4) regions.push(region);  // only sizable water
+      });
+      // Build a 3D slot machine for each region (at its center tile)
+      const slotGroup = new THREE.Group();
+      const bodyMat = new THREE.MeshLambertMaterial({ color: 0x6a1a9a });
+      const panelMat = new THREE.MeshLambertMaterial({ color: 0x1a0a2a });
+      const reelMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const glowMat = new THREE.MeshBasicMaterial({ color: 0xff4ad8 });
+      const leverMat = new THREE.MeshLambertMaterial({ color: 0xc0c0c0 });
+      regions.forEach(function(region) {
+        // Center of region
+        let sc = 0, sr = 0;
+        region.forEach(function(t) { sc += t.c; sr += t.r; });
+        sc = Math.round(sc / region.length); sr = Math.round(sr / region.length);
+        const machine = new THREE.Group();
+        // Body
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.7), bodyMat);
+        body.position.y = 0.55; body.castShadow = true; machine.add(body);
+        // Reel panel (front)
+        const panel = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.08), panelMat);
+        panel.position.set(0, 0.72, 0.36); machine.add(panel);
+        // 3 reels (glowing white squares)
+        for (let i = -1; i <= 1; i++) {
+          const reel = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.28, 0.04), reelMat);
+          reel.position.set(i * 0.22, 0.72, 0.41); machine.add(reel);
+        }
+        // Top glow bar
+        const topGlow = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.1, 0.74), glowMat);
+        topGlow.position.y = 1.15; machine.add(topGlow);
+        // Lever (right side)
+        const leverArm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 8), leverMat);
+        leverArm.position.set(0.52, 0.85, 0); leverArm.rotation.z = -0.4; machine.add(leverArm);
+        const leverBall = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 12), glowMat);
+        leverBall.position.set(0.62, 1.08, 0); machine.add(leverBall);
+        // Position on water (y = water height + bob offset)
+        machine.position.set(sc + 0.5, DIORAMA.waterHeight + 0.1, sr + 0.5);
+        machine.userData.isWaterSlot = true;
+        machine.userData.baseY = DIORAMA.waterHeight + 0.1;
+        machine.userData.phase = Math.random() * 6.28;
+        slotGroup.add(machine);
+      });
+      worldGroup.add(slotGroup);
+      // Store for animation
+      if (!worldGroup.userData.waterSlots) worldGroup.userData.waterSlots = [];
+      slotGroup.children.forEach(function(m) { worldGroup.userData.waterSlots.push(m); });
+    })();
+
     // Decorative walk-through bushes: small green blobs scattered on grass.
     // Purely visual — NOT in the collision map, you walk right through them.
     (function addBushes(){
@@ -950,6 +1026,13 @@ const VoxelEngine = (function() {
   // Called per frame with time
   function animate(time) {
     animateFloaters(time);
+    // Bob the water slot machines
+    if (worldGroup && worldGroup.userData.waterSlots) {
+      worldGroup.userData.waterSlots.forEach(function(m) {
+        m.position.y = m.userData.baseY + Math.sin(time / 600 + m.userData.phase) * 0.12;
+        m.rotation.y = Math.sin(time / 1200 + m.userData.phase) * 0.25;
+      });
+    }
   }
 
   return {
