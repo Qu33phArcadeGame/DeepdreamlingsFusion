@@ -13,6 +13,7 @@ const VoxelEngine = (function() {
   let companionSprite = null;
   let floaterSprites = [];
   let genGroup = null;
+  let encounterSlot = null;
   let initialized = false;
   let mapData = null;
   let tileSize3D = 1;
@@ -172,7 +173,8 @@ const VoxelEngine = (function() {
   }
 
   // Build the voxel world from map JSON
-  function buildWorld(M) {
+  function buildWorld(M, mapName) {
+    // mapName: "map" for Dream Core, used for Dream-Core-only fixes (procedural grass)
     mapData = M;
     // Clear old world
     while (worldGroup.children.length > 0) {
@@ -217,11 +219,12 @@ const VoxelEngine = (function() {
       }
       for (const t of treeList) treePositions.push({ c: t.c, r: t.r, texName: name });
       if (!flatList.length) continue;
-      // Procedural mottled grass for ALL flat ground tiles — kills the striped
-      // variants no matter what the tile is named. Water/dirt/path keep theirs.
+      // Procedural grass ONLY for Dream Core's ground tiles (fixes the striped tile).
+      // Other areas (Woods, Meadow, Sky, Grove) keep their own textures — zentangle art etc.
       let tex;
       const ln = name.toLowerCase();
-      if (!/water|dirt|path|road|door|roof/i.test(ln)) {
+      const isDreamCore = (mapName === "map");
+      if (isDreamCore && !/water|dirt|path|road|door|roof/i.test(ln)) {
         tex = getProceduralGrass();
       } else {
         tex = getTileTexture(name);
@@ -345,38 +348,74 @@ const VoxelEngine = (function() {
         if (region.length >= 4) regions.push(region);  // only sizable water
       });
       // Build a 3D slot machine for each region (at its center tile)
+      // DETAILED model: pedestal, body, reel window with symbols, marquee, lever
       const slotGroup = new THREE.Group();
-      const bodyMat = new THREE.MeshLambertMaterial({ color: 0x6a1a9a });
-      const panelMat = new THREE.MeshLambertMaterial({ color: 0x1a0a2a });
+      const bodyMat = new THREE.MeshLambertMaterial({ color: 0x5a1a8a });
+      const darkMat = new THREE.MeshLambertMaterial({ color: 0x1a0a2e });
+      const goldMat = new THREE.MeshLambertMaterial({ color: 0xd4a017 });
       const reelMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-      const glowMat = new THREE.MeshBasicMaterial({ color: 0xff4ad8 });
-      const leverMat = new THREE.MeshLambertMaterial({ color: 0xc0c0c0 });
+      const glowPink = new THREE.MeshBasicMaterial({ color: 0xff4ad8 });
+      const glowCyan = new THREE.MeshBasicMaterial({ color: 0x4ad8ff });
+      const leverMat = new THREE.MeshLambertMaterial({ color: 0xe0e0e0 });
       regions.forEach(function(region) {
-        // Center of region
         let sc = 0, sr = 0;
         region.forEach(function(t) { sc += t.c; sr += t.r; });
         sc = Math.round(sc / region.length); sr = Math.round(sr / region.length);
         const machine = new THREE.Group();
-        // Body
-        const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.7), bodyMat);
-        body.position.y = 0.55; body.castShadow = true; machine.add(body);
-        // Reel panel (front)
-        const panel = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.08), panelMat);
-        panel.position.set(0, 0.72, 0.36); machine.add(panel);
-        // 3 reels (glowing white squares)
+        // Pedestal base
+        const ped = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.25, 0.9), darkMat);
+        ped.position.y = 0.12; ped.castShadow = true; machine.add(ped);
+        // Gold trim on pedestal
+        const pedTrim = new THREE.Mesh(new THREE.BoxGeometry(1.14, 0.06, 0.94), goldMat);
+        pedTrim.position.y = 0.27; machine.add(pedTrim);
+        // Main body
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 0.7), bodyMat);
+        body.position.y = 0.9; body.castShadow = true; machine.add(body);
+        // Side panels (darker)
+        const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.0, 0.6), darkMat);
+        sideL.position.set(-0.46, 0.9, 0); machine.add(sideL);
+        const sideR = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.0, 0.6), darkMat);
+        sideR.position.set(0.46, 0.9, 0); machine.add(sideR);
+        // Reel window (recessed dark)
+        const winFrame = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.5, 0.1), goldMat);
+        winFrame.position.set(0, 1.05, 0.32); machine.add(winFrame);
+        const winBg = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.42, 0.06), darkMat);
+        winBg.position.set(0, 1.05, 0.35); machine.add(winBg);
+        // 3 reels with symbols (colored diamonds)
+        const symColors = [0xff5555, 0x55ff55, 0x5555ff];
         for (let i = -1; i <= 1; i++) {
-          const reel = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.28, 0.04), reelMat);
-          reel.position.set(i * 0.22, 0.72, 0.41); machine.add(reel);
+          const reel = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.32, 0.04), reelMat);
+          reel.position.set(i * 0.22, 1.05, 0.39); machine.add(reel);
+          // Symbol (small diamond)
+          const sym = new THREE.Mesh(new THREE.OctahedronGeometry(0.06),
+            new THREE.MeshBasicMaterial({ color: symColors[i+1] }));
+          sym.position.set(i * 0.22, 1.05, 0.42); machine.add(sym);
+          machine.userData["sym"+i] = sym;
         }
-        // Top glow bar
-        const topGlow = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.1, 0.74), glowMat);
-        topGlow.position.y = 1.15; machine.add(topGlow);
-        // Lever (right side)
-        const leverArm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 8), leverMat);
-        leverArm.position.set(0.52, 0.85, 0); leverArm.rotation.z = -0.4; machine.add(leverArm);
-        const leverBall = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 12), glowMat);
-        leverBall.position.set(0.62, 1.08, 0); machine.add(leverBall);
-        // Position on water (y = water height + bob offset)
+        // Marquee top (glowing)
+        const marquee = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.28, 0.74), darkMat);
+        marquee.position.y = 1.64; marquee.castShadow = true; machine.add(marquee);
+        const marqGlow = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.1, 0.76), glowPink);
+        marqGlow.position.y = 1.8; machine.add(marqGlow);
+        // "SPIN" lights (small glowing dots)
+        for (let li = 0; li < 5; li++) {
+          const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8),
+            li % 2 ? glowPink : glowCyan);
+          bulb.position.set(-0.36 + li * 0.18, 1.64, 0.38); machine.add(bulb);
+        }
+        // Lever (right side) with pivot
+        const leverBase = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.08, 10), darkMat);
+        leverBase.position.set(0.5, 1.2, 0); leverBase.rotation.z = Math.PI/2; machine.add(leverBase);
+        const leverArm = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.55, 8), leverMat);
+        leverArm.position.set(0.58, 1.45, 0); leverArm.rotation.z = -0.35; machine.add(leverArm);
+        machine.userData.leverArm = leverArm;
+        const leverBall = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), glowPink);
+        leverBall.position.set(0.68, 1.7, 0); machine.add(leverBall);
+        machine.userData.leverBall = leverBall;
+        // Coin tray at bottom front
+        const tray = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.2), darkMat);
+        tray.position.set(0, 0.38, 0.4); machine.add(tray);
+        // Position on water
         machine.position.set(sc + 0.5, DIORAMA.waterHeight + 0.1, sr + 0.5);
         machine.userData.isWaterSlot = true;
         machine.userData.baseY = DIORAMA.waterHeight + 0.1;
@@ -484,17 +523,43 @@ const VoxelEngine = (function() {
       const im = new Image();
       im.onload = function() {
         const geo = getCharGeo(im, rurl);
-        if (!geo || !charSprite) return;
-        const tex = new THREE.TextureLoader().load(rurl);
-        tex.magFilter = THREE.NearestFilter;
-        const mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
-        const mesh = new THREE.Mesh(geo, mat);
+        if (!charSprite) return;
+        let mesh;
+        if (geo) {
+          const tex = new THREE.TextureLoader().load(rurl);
+          tex.magFilter = THREE.NearestFilter;
+          const mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1 });
+          mesh = new THREE.Mesh(geo, mat);
+          mesh.scale.set(1.4, 1.6, 1.4);
+          charSprite.userData.mat = mat;
+        } else {
+          // Fallback: simple 3D figure if tracing fails (never vanish)
+          const fbMat = new THREE.MeshLambertMaterial({ color: 0x8a6aba });
+          mesh = new THREE.Group();
+          const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.4), fbMat);
+          b1.position.y = 1.25; mesh.add(b1);
+          const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.7, 0.35), fbMat);
+          b2.position.y = 0.65; mesh.add(b2);
+        }
         mesh.castShadow = true;
-        // Scale to character height (~1.5 units)
-        mesh.scale.set(1.4, 1.6, 1.4);
+        // Clear any old mesh first
+        while (charSprite.children.length > 0) charSprite.remove(charSprite.children[0]);
         charSprite.add(mesh);
         charSprite.userData.mesh = mesh;
-        charSprite.userData.mat = mat;
+        charSprite.userData.geoBuilt = true;
+      };
+      im.onerror = function() {
+        // Sprite 404: fallback figure so the character never vanishes
+        if (!charSprite || charSprite.userData.geoBuilt) return;
+        const fbMat = new THREE.MeshLambertMaterial({ color: 0x8a6aba });
+        const mesh = new THREE.Group();
+        const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.4), fbMat);
+        b1.position.y = 1.25; b1.castShadow = true; mesh.add(b1);
+        const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.7, 0.35), fbMat);
+        b2.position.y = 0.65; b2.castShadow = true; mesh.add(b2);
+        while (charSprite.children.length > 0) charSprite.remove(charSprite.children[0]);
+        charSprite.add(mesh);
+        charSprite.userData.mesh = mesh;
         charSprite.userData.geoBuilt = true;
       };
       im.src = rurl;
@@ -1031,7 +1096,21 @@ const VoxelEngine = (function() {
       worldGroup.userData.waterSlots.forEach(function(m) {
         m.position.y = m.userData.baseY + Math.sin(time / 600 + m.userData.phase) * 0.12;
         m.rotation.y = Math.sin(time / 1200 + m.userData.phase) * 0.25;
+        // Spin the reel symbols
+        for (let i = -1; i <= 1; i++) {
+          const sym = m.userData["sym"+i];
+          if (sym) sym.rotation.y = time / 800 + i;
+        }
+        // Pump the lever
+        if (m.userData.leverArm) {
+          m.userData.leverArm.rotation.z = -0.35 + Math.sin(time / 900 + m.userData.phase) * 0.15;
+        }
       });
+    }
+    // Pulse the encounter slot marquee
+    if (encounterSlot) {
+      encounterSlot.userData.phase += 0.05;
+      encounterSlot.rotation.y = Math.sin(encounterSlot.userData.phase * 0.3) * 0.1;
     }
   }
 
@@ -1053,5 +1132,49 @@ const VoxelEngine = (function() {
     clearGenerator: clearGenerator,
     addBuilding: addBuilding,
     setFloaters: setFloaters,
+    // Encounter slot: 3D machine that overlays the 2D slot UI during encounters
+    showEncounterSlot: function(wx, wz) {
+      if (encounterSlot && worldGroup) worldGroup.remove(encounterSlot);
+      encounterSlot = null;
+      // Build a detailed machine
+      const m = new THREE.Group();
+      const bodyMat = new THREE.MeshLambertMaterial({ color: 0x6a1aaa });
+      const darkMat = new THREE.MeshLambertMaterial({ color: 0x1a0a2e });
+      const goldMat = new THREE.MeshLambertMaterial({ color: 0xd4a017 });
+      const glowPink = new THREE.MeshBasicMaterial({ color: 0xff4ad8 });
+      const glowCyan = new THREE.MeshBasicMaterial({ color: 0x4ad8ff });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.0, 1.6), bodyMat);
+      body.position.y = 1.5; body.castShadow = true; m.add(body);
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.2, 0.15), goldMat);
+      frame.position.set(0, 1.9, 0.75); m.add(frame);
+      const reelBg = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.0, 0.1),
+        new THREE.MeshBasicMaterial({ color: 0x0a0518 }));
+      reelBg.position.set(0, 1.9, 0.82); m.add(reelBg);
+      const marq = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.5, 1.7), darkMat);
+      marq.position.y = 3.25; m.add(marq);
+      const marqGlow = new THREE.Mesh(new THREE.BoxGeometry(2.34, 0.18, 1.74), glowPink);
+      marqGlow.position.y = 3.55; m.add(marqGlow);
+      for (let i = 0; i < 8; i++) {
+        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8),
+          i % 2 ? glowPink : glowCyan);
+        const a = (i / 8) * Math.PI * 2;
+        bulb.position.set(Math.cos(a) * 1.1, 3.25, Math.sin(a) * 0.8);
+        m.add(bulb);
+      }
+      const lever = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2, 8),
+        new THREE.MeshLambertMaterial({ color: 0xe0e0e0 }));
+      lever.position.set(1.25, 2.2, 0); lever.rotation.z = -0.3; m.add(lever);
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 12), glowPink);
+      ball.position.set(1.45, 2.75, 0); m.add(ball);
+      m.position.set(wx, 0, wz);
+      m.userData.isEncounterSlot = true;
+      m.userData.phase = 0;
+      worldGroup.add(m);
+      encounterSlot = m;
+    },
+    hideEncounterSlot: function() {
+      if (encounterSlot && worldGroup) worldGroup.remove(encounterSlot);
+      encounterSlot = null;
+    },
   };
 })();
