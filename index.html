@@ -74,9 +74,10 @@ const ARCADE_FILE="deepdreamlings.html";     // real binder + cards + fuse anima
 // Per-area config: map filename -> dreamling range, encounter-video prefix, character-sprite prefix
 const AREAS={
   // slots: how many reels the dream slots have here (= how many dreamlings fuse per spin)
-  "map":   { first:1,  last:11, vid:"encounter", guy:"dreamguy",  name:"DREAM CORE",   slots:2 },
-  "woods": { first:12, last:22, vid:"woods",     guy:"dreamwood", name:"WAKING WOODS", slots:3 },
-  "area3": { first:23, last:33, vid:"area3",     guy:"dreamarea3", name:"AREA 3",      slots:3 }
+  // guy prefixes use the tinted per-area sprites: dreamguy_{core,woods,meadow,sky,grove}_[F,B,L,R].png
+  "map":   { first:1,  last:11, vid:"encounter", guy:"dreamguy",         name:"DREAM CORE",      slots:2 },
+  "woods": { first:12, last:22, vid:"woods",     guy:"dreamguy_woods",   name:"WAKING WOODS",    slots:3 },
+  "area3": { first:23, last:33, vid:"area3",     guy:"dreamguy_meadow",  name:"ZENTANGLE MEADOW", slots:3 }
 };
 const DEFAULT_AREA=AREAS["map"];
 let area=AREAS[START_MAP]||DEFAULT_AREA;
