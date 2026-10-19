@@ -635,22 +635,25 @@ function drawEncounter(){ if(!enc) return;
     dg.addColorStop(0.5,"hsla("+((hue+60)%360)+",70%,45%,0.15)");
     dg.addColorStop(1,"rgba(0,0,0,0)");
     x.fillStyle=dg; x.fillRect(b.x,b.y,b.s,b.s);
-    // Slot machine body: the deepdream encounter video IS the covering
-    // (the 4-directional encounter video plays on the machine's surface)
-    x.save();
-    roundRect(g.mx0, g.my0, g.mw, g.mh, 10);
-    x.clip();
+    // Slot machine body: the deepdream encounter video IS the skin
+    // Draw video directly (no clip issues, no dark wash hiding it)
     if (v && v.readyState >= 2) {
-      // Draw the encounter video as the machine's skin
-      x.drawImage(v, g.mx0, g.my0, g.mw, g.mh);
-      // Darken slightly so the reels stand out
-      x.fillStyle = "rgba(10,5,20,0.35)";
-      x.fillRect(g.mx0, g.my0, g.mw, g.mh);
+      try {
+        x.save();
+        roundRect(g.mx0, g.my0, g.mw, g.mh, 10);
+        x.clip();
+        x.drawImage(v, g.mx0, g.my0, g.mw, g.mh);
+        x.restore();
+      } catch(e) {
+        x.fillStyle = "rgba(20,8,36,0.88)";
+        roundRect(g.mx0, g.my0, g.mw, g.mh, 10);
+        x.fill();
+      }
     } else {
       x.fillStyle = "rgba(20,8,36,0.88)";
-      x.fillRect(g.mx0, g.my0, g.mw, g.mh);
+      roundRect(g.mx0, g.my0, g.mw, g.mh, 10);
+      x.fill();
     }
-    x.restore();
     x.strokeStyle="hsl("+hue+",90%,70%)"; x.lineWidth=3; roundRect(g.mx0,g.my0,g.mw,g.mh,10); x.stroke();
     // Outer glow
     x.save(); x.shadowColor="hsl("+hue+",90%,60%)"; x.shadowBlur=18;
