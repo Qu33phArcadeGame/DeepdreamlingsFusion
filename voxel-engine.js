@@ -13,7 +13,6 @@ const VoxelEngine = (function() {
   let companionSprite = null;
   let floaterSprites = [];
   let genGroup = null;
-  let encounterSlot = null;
   let initialized = false;
   let mapData = null;
   let tileSize3D = 1;
@@ -1088,7 +1087,7 @@ const VoxelEngine = (function() {
   }
 
   // Animate water (subtle y bob on water instances)
-  // Called per frame with time
+    // Pulse the water slot machine symbols (encounter slot removed - Coby didn't want the giant machine)
   function animate(time) {
     animateFloaters(time);
     // Bob the water slot machines
@@ -1106,11 +1105,6 @@ const VoxelEngine = (function() {
           m.userData.leverArm.rotation.z = -0.35 + Math.sin(time / 900 + m.userData.phase) * 0.15;
         }
       });
-    }
-    // Pulse the encounter slot marquee
-    if (encounterSlot) {
-      encounterSlot.userData.phase += 0.05;
-      encounterSlot.rotation.y = Math.sin(encounterSlot.userData.phase * 0.3) * 0.1;
     }
   }
 
@@ -1132,49 +1126,5 @@ const VoxelEngine = (function() {
     clearGenerator: clearGenerator,
     addBuilding: addBuilding,
     setFloaters: setFloaters,
-    // Encounter slot: 3D machine that overlays the 2D slot UI during encounters
-    showEncounterSlot: function(wx, wz) {
-      if (encounterSlot && worldGroup) worldGroup.remove(encounterSlot);
-      encounterSlot = null;
-      // Build a detailed machine
-      const m = new THREE.Group();
-      const bodyMat = new THREE.MeshLambertMaterial({ color: 0x6a1aaa });
-      const darkMat = new THREE.MeshLambertMaterial({ color: 0x1a0a2e });
-      const goldMat = new THREE.MeshLambertMaterial({ color: 0xd4a017 });
-      const glowPink = new THREE.MeshBasicMaterial({ color: 0xff4ad8 });
-      const glowCyan = new THREE.MeshBasicMaterial({ color: 0x4ad8ff });
-      const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.0, 1.6), bodyMat);
-      body.position.y = 1.5; body.castShadow = true; m.add(body);
-      const frame = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.2, 0.15), goldMat);
-      frame.position.set(0, 1.9, 0.75); m.add(frame);
-      const reelBg = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.0, 0.1),
-        new THREE.MeshBasicMaterial({ color: 0x0a0518 }));
-      reelBg.position.set(0, 1.9, 0.82); m.add(reelBg);
-      const marq = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.5, 1.7), darkMat);
-      marq.position.y = 3.25; m.add(marq);
-      const marqGlow = new THREE.Mesh(new THREE.BoxGeometry(2.34, 0.18, 1.74), glowPink);
-      marqGlow.position.y = 3.55; m.add(marqGlow);
-      for (let i = 0; i < 8; i++) {
-        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8),
-          i % 2 ? glowPink : glowCyan);
-        const a = (i / 8) * Math.PI * 2;
-        bulb.position.set(Math.cos(a) * 1.1, 3.25, Math.sin(a) * 0.8);
-        m.add(bulb);
-      }
-      const lever = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2, 8),
-        new THREE.MeshLambertMaterial({ color: 0xe0e0e0 }));
-      lever.position.set(1.25, 2.2, 0); lever.rotation.z = -0.3; m.add(lever);
-      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 12), glowPink);
-      ball.position.set(1.45, 2.75, 0); m.add(ball);
-      m.position.set(wx, 0, wz);
-      m.userData.isEncounterSlot = true;
-      m.userData.phase = 0;
-      worldGroup.add(m);
-      encounterSlot = m;
-    },
-    hideEncounterSlot: function() {
-      if (encounterSlot && worldGroup) worldGroup.remove(encounterSlot);
-      encounterSlot = null;
-    },
   };
 })();

@@ -532,10 +532,6 @@ function startEncounter(){
         first:(dmDex.length===0),
         slots:slots, spinT:0, msg:"", pendingPrompt:null };
   mode="encounter";
-  // Show the 3D slot machine at the player's position (overlays the 2D slots)
-  if (voxelReady && VoxelEngine.showEncounterSlot) {
-    try { VoxelEngine.showEncounterSlot(px + 0.5, py - 2.5); } catch(e) {}
-  }
 }
 function boxRect(){ var bs=Math.min(W,H)*0.96*(0.3+0.7*enc.grow); return {x:W/2-bs/2, y:H/2-bs/2, s:bs}; }
 // Slot reels layout (bigger reels, easier to see)
@@ -639,9 +635,22 @@ function drawEncounter(){ if(!enc) return;
     dg.addColorStop(0.5,"hsla("+((hue+60)%360)+",70%,45%,0.15)");
     dg.addColorStop(1,"rgba(0,0,0,0)");
     x.fillStyle=dg; x.fillRect(b.x,b.y,b.s,b.s);
-    // Slot machine body - TRANSPARENT so the 3D machine shows through behind the reels
-    // (the 3D encounter slot is positioned in the world at the player's location)
-    x.fillStyle="rgba(20,8,36,0.35)"; roundRect(g.mx0,g.my0,g.mw,g.mh,10); x.fill();
+    // Slot machine body: the deepdream encounter video IS the covering
+    // (the 4-directional encounter video plays on the machine's surface)
+    x.save();
+    roundRect(g.mx0, g.my0, g.mw, g.mh, 10);
+    x.clip();
+    if (v && v.readyState >= 2) {
+      // Draw the encounter video as the machine's skin
+      x.drawImage(v, g.mx0, g.my0, g.mw, g.mh);
+      // Darken slightly so the reels stand out
+      x.fillStyle = "rgba(10,5,20,0.35)";
+      x.fillRect(g.mx0, g.my0, g.mw, g.mh);
+    } else {
+      x.fillStyle = "rgba(20,8,36,0.88)";
+      x.fillRect(g.mx0, g.my0, g.mw, g.mh);
+    }
+    x.restore();
     x.strokeStyle="hsl("+hue+",90%,70%)"; x.lineWidth=3; roundRect(g.mx0,g.my0,g.mw,g.mh,10); x.stroke();
     // Outer glow
     x.save(); x.shadowColor="hsl("+hue+",90%,60%)"; x.shadowBlur=18;
@@ -692,14 +701,7 @@ function handleEncounterA(){ if(!enc) return;
   if(enc.phase==="ready") startSpin();
   else if(enc.phase==="result"){
     if(enc.pendingPrompt){ var p=enc.pendingPrompt; enc.pendingPrompt=null; promptCompanion(p); }
-    else {
-      enc=null; mode="walk"; inZone=true;
-      // Hide the 3D encounter slot
-      if (voxelReady && VoxelEngine.hideEncounterSlot) {
-        try { VoxelEngine.hideEncounterSlot(); } catch(e) {}
-      }
-      draw();
-    }
+    else { enc=null; mode="walk"; inZone=true; draw(); }
   }
 }
 // ===== COMPANION PROMPT (also used for fusion captures) =====
