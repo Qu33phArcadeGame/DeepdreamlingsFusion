@@ -383,16 +383,45 @@ const VoxelEngine = (function() {
         winFrame.position.set(0, 1.05, 0.32); machine.add(winFrame);
         const winBg = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.42, 0.06), darkMat);
         winBg.position.set(0, 1.05, 0.35); machine.add(winBg);
-        // 3 reels with symbols (colored diamonds)
-        const symColors = [0xff5555, 0x55ff55, 0x5555ff];
+        // 3 CORRECT spinning reels: vertical cylinders with symbol texture
+        // Each reel has 6 symbols (red/green/blue diamonds) around the circumference
+        function makeReelTexture() {
+          const c = document.createElement('canvas');
+          c.width = 192; c.height = 64;
+          const ctx = c.getContext('2d');
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 192, 64);
+          const colors = ['#ff4444', '#44ff44', '#4444ff', '#ff44ff', '#ffaa00', '#44ffff'];
+          for (let s = 0; s < 6; s++) {
+            const cx = s * 32 + 16, cy = 32;
+            ctx.fillStyle = colors[s];
+            ctx.beginPath();
+            ctx.moveTo(cx, cy-12); ctx.lineTo(cx+10, cy); ctx.lineTo(cx, cy+12); ctx.lineTo(cx-10, cy);
+            ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke();
+          }
+          const tex = new THREE.CanvasTexture(c);
+          tex.wrapS = THREE.RepeatWrapping;
+          return tex;
+        }
+        const reelTex = makeReelTexture();
+        machine.userData.reels = [];
+        machine.userData.reelSpeeds = [0, 0, 0];
+        machine.userData.reelTargets = [0, 0, 0];
         for (let i = -1; i <= 1; i++) {
-          const reel = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.32, 0.04), reelMat);
-          reel.position.set(i * 0.22, 1.05, 0.39); machine.add(reel);
-          // Symbol (small diamond)
-          const sym = new THREE.Mesh(new THREE.OctahedronGeometry(0.06),
-            new THREE.MeshBasicMaterial({ color: symColors[i+1] }));
-          sym.position.set(i * 0.22, 1.05, 0.42); machine.add(sym);
-          machine.userData["sym"+i] = sym;
+          const reelGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.22, 16);
+          const reelMat2 = new THREE.MeshLambertMaterial({ map: reelTex.clone() });
+          reelMat2.map.needsUpdate = true;
+          const reel = new THREE.Mesh(reelGeo, reelMat2);
+          // Rotate so the cylinder axis is horizontal (facing forward)
+          reel.rotation.z = Math.PI / 2;
+          reel.rotation.y = Math.PI / 2;
+          reel.position.set(i * 0.22, 1.05, 0.39);
+          machine.add(reel);
+          machine.userData.reels.push(reel);
+          // Store initial rotation for spin control
+          reel.userData.spinAngle = 0;
+          reel.userData.targetAngle = 0;
+          reel.userData.spinning = false;
         }
         // Marquee top (glowing)
         const marquee = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.28, 0.74), darkMat);
@@ -1093,15 +1122,30 @@ const VoxelEngine = (function() {
     // Pulse the water slot machine symbols (encounter slot removed - Coby didn't want the giant machine)
   function animate(time) {
     animateFloaters(time);
-    // Bob the water slot machines
+    // Bob the water slot machines and spin their reels
     if (worldGroup && worldGroup.userData.waterSlots) {
       worldGroup.userData.waterSlots.forEach(function(m) {
         m.position.y = m.userData.baseY + Math.sin(time / 600 + m.userData.phase) * 0.12;
         m.rotation.y = Math.sin(time / 1200 + m.userData.phase) * 0.25;
-        // Spin the reel symbols
-        for (let i = -1; i <= 1; i++) {
-          const sym = m.userData["sym"+i];
-          if (sym) sym.rotation.y = time / 800 + i;
+        // Spin the 3D reels (correct slot machine animation)
+        if (m.userData.reels) {
+          m.userData.reels.forEach(function(reel, ri) {
+            if (reel.userData.spinning) {
+              // Fast spin during encounter
+              reel.userData.spinAngle += 0.35;
+              reel.rotation.x = reel.userData.spinAngle;
+            } else if (Math.abs(reel.userData.spinAngle - reel.userData.targetAngle) > 0.01) {
+              // Ease to target when stopping
+              const diff = reel.userData.targetAngle - reel.userData.spinAngle;
+              reel.userData.spinAngle += diff * 0.15;
+              reel.rotation.x = reel.userData.spinAngle;
+            } else {
+              // Idle: slow drift so the machines look alive on the water
+              reel.userData.spinAngle += 0.008;
+              reel.userData.targetAngle = reel.userData.spinAngle;
+              reel.rotation.x = reel.userData.spinAngle;
+            }
+          });
         }
         // Pump the lever
         if (m.userData.leverArm) {
@@ -1140,6 +1184,28 @@ const VoxelEngine = (function() {
         waterSlotBodyMat.color.setHex(0xffffff);
         waterSlotBodyMat.needsUpdate = true;
       } catch(e) {}
+    },
+    // Slot reel controls (sync with 2D encounter slots)
+    spinWaterSlots: function() {
+      if (!worldGroup || !worldGroup.userData.waterSlots) return;
+      worldGroup.userData.waterSlots.forEach(function(m) {
+        if (m.userData.reels) m.userData.reels.forEach(function(reel) { reel.userData.spinning = true; });
+      });
+    },
+    stopWaterSlot: function(reelIdx) {
+      if (!worldGroup || !worldGroup.userData.waterSlots) return;
+      worldGroup.userData.waterSlots.forEach(function(m) {
+        if (m.userData.reels && m.userData.reels[reelIdx]) {
+          const reel = m.userData.reels[reelIdx];
+          reel.userData.spinning = false;
+          // Target: next full symbol alignment (multiples of 2π/6)
+          const step = (Math.PI * 2) / 6;
+          reel.userData.targetAngle = Math.ceil(reel.userData.spinAngle / step) * step + step * 2;
+        }
+      });
+    },
+    stopAllWaterSlots: function() {
+      for (let i = 0; i < 3; i++) this.stopWaterSlot(i);
     },
   };
 })();

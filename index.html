@@ -590,12 +590,18 @@ function drawMapBg(){ if(!M){ x.fillStyle="#0d0a17"; x.fillRect(0,0,W,H); return
 function encBg(b){ var g=x.createRadialGradient(W/2,H/2,10,W/2,H/2,b.s*0.7); g.addColorStop(0,"#3a1a66"); g.addColorStop(1,"#0a0518"); x.fillStyle=g; x.fillRect(b.x,b.y,b.s,b.s); }
 
 // ---- slot machine logic ----
-function startSpin(){ if(!enc || enc.phase!=="ready") return; enc.phase="spinning"; enc.spinT=0; }
+function startSpin(){ if(!enc || enc.phase!=="ready") return; enc.phase="spinning"; enc.spinT=0;
+  // Spin the 3D water slot machines in sync
+  if (voxelReady && VoxelEngine.spinWaterSlots) { try { VoxelEngine.spinWaterSlots(); } catch(e) {} }
+}
 function stepSpin(){ if(!enc || enc.phase!=="spinning") return;
   enc.spinT++;
   var allStopped=true;
   for(var i=0;i<enc.slots.length;i++){ var s=enc.slots[i];
-    if(!s.stopped){ if(enc.spinT%3===0) s.show=randMonNum(); if(enc.spinT>=s.stopAt){ s.stopped=true; s.show=s.num; } else allStopped=false; }
+    if(!s.stopped){ if(enc.spinT%3===0) s.show=randMonNum(); if(enc.spinT>=s.stopAt){ s.stopped=true; s.show=s.num;
+      // Stop the matching 3D reel
+      if (voxelReady && VoxelEngine.stopWaterSlot) { try { VoxelEngine.stopWaterSlot(i); } catch(e) {} }
+    } else allStopped=false; }
   }
   if(allStopped) resolveSpin();
 }
