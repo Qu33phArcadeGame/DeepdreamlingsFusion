@@ -532,6 +532,13 @@ function startEncounter(){
         first:(dmDex.length===0),
         slots:slots, spinT:0, msg:"", pendingPrompt:null };
   mode="encounter";
+  // Deepdream skin: put the encounter video on the 3D water slot machines
+  if (voxelReady && VoxelEngine.setWaterSlotVideo) {
+    try {
+      var vv = encVid[dir];
+      if (vv) VoxelEngine.setWaterSlotVideo(vv);
+    } catch(e) {}
+  }
 }
 function boxRect(){ var bs=Math.min(W,H)*0.96*(0.3+0.7*enc.grow); return {x:W/2-bs/2, y:H/2-bs/2, s:bs}; }
 // Slot reels layout (bigger reels, easier to see)

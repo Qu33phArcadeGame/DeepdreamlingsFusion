@@ -13,6 +13,7 @@ const VoxelEngine = (function() {
   let companionSprite = null;
   let floaterSprites = [];
   let genGroup = null;
+  let waterSlotBodyMat = null;
   let initialized = false;
   let mapData = null;
   let tileSize3D = 1;
@@ -350,6 +351,8 @@ const VoxelEngine = (function() {
       // DETAILED model: pedestal, body, reel window with symbols, marquee, lever
       const slotGroup = new THREE.Group();
       const bodyMat = new THREE.MeshLambertMaterial({ color: 0x5a1a8a });
+      // Store for video skin updates (deepdream overlay)
+      waterSlotBodyMat = bodyMat;
       const darkMat = new THREE.MeshLambertMaterial({ color: 0x1a0a2e });
       const goldMat = new THREE.MeshLambertMaterial({ color: 0xd4a017 });
       const reelMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -1126,5 +1129,17 @@ const VoxelEngine = (function() {
     clearGenerator: clearGenerator,
     addBuilding: addBuilding,
     setFloaters: setFloaters,
+    // Deepdream skin: apply a video element as the texture on water slot machine bodies
+    setWaterSlotVideo: function(videoEl) {
+      if (!waterSlotBodyMat || !videoEl) return;
+      try {
+        const vtex = new THREE.VideoTexture(videoEl);
+        vtex.minFilter = THREE.LinearFilter;
+        vtex.magFilter = THREE.LinearFilter;
+        waterSlotBodyMat.map = vtex;
+        waterSlotBodyMat.color.setHex(0xffffff);
+        waterSlotBodyMat.needsUpdate = true;
+      } catch(e) {}
+    },
   };
 })();
