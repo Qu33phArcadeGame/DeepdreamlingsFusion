@@ -430,6 +430,7 @@ function draw(){ if(!W) return;
   // z-order: in walk mode 3D is on top (2D hidden); in encounter mode 2D UI must be ABOVE 3D.
   cv3d.style.display="block";
   if(mode==="walk"){
+    if(voxelReady && VoxelEngine.hideEncounterMachine){ try{ VoxelEngine.hideEncounterMachine(); }catch(e){} }
     cv.style.display="none";
     cv3d.style.zIndex="2";
     drawWalk3D();
@@ -593,6 +594,7 @@ function encBg(b){ var g=x.createRadialGradient(W/2,H/2,10,W/2,H/2,b.s*0.7); g.a
 function startSpin(){ if(!enc || enc.phase!=="ready") return; enc.phase="spinning"; enc.spinT=0;
   // Spin the 3D water slot machines in sync
   if (voxelReady && VoxelEngine.spinWaterSlots) { try { VoxelEngine.spinWaterSlots(); } catch(e) {} }
+  if (voxelReady && VoxelEngine.spinEncounterReels) { try { VoxelEngine.spinEncounterReels(); } catch(e) {} }
 }
 function stepSpin(){ if(!enc || enc.phase!=="spinning") return;
   enc.spinT++;
@@ -601,6 +603,7 @@ function stepSpin(){ if(!enc || enc.phase!=="spinning") return;
     if(!s.stopped){ if(enc.spinT%3===0) s.show=randMonNum(); if(enc.spinT>=s.stopAt){ s.stopped=true; s.show=s.num;
       // Stop the matching 3D reel
       if (voxelReady && VoxelEngine.stopWaterSlot) { try { VoxelEngine.stopWaterSlot(i); } catch(e) {} }
+      if (voxelReady && VoxelEngine.stopEncounterReel) { try { VoxelEngine.stopEncounterReel(i); } catch(e) {} }
     } else allStopped=false; }
   }
   if(allStopped) resolveSpin();
@@ -627,11 +630,21 @@ function drawEncounter(){ if(!enc) return;
   enc.holdT++; var HOLD=0;
   if(enc.holdT>HOLD){ if(!enc.vidStarted){ enc.vidStarted=true; var vv=encVid[enc.dir]; if(vv){ try{ vv.currentTime=0; var pr=vv.play(); if(pr&&pr.catch)pr.catch(function(){}); }catch(e){} } } if(enc.grow<1){ enc.grow=Math.min(1,enc.grow+0.08); } else if(enc.phase==="video"){ enc.phase="ready"; } }
   if(enc.phase==="spinning") stepSpin();
+  // Cabinet 3D machine: shown during ready/spinning, hidden otherwise (covers all exit paths)
+  if(voxelReady && VoxelEngine.showEncounterMachine && VoxelEngine.hideEncounterMachine){
+    try{
+      if(enc.phase==="ready"||enc.phase==="spinning"){
+        if(!enc.cabShown){ VoxelEngine.showEncounterMachine(enc.slots.map(function(s){return s.num;}), area.first, area.last); enc.cabShown=true; }
+      } else if(enc.cabShown){ VoxelEngine.hideEncounterMachine(); enc.cabShown=false; }
+    }catch(e){}
+  }
   var b=boxRect();
   // In 3D mode the voxel world is already rendering behind (see drawEncounter3DBg) — skip 2D map
   if(!voxelReady) drawMapBg();
-  x.fillStyle="rgba(5,3,12,0.6)"; x.fillRect(0,0,W,H); var v=encVid[enc.dir];
-  x.save(); roundRect(b.x,b.y,b.s,b.s,10); x.clip();
+  var useCab=voxelReady&&!!enc.cabShown;
+  if(!useCab){ x.fillStyle="rgba(5,3,12,0.6)"; x.fillRect(0,0,W,H); }
+  var v=encVid[enc.dir];
+  if(!useCab){ x.save(); roundRect(b.x,b.y,b.s,b.s,10); x.clip();
   if(enc.vidStarted && v && v.readyState>=2){ try{ x.imageSmoothingEnabled=true; x.drawImage(v,b.x,b.y,b.s,b.s); }catch(e){ encBg(b); } } else encBg(b);
   var pcx=b.x+0.5*b.s, pcy=b.y+0.78*b.s, psz=b.s*0.2, face=({U:"B",D:"F",L:"L",R:"R"})[enc.dir], gim=guy[face], bob=Math.sin(Date.now()/400)*psz*0.05;
   x.imageSmoothingEnabled=true;
@@ -702,9 +715,10 @@ function drawEncounter(){ if(!enc) return;
       x.fillText("▼ SPIN ▼", b.x+b.s/2, g.my0+g.mh+b.s*0.06);
     }
   }
+  } // end !useCab
   if(enc.phase==="fusing"){ enc.fuseT++; drawFusionAnim(b,slotGeom(b)); if(enc.fuseT>=FUSE_FRAMES) enc.phase="result"; }
   else if(enc.phase==="result" && enc.fused){ drawFusedReveal(b,1); }
-  x.restore();
+  if(!useCab) x.restore();
   ux.fillStyle="#c9a0ff"; ux.font="bold 13px sans-serif"; ux.textAlign="center"; ux.textBaseline="top";
   var topMsg = enc.phase==="ready" ? (enc.slots.length===2?"Press A to spin — both will fuse!":"Press A to spin — all three will fuse!")
              : enc.phase==="spinning" ? "Spinning..."
@@ -716,6 +730,7 @@ function drawEncounter(){ if(!enc) return;
 function handleEncounterA(){ if(!enc) return;
   if(enc.phase==="ready") startSpin();
   else if(enc.phase==="result"){
+    if(voxelReady && VoxelEngine.hideEncounterMachine){ try{ VoxelEngine.hideEncounterMachine(); }catch(e){} }
     if(enc.pendingPrompt){ var p=enc.pendingPrompt; enc.pendingPrompt=null; promptCompanion(p); }
     else { enc=null; mode="walk"; inZone=true; draw(); }
   }
@@ -729,8 +744,8 @@ function drawPrompt(){ ux.fillStyle="rgba(6,3,14,.85)"; ux.fillRect(0,0,W,H); ux
   ux.fillStyle="#3fe0b0"; roundRectC(ux,W/2-104,H/2,96,34,9); ux.fill(); ux.fillStyle="#ff8fbf"; roundRectC(ux,W/2+8,H/2,96,34,9); ux.fill();
   ux.fillStyle="#08120e"; ux.font="bold 14px sans-serif"; ux.fillText("YES (A)",W/2-56,H/2+17); ux.fillText("NO (B)",W/2+56,H/2+17);
   prompt._yes={x:W/2-104,y:H/2,w:96,h:34}; prompt._no={x:W/2+8,y:H/2,w:96,h:34}; }
-function promptYes(){ companion=prompt.val; compImg=null; try{localStorage.removeItem("town_companion_img");}catch(e){} saveGame(); prompt=null; mode="walk"; inZone=true; draw(); }
-function promptNo(){ prompt=null; mode="walk"; inZone=true; draw(); }
+function promptYes(){ if(voxelReady && VoxelEngine.hideEncounterMachine){ try{ VoxelEngine.hideEncounterMachine(); }catch(e){} } companion=prompt.val; compImg=null; try{localStorage.removeItem("town_companion_img");}catch(e){} saveGame(); prompt=null; mode="walk"; inZone=true; draw(); }
+function promptNo(){ if(voxelReady && VoxelEngine.hideEncounterMachine){ try{ VoxelEngine.hideEncounterMachine(); }catch(e){} } prompt=null; mode="walk"; inZone=true; draw(); }
 
 // ===== INPUT =====
 function onDir(dx,dy){ if(mode==="walk") walkStep(dx,dy); }

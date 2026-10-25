@@ -14,6 +14,29 @@ const VoxelEngine = (function() {
   let floaterSprites = [];
   let genGroup = null;
   let waterSlotBodyMat = null;
+  // Encounter cabinet machine (3D, camera-facing) + dreamling image cache
+  let encMachine = null;
+  const dreamImgCache = {};
+  function dreamImg(n, cb) {
+    if (dreamImgCache[n]) {
+      if (dreamImgCache[n].complete && dreamImgCache[n].naturalWidth) cb(dreamImgCache[n]);
+      else dreamImgCache[n].addEventListener('load', function() { cb(dreamImgCache[n]); });
+      return;
+    }
+    const im = new Image();
+    dreamImgCache[n] = im;
+    im.onload = function() { cb(im); };
+    im.src = 'dreamlingP' + n + '.png';
+  }
+  function disposeGroup(g) {
+    g.traverse(function(o) {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        mats.forEach(function(mt) { if (mt.map) mt.map.dispose(); mt.dispose(); });
+      }
+    });
+  }
   let initialized = false;
   let mapData = null;
   let tileSize3D = 1;
@@ -183,6 +206,7 @@ const VoxelEngine = (function() {
       if (c.geometry) c.geometry.dispose();
     }
     tileMeshes = {};
+    if (encMachine) encMachine.visible = false;
     floaterSprites = [];
 
     const cols = M.cols, rows = M.rows;
@@ -457,6 +481,122 @@ const VoxelEngine = (function() {
       // Store for animation
       if (!worldGroup.userData.waterSlots) worldGroup.userData.waterSlots = [];
       slotGroup.children.forEach(function(m) { worldGroup.userData.waterSlots.push(m); });
+    })();
+
+    // GREEN slot machines in Waking Woods: 3 machines at random walkable spots.
+    (function addWoodsSlots(){
+      if (mapName !== "woods") return;
+      const banned = [];
+      (M.warps || []).forEach(function(w) { banned.push([w.x, w.y]); });
+      banned.push([2, 25]); // woods spawn
+      const genR = { x: 5, y: 22, w: 3, h: 2 }; // woods generator hut
+      function bannedCell(c, r) {
+        for (let i = 0; i < banned.length; i++) {
+          if (Math.max(Math.abs(c - banned[i][0]), Math.abs(r - banned[i][1])) < 3) return true;
+        }
+        if (c >= genR.x - 2 && c < genR.x + genR.w + 2 && r >= genR.y - 2 && r < genR.y + genR.h + 2) return true;
+        return false;
+      }
+      const spots = [];
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        const idx = M.map[r][c];
+        if (idx < 0 || idx >= tiles.length) continue;
+        const nm = (tiles[idx] || "").toLowerCase();
+        if (/water|tree/i.test(nm)) continue;
+        if (M.solid && M.solid[r] && M.solid[r][c]) continue;
+        if (bannedCell(c, r)) continue;
+        spots.push({ c: c, r: r });
+      }
+      if (spots.length < 3) return;
+      const picked = [];
+      let guard = 0;
+      while (picked.length < 3 && guard++ < 500) {
+        const t = spots[Math.floor(Math.random() * spots.length)];
+        if (picked.every(function(p) { return Math.max(Math.abs(p.c - t.c), Math.abs(p.r - t.r)) >= 12; })) picked.push(t);
+      }
+      if (picked.length < 3) return;
+      const greenMat = new THREE.MeshLambertMaterial({ color: 0x1a8a3a });
+      const darkMat = new THREE.MeshLambertMaterial({ color: 0x1a0a2e });
+      const goldMat = new THREE.MeshLambertMaterial({ color: 0xd4a017 });
+      const glowPink = new THREE.MeshBasicMaterial({ color: 0xff4ad8 });
+      const glowCyan = new THREE.MeshBasicMaterial({ color: 0x4ad8ff });
+      const leverMat = new THREE.MeshLambertMaterial({ color: 0xe0e0e0 });
+      function makeReelTexture() {
+        const c = document.createElement('canvas');
+        c.width = 192; c.height = 64;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 192, 64);
+        const colors = ['#ff4444', '#44ff44', '#4444ff', '#ff44ff', '#ffaa00', '#44ffff'];
+        for (let s = 0; s < 6; s++) {
+          const cx = s * 32 + 16, cy = 32;
+          ctx.fillStyle = colors[s];
+          ctx.beginPath();
+          ctx.moveTo(cx, cy-12); ctx.lineTo(cx+10, cy); ctx.lineTo(cx, cy+12); ctx.lineTo(cx-10, cy);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke();
+        }
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        return tex;
+      }
+      const reelTex = makeReelTexture();
+      const slotGroup = new THREE.Group();
+      picked.forEach(function(t) {
+        const machine = new THREE.Group();
+        const ped = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.25, 0.9), darkMat);
+        ped.position.y = 0.12; ped.castShadow = true; machine.add(ped);
+        const pedTrim = new THREE.Mesh(new THREE.BoxGeometry(1.14, 0.06, 0.94), goldMat);
+        pedTrim.position.y = 0.27; machine.add(pedTrim);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 0.7), greenMat);
+        body.position.y = 0.9; body.castShadow = true; machine.add(body);
+        const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.0, 0.6), darkMat);
+        sideL.position.set(-0.46, 0.9, 0); machine.add(sideL);
+        const sideR = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.0, 0.6), darkMat);
+        sideR.position.set(0.46, 0.9, 0); machine.add(sideR);
+        const winFrame = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.5, 0.1), goldMat);
+        winFrame.position.set(0, 1.05, 0.32); machine.add(winFrame);
+        const winBg = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.42, 0.06), darkMat);
+        winBg.position.set(0, 1.05, 0.35); machine.add(winBg);
+        machine.userData.reels = [];
+        for (let i = -1; i <= 1; i++) {
+          const reelGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.22, 16);
+          const reelMat2 = new THREE.MeshLambertMaterial({ map: reelTex.clone() });
+          reelMat2.map.needsUpdate = true;
+          const reel = new THREE.Mesh(reelGeo, reelMat2);
+          reel.rotation.z = Math.PI / 2;
+          reel.rotation.y = Math.PI / 2;
+          reel.position.set(i * 0.22, 1.05, 0.39);
+          machine.add(reel);
+          machine.userData.reels.push(reel);
+          reel.userData.spinAngle = 0;
+          reel.userData.targetAngle = 0;
+          reel.userData.spinning = false;
+        }
+        const marquee = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.28, 0.74), darkMat);
+        marquee.position.y = 1.64; marquee.castShadow = true; machine.add(marquee);
+        const marqGlow = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.1, 0.76), glowPink);
+        marqGlow.position.y = 1.8; machine.add(marqGlow);
+        for (let li = 0; li < 5; li++) {
+          const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), li % 2 ? glowPink : glowCyan);
+          bulb.position.set(-0.36 + li * 0.18, 1.64, 0.38); machine.add(bulb);
+        }
+        const leverBase = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.08, 10), darkMat);
+        leverBase.position.set(0.5, 1.2, 0); leverBase.rotation.z = Math.PI/2; machine.add(leverBase);
+        const leverArm = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.55, 8), leverMat);
+        leverArm.position.set(0.58, 1.45, 0); leverArm.rotation.z = -0.35; machine.add(leverArm);
+        machine.userData.leverArm = leverArm;
+        const leverBall = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), glowPink);
+        leverBall.position.set(0.68, 1.7, 0); machine.add(leverBall);
+        const tray = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.2), darkMat);
+        tray.position.set(0, 0.38, 0.4); machine.add(tray);
+        machine.position.set(t.c + 0.5, 0.35, t.r + 0.5);
+        machine.userData.isWoodsSlot = true;
+        machine.userData.phase = Math.random() * 6.28;
+        slotGroup.add(machine);
+      });
+      worldGroup.add(slotGroup);
+      if (!worldGroup.userData.woodsSlots) worldGroup.userData.woodsSlots = [];
+      slotGroup.children.forEach(function(m) { worldGroup.userData.woodsSlots.push(m); });
     })();
 
     // Decorative walk-through bushes: small green blobs scattered on grass.
@@ -1122,6 +1262,40 @@ const VoxelEngine = (function() {
     // Pulse the water slot machine symbols (encounter slot removed - Coby didn't want the giant machine)
   function animate(time) {
     animateFloaters(time);
+    // Waking Woods green machines: slow rotation + idle reel drift
+    if (worldGroup && worldGroup.userData.woodsSlots) {
+      worldGroup.userData.woodsSlots.forEach(function(m) {
+        m.rotation.y = Math.sin(time / 1400 + m.userData.phase) * 0.3;
+        if (m.userData.reels) m.userData.reels.forEach(function(reel) {
+          reel.userData.spinAngle += 0.008;
+          reel.userData.targetAngle = reel.userData.spinAngle;
+          reel.rotation.x = reel.userData.spinAngle;
+        });
+        if (m.userData.leverArm) m.userData.leverArm.rotation.z = -0.35 + Math.sin(time / 900 + m.userData.phase) * 0.15;
+      });
+    }
+    // Encounter cabinet machine: float in front of the camera, facing it
+    if (encMachine && encMachine.visible && camera) {
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      encMachine.position.copy(camera.position).addScaledVector(dir, 4.6);
+      encMachine.lookAt(camera.position);
+      if (encMachine.userData.reels) encMachine.userData.reels.forEach(function(reel) {
+        if (reel.userData.spinning) {
+          reel.userData.spinAngle += 0.35;
+          reel.rotation.x = reel.userData.spinAngle;
+        } else if (Math.abs(reel.userData.spinAngle - reel.userData.targetAngle) > 0.01) {
+          const diff = reel.userData.targetAngle - reel.userData.spinAngle;
+          reel.userData.spinAngle += diff * 0.15;
+          reel.rotation.x = reel.userData.spinAngle;
+        } else {
+          reel.userData.spinAngle += 0.008;
+          reel.userData.targetAngle = reel.userData.spinAngle;
+          reel.rotation.x = reel.userData.spinAngle;
+        }
+      });
+      if (encMachine.userData.leverArm) encMachine.userData.leverArm.rotation.z = -0.35 + Math.sin(time / 900) * 0.15;
+    }
     // Bob the water slot machines and spin their reels
     if (worldGroup && worldGroup.userData.waterSlots) {
       worldGroup.userData.waterSlots.forEach(function(m) {
@@ -1153,6 +1327,150 @@ const VoxelEngine = (function() {
         }
       });
     }
+  }
+
+  // ---- Encounter cabinet machine: gold-trimmed arcade cabinet, dreamlings on 3D cylinders ----
+  function makeDreamReelCanvas(rolledNum, first, last) {
+    const c = document.createElement('canvas');
+    c.width = 384; c.height = 64;
+    const ctx = c.getContext('2d');
+    const diamondCols = ['#ff4444', '#44ff44', '#4444ff', '#ff44ff', '#ffaa00', '#44ffff'];
+    function drawSeg(s, num) {
+      const x0 = s * 64;
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(x0, 0, 64, 64);
+      const im = dreamImgCache[num];
+      if (im && im.complete && im.naturalWidth) {
+        ctx.drawImage(im, x0, 0, 64, 64);
+      } else {
+        ctx.fillStyle = diamondCols[s % 6];
+        ctx.beginPath();
+        ctx.moveTo(x0 + 32, 20); ctx.lineTo(x0 + 42, 32); ctx.lineTo(x0 + 32, 44); ctx.lineTo(x0 + 22, 32);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x0 + 1, 1, 62, 62);
+    }
+    const nums = [rolledNum];
+    for (let s = 1; s < 6; s++) nums.push(first + Math.floor(Math.random() * (last - first + 1)));
+    for (let s = 0; s < 6; s++) drawSeg(s, nums[s]);
+    nums.forEach(function(num, s) {
+      dreamImg(num, function() { drawSeg(s, num); if (c.userData && c.userData.tex) c.userData.tex.needsUpdate = true; });
+    });
+    return c;
+  }
+  function makeAllRolledCanvas(rolledNum) {
+    const c = document.createElement('canvas');
+    c.width = 384; c.height = 64;
+    const ctx = c.getContext('2d');
+    function drawAll() {
+      const im = dreamImgCache[rolledNum];
+      for (let s = 0; s < 6; s++) {
+        if (im && im.complete && im.naturalWidth) ctx.drawImage(im, s * 64, 0, 64, 64);
+        else { ctx.fillStyle = '#ffffff'; ctx.fillRect(s * 64, 0, 64, 64); }
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(s * 64 + 1, 1, 62, 62);
+      }
+    }
+    drawAll();
+    dreamImg(rolledNum, function() { drawAll(); if (c.userData && c.userData.tex) c.userData.tex.needsUpdate = true; });
+    return c;
+  }
+  function buildEncounterMachine(nums, first, last) {
+    const g = new THREE.Group();
+    const blackMat = new THREE.MeshLambertMaterial({ color: 0x0d0d14 });
+    const goldMat = new THREE.MeshLambertMaterial({ color: 0xd4a017 });
+    const darkMat = new THREE.MeshLambertMaterial({ color: 0x1a0a2e });
+    const glowPink = new THREE.MeshBasicMaterial({ color: 0xff4ad8 });
+    const glowCyan = new THREE.MeshBasicMaterial({ color: 0x4ad8ff });
+    const redMat = new THREE.MeshLambertMaterial({ color: 0xcc2222 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.3, 3.4, 0.9), blackMat);
+    body.castShadow = true; g.add(body);
+    const trimT = new THREE.Mesh(new THREE.BoxGeometry(2.34, 0.08, 0.94), goldMat);
+    trimT.position.y = 1.72; g.add(trimT);
+    const trimB = new THREE.Mesh(new THREE.BoxGeometry(2.34, 0.08, 0.94), goldMat);
+    trimB.position.y = -1.72; g.add(trimB);
+    const marq = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.55, 0.95), darkMat);
+    marq.position.y = 1.95; marq.castShadow = true; g.add(marq);
+    const mc = document.createElement('canvas'); mc.width = 512; mc.height = 128;
+    const mctx = mc.getContext('2d');
+    mctx.fillStyle = '#2a1a0a'; mctx.fillRect(0, 0, 512, 128);
+    mctx.strokeStyle = '#d4a017'; mctx.lineWidth = 6; mctx.strokeRect(6, 6, 500, 116);
+    mctx.fillStyle = '#e8b923'; mctx.textAlign = 'center'; mctx.font = 'bold 44px sans-serif';
+    mctx.fillText('Deepdreamlings', 256, 52);
+    mctx.fillText('Fusion', 256, 102);
+    const mtex = new THREE.CanvasTexture(mc);
+    const marqFace = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 0.5), new THREE.MeshBasicMaterial({ map: mtex }));
+    marqFace.position.set(0, 1.95, 0.48); g.add(marqFace);
+    const scrFrame = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.4, 0.06), goldMat);
+    scrFrame.position.set(0, 0.35, 0.47); g.add(scrFrame);
+    const scrBg = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.3, 0.06), darkMat);
+    scrBg.position.set(0, 0.35, 0.50); g.add(scrBg);
+    for (let li = 0; li < 5; li++) {
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), li % 2 ? glowPink : glowCyan);
+      bulb.position.set(-0.72 + li * 0.36, 1.12, 0.52); g.add(bulb);
+    }
+    g.userData.reels = [];
+    const n = nums.length;
+    const spacing = n >= 3 ? 0.62 : 0.68;
+    for (let i = 0; i < n; i++) {
+      const canvas = makeDreamReelCanvas(nums[i], first, last);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      canvas.userData = { tex: tex };
+      const reelMat = new THREE.MeshLambertMaterial({ map: tex });
+      const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.34, 20), reelMat);
+      reel.rotation.z = Math.PI / 2;
+      reel.rotation.y = Math.PI / 2;
+      reel.position.set((i - (n - 1) / 2) * spacing, 0.35, 0.56);
+      reel.userData.spinAngle = 0;
+      reel.userData.targetAngle = 0;
+      reel.userData.spinning = false;
+      reel.userData.rolled = nums[i];
+      g.add(reel);
+      g.userData.reels.push(reel);
+    }
+    const leverBase = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.08, 10), darkMat);
+    leverBase.position.set(1.2, 0.35, 0); leverBase.rotation.z = Math.PI / 2; g.add(leverBase);
+    const leverMat = new THREE.MeshLambertMaterial({ color: 0xe0e0e0 });
+    const leverArm = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.55, 8), leverMat);
+    leverArm.position.set(1.28, 0.6, 0); leverArm.rotation.z = -0.35; g.add(leverArm);
+    g.userData.leverArm = leverArm;
+    const leverBall = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), glowPink);
+    leverBall.position.set(1.38, 0.85, 0); g.add(leverBall);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.8, 0.06), darkMat);
+    door.position.set(0, -1.2, 0.47); g.add(door);
+    [-0.25, 0.25].forEach(function(dx) {
+      const slot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.3, 0.03), redMat);
+      slot.position.set(dx, -1.2, 0.51); g.add(slot);
+    });
+    g.scale.set(0.9, 0.9, 0.9);
+    return g;
+  }
+  function showEncounterMachine(nums, first, last) {
+    if (encMachine) { scene.remove(encMachine); disposeGroup(encMachine); encMachine = null; }
+    encMachine = buildEncounterMachine(nums, first, last);
+    encMachine.visible = true;
+    scene.add(encMachine);
+  }
+  function hideEncounterMachine() {
+    if (encMachine) encMachine.visible = false;
+  }
+  function spinEncounterReels() {
+    if (!encMachine) return;
+    encMachine.userData.reels.forEach(function(reel) { reel.userData.spinning = true; });
+  }
+  function stopEncounterReel(i) {
+    if (!encMachine || !encMachine.userData.reels[i]) return;
+    const reel = encMachine.userData.reels[i];
+    reel.userData.spinning = false;
+    // Swap to an all-rolled texture: whatever segment faces front shows the rolled dreamling
+    const canvas = makeAllRolledCanvas(reel.userData.rolled);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    canvas.userData = { tex: tex };
+    if (reel.material.map) reel.material.map.dispose();
+    reel.material.map = tex;
+    reel.material.needsUpdate = true;
+    const step = (Math.PI * 2) / 6;
+    reel.userData.targetAngle = Math.ceil(reel.userData.spinAngle / step) * step + step * 2;
   }
 
   return {
@@ -1207,5 +1525,9 @@ const VoxelEngine = (function() {
     stopAllWaterSlots: function() {
       for (let i = 0; i < 3; i++) this.stopWaterSlot(i);
     },
+    showEncounterMachine: showEncounterMachine,
+    hideEncounterMachine: hideEncounterMachine,
+    spinEncounterReels: spinEncounterReels,
+    stopEncounterReel: stopEncounterReel,
   };
 })();
