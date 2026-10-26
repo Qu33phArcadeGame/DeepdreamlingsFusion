@@ -16,6 +16,7 @@ const VoxelEngine = (function() {
   let waterSlotBodyMat = null;
   // Encounter cabinet machine (3D, camera-facing) + dreamling image cache
   let encMachine = null;
+  let woodsSlotTiles = []; // [{c,r}] green machine tiles in Waking Woods (encounter triggers)
   const dreamImgCache = {};
   function dreamImg(n, cb) {
     if (dreamImgCache[n]) {
@@ -206,6 +207,7 @@ const VoxelEngine = (function() {
       if (c.geometry) c.geometry.dispose();
     }
     tileMeshes = {};
+    woodsSlotTiles = [];
     if (encMachine) encMachine.visible = false;
     floaterSprites = [];
 
@@ -515,6 +517,7 @@ const VoxelEngine = (function() {
         if (picked.every(function(p) { return Math.max(Math.abs(p.c - t.c), Math.abs(p.r - t.r)) >= 12; })) picked.push(t);
       }
       if (picked.length < 3) return;
+      woodsSlotTiles = picked.map(function(t) { return { c: t.c, r: t.r }; });
       const greenMat = new THREE.MeshLambertMaterial({ color: 0x1a8a3a });
       const darkMat = new THREE.MeshLambertMaterial({ color: 0x1a0a2e });
       const goldMat = new THREE.MeshLambertMaterial({ color: 0xd4a017 });
@@ -1282,7 +1285,7 @@ const VoxelEngine = (function() {
       encMachine.lookAt(camera.position);
       if (encMachine.userData.reels) encMachine.userData.reels.forEach(function(reel) {
         if (reel.userData.spinning) {
-          reel.userData.spinAngle += 0.35;
+          reel.userData.spinAngle += 0.22;
           reel.rotation.x = reel.userData.spinAngle;
         } else if (Math.abs(reel.userData.spinAngle - reel.userData.targetAngle) > 0.01) {
           const diff = reel.userData.targetAngle - reel.userData.spinAngle;
@@ -1332,26 +1335,26 @@ const VoxelEngine = (function() {
   // ---- Encounter cabinet machine: gold-trimmed arcade cabinet, dreamlings on 3D cylinders ----
   function makeDreamReelCanvas(rolledNum, first, last) {
     const c = document.createElement('canvas');
-    c.width = 384; c.height = 64;
+    c.width = 512; c.height = 128;
     const ctx = c.getContext('2d');
-    const diamondCols = ['#ff4444', '#44ff44', '#4444ff', '#ff44ff', '#ffaa00', '#44ffff'];
+    const diamondCols = ['#ff4444', '#44ff44', '#4444ff', '#ff44ff'];
     function drawSeg(s, num) {
-      const x0 = s * 64;
-      ctx.fillStyle = '#ffffff'; ctx.fillRect(x0, 0, 64, 64);
+      const x0 = s * 128;
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(x0, 0, 128, 128);
       const im = dreamImgCache[num];
       if (im && im.complete && im.naturalWidth) {
-        ctx.drawImage(im, x0, 0, 64, 64);
+        ctx.drawImage(im, x0, 0, 128, 128);
       } else {
-        ctx.fillStyle = diamondCols[s % 6];
+        ctx.fillStyle = diamondCols[s % 4];
         ctx.beginPath();
-        ctx.moveTo(x0 + 32, 20); ctx.lineTo(x0 + 42, 32); ctx.lineTo(x0 + 32, 44); ctx.lineTo(x0 + 22, 32);
+        ctx.moveTo(x0 + 64, 28); ctx.lineTo(x0 + 104, 64); ctx.lineTo(x0 + 64, 100); ctx.lineTo(x0 + 24, 64);
         ctx.closePath(); ctx.fill();
       }
-      ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x0 + 1, 1, 62, 62);
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x0 + 1, 1, 126, 126);
     }
     const nums = [rolledNum];
-    for (let s = 1; s < 6; s++) nums.push(first + Math.floor(Math.random() * (last - first + 1)));
-    for (let s = 0; s < 6; s++) drawSeg(s, nums[s]);
+    for (let s = 1; s < 4; s++) nums.push(first + Math.floor(Math.random() * (last - first + 1)));
+    for (let s = 0; s < 4; s++) drawSeg(s, nums[s]);
     nums.forEach(function(num, s) {
       dreamImg(num, function() { drawSeg(s, num); if (c.userData && c.userData.tex) c.userData.tex.needsUpdate = true; });
     });
@@ -1359,23 +1362,23 @@ const VoxelEngine = (function() {
   }
   function makeAllRolledCanvas(rolledNum) {
     const c = document.createElement('canvas');
-    c.width = 384; c.height = 64;
+    c.width = 512; c.height = 128;
     const ctx = c.getContext('2d');
     function drawAll() {
       const im = dreamImgCache[rolledNum];
-      for (let s = 0; s < 6; s++) {
-        if (im && im.complete && im.naturalWidth) ctx.drawImage(im, s * 64, 0, 64, 64);
-        else { ctx.fillStyle = '#ffffff'; ctx.fillRect(s * 64, 0, 64, 64); }
-        ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(s * 64 + 1, 1, 62, 62);
+      for (let s = 0; s < 4; s++) {
+        if (im && im.complete && im.naturalWidth) ctx.drawImage(im, s * 128, 0, 128, 128);
+        else { ctx.fillStyle = '#ffffff'; ctx.fillRect(s * 128, 0, 128, 128); }
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(s * 128 + 1, 1, 126, 126);
       }
     }
     drawAll();
     dreamImg(rolledNum, function() { drawAll(); if (c.userData && c.userData.tex) c.userData.tex.needsUpdate = true; });
     return c;
   }
-  function buildEncounterMachine(nums, first, last) {
+  function buildEncounterMachine(nums, first, last, bodyColor) {
     const g = new THREE.Group();
-    const blackMat = new THREE.MeshLambertMaterial({ color: 0x0d0d14 });
+    const blackMat = new THREE.MeshLambertMaterial({ color: bodyColor || 0x0d0d14 });
     const goldMat = new THREE.MeshLambertMaterial({ color: 0xd4a017 });
     const darkMat = new THREE.MeshLambertMaterial({ color: 0x1a0a2e });
     const glowPink = new THREE.MeshBasicMaterial({ color: 0xff4ad8 });
@@ -1409,14 +1412,14 @@ const VoxelEngine = (function() {
     }
     g.userData.reels = [];
     const n = nums.length;
-    const spacing = n >= 3 ? 0.62 : 0.68;
+    const spacing = n >= 3 ? 0.68 : 0.72;
     for (let i = 0; i < n; i++) {
       const canvas = makeDreamReelCanvas(nums[i], first, last);
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = THREE.RepeatWrapping;
       canvas.userData = { tex: tex };
       const reelMat = new THREE.MeshLambertMaterial({ map: tex });
-      const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.34, 20), reelMat);
+      const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.56, 24), reelMat);
       reel.rotation.z = Math.PI / 2;
       reel.rotation.y = Math.PI / 2;
       reel.position.set((i - (n - 1) / 2) * spacing, 0.35, 0.56);
@@ -1444,9 +1447,9 @@ const VoxelEngine = (function() {
     g.scale.set(0.9, 0.9, 0.9);
     return g;
   }
-  function showEncounterMachine(nums, first, last) {
+  function showEncounterMachine(nums, first, last, bodyColor) {
     if (encMachine) { scene.remove(encMachine); disposeGroup(encMachine); encMachine = null; }
-    encMachine = buildEncounterMachine(nums, first, last);
+    encMachine = buildEncounterMachine(nums, first, last, bodyColor);
     encMachine.visible = true;
     scene.add(encMachine);
   }
@@ -1469,7 +1472,7 @@ const VoxelEngine = (function() {
     if (reel.material.map) reel.material.map.dispose();
     reel.material.map = tex;
     reel.material.needsUpdate = true;
-    const step = (Math.PI * 2) / 6;
+    const step = (Math.PI * 2) / 4;
     reel.userData.targetAngle = Math.ceil(reel.userData.spinAngle / step) * step + step * 2;
   }
 
@@ -1525,6 +1528,7 @@ const VoxelEngine = (function() {
     stopAllWaterSlots: function() {
       for (let i = 0; i < 3; i++) this.stopWaterSlot(i);
     },
+    getWoodsSlotTiles: function() { return woodsSlotTiles.slice(); },
     showEncounterMachine: showEncounterMachine,
     hideEncounterMachine: hideEncounterMachine,
     spinEncounterReels: spinEncounterReels,

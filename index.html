@@ -364,13 +364,14 @@ function loadMap(name,entry){
 }
 function solidAt(c,r){ if(!M) return true; if(c<0||r<0||c>=M.cols||r>=M.rows) return true; if(genAt(c,r)) return true; return !!(M.solid&&M.solid[r][c]); }
 function zoneAt(c,r){ if(!M) return false; const g=M.encounter||M.enc; return !!(g&&g[r]&&g[r][c]); }
+function isSlotTile(c,r){ try{ var t=(voxelReady&&VoxelEngine.getWoodsSlotTiles)?VoxelEngine.getWoodsSlotTiles():[]; for(var i=0;i<t.length;i++) if(t[i].c===c&&t[i].r===r) return true; }catch(e){} return false; }
 function walkStep(dx,dy){ if(!M||dialogue) return; if(dx<0)guyFace="L"; else if(dx>0)guyFace="R"; else if(dy<0)guyFace="B"; else if(dy>0)guyFace="F"; const nc=px+dx,nr=py+dy;
   if(currentMap===BOB.map && nc===BOB.x && nr===BOB.y){ bobTalks++; say(bobTalks>=2?"Be careful though, I get lost sometimes":BOB.text); draw(); return; }
   if(genAt(nc,nr)){ say("A Dream Generator hums inside. Step in?  A = yes, B = no"); dialogueAction=enterGenerator; draw(); return; }
   if(solidAt(nc,nr)){ draw(); return; } px=nc; py=nr; lastStepAt=Date.now();
   const w=(M.warps||[]).find(o=>o.x===px&&o.y===py); if(w){ loadMap(w.toMap,w.entry||"start"); return; }
   if(!waterSaid && isWater(M.map[py][px])){ waterSaid=true; try{localStorage.setItem("town_water_said","1");}catch(e){} say("Am I dreaming? I'm walking on this water"); draw(); return; }
-  const nz=zoneAt(px,py); if(nz&&!inZone){ inZone=true; startEncounter(); return; } if(!nz) inZone=false; draw(); }
+  const nz=zoneAt(px,py)||isSlotTile(px,py); if(nz&&!inZone){ inZone=true; startEncounter(); return; } if(!nz) inZone=false; draw(); }
 
 // ===== 3D VOXEL WALK RENDERING =====
 var cv3d=document.getElementById("screen3d");
@@ -527,7 +528,7 @@ function randMonNum(){ return area.first+Math.floor(Math.random()*(area.last-are
 function startEncounter(){
   var dir={B:"U",F:"D",L:"L",R:"R"}[guyFace]||"U";
   var nSlots=area.slots||3;
-  var slots=[]; for(var i=0;i<nSlots;i++){ slots.push({num:randMonNum(), t:rollRarity(), show:randMonNum(), stopped:false, stopAt:(i+1)*38+18}); }
+  var slots=[]; for(var i=0;i<nSlots;i++){ slots.push({num:randMonNum(), t:rollRarity(), show:randMonNum(), stopped:false, stopAt:(i+1)*50+24}); }
   enc={ dir:dir, grow:0, holdT:0, vidStarted:false,
         phase:"video",      // video -> ready -> spinning -> result
         first:(dmDex.length===0),
@@ -548,7 +549,7 @@ function slotGeom(b){ var n=(enc&&enc.slots)?enc.slots.length:3, full=b.s*0.92, 
   return {mx0:mx0,my0:my0,mw:mw,mh:mh,reels:reels,csz:Math.min(rw,rh)*0.92}; }
 // A fused creature: every component sprite layered on top of the first (same idea as the binder)
 function drawFusedPix(comp,tags,cx,cy,size){ var op=comp.length<=2?0.62:0.5; for(var i=0;i<comp.length;i++){ x.save(); x.globalAlpha=(i===0?1:op); drawPix(comp[i],cx,cy,size,(tags&&tags[i])||"red"); x.restore(); } x.globalAlpha=1; }
-const FUSE_FRAMES=150;
+const FUSE_FRAMES=240;
 function easeOut(t){ return 1-Math.pow(1-t,3); }
 function drawFusionAnim(b,g){
   var f=enc.fuseT/FUSE_FRAMES, cx=b.x+b.s/2, cy=b.y+b.s*0.34, comp=enc.fused.comp, tags=enc.slots.map(function(s){return s.t;});
@@ -600,7 +601,7 @@ function stepSpin(){ if(!enc || enc.phase!=="spinning") return;
   enc.spinT++;
   var allStopped=true;
   for(var i=0;i<enc.slots.length;i++){ var s=enc.slots[i];
-    if(!s.stopped){ if(enc.spinT%3===0) s.show=randMonNum(); if(enc.spinT>=s.stopAt){ s.stopped=true; s.show=s.num;
+    if(!s.stopped){ if(enc.spinT%6===0) s.show=randMonNum(); if(enc.spinT>=s.stopAt){ s.stopped=true; s.show=s.num;
       // Stop the matching 3D reel
       if (voxelReady && VoxelEngine.stopWaterSlot) { try { VoxelEngine.stopWaterSlot(i); } catch(e) {} }
       if (voxelReady && VoxelEngine.stopEncounterReel) { try { VoxelEngine.stopEncounterReel(i); } catch(e) {} }
@@ -634,7 +635,7 @@ function drawEncounter(){ if(!enc) return;
   if(voxelReady && VoxelEngine.showEncounterMachine && VoxelEngine.hideEncounterMachine){
     try{
       if(enc.phase==="ready"||enc.phase==="spinning"){
-        if(!enc.cabShown){ VoxelEngine.showEncounterMachine(enc.slots.map(function(s){return s.num;}), area.first, area.last); enc.cabShown=true; }
+        if(!enc.cabShown){ VoxelEngine.showEncounterMachine(enc.slots.map(function(s){return s.num;}), area.first, area.last, currentMap==="woods" ? 0x1a8a3a : null); enc.cabShown=true; }
       } else if(enc.cabShown){ VoxelEngine.hideEncounterMachine(); enc.cabShown=false; }
     }catch(e){}
   }
