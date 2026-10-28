@@ -25,11 +25,11 @@
   .rbtn:active{background:rgba(255,255,255,.18);}
   /* Landscape: visible thumb controls (no cabinet art to sit on) */
   body.landscape #dpad{background:rgba(20,12,35,.55);border:2px solid rgba(201,160,255,.5);border-radius:50%;}
-  body.landscape #dpad .dp{color:#c9a0ff;font-size:28px;}
-  body.landscape #up::after{content:"▲";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
-  body.landscape #dn::after{content:"▼";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
-  body.landscape #lf::after{content:"◀";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
-  body.landscape #rt::after{content:"▶";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
+  body.landscape #dpad .dp{color:transparent;font-size:28px;} /* text arrow hidden: ::after below is the only arrow */
+  body.landscape #up::after{content:"▲";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#c9a0ff;}
+  body.landscape #dn::after{content:"▼";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#c9a0ff;}
+  body.landscape #lf::after{content:"◀";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#c9a0ff;}
+  body.landscape #rt::after{content:"▶";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#c9a0ff;}
   body.landscape #aBtn{background:rgba(255,80,80,.75);border:2px solid #ffaaaa;color:#fff;font-size:14px;font-weight:bold;}
   body.landscape #aBtn::after{content:"RUN";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
   body.landscape #bBtn{background:rgba(80,140,255,.75);border:2px solid #aaccff;color:#fff;font-size:14px;font-weight:bold;}
@@ -58,7 +58,7 @@
 
 <!-- 3D VOXEL DIORAMA -->
 <script src="three.min.js"></script>
-<script src="voxel-engine.js"></script>
+<script src="voxel-engine.js?v=2"></script>
 
 <script>
 // ===== CABINET =====

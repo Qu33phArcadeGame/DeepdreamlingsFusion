@@ -873,13 +873,22 @@ const VoxelEngine = (function() {
   function loadCompanionModel(num) {
     if (companionModelCache[num] || companionModelLoading[num] || companionModelFailed[num]) return;
     companionModelLoading[num] = true;
-    const base = 'models/dreamlingP' + num;
-    fetch(base + '.obj').then(function(r) { if (!r.ok) throw new Error('obj ' + r.status); return r.text(); })
-      .then(function(objText) {
-        const mm = objText.match(/^mtllib\s+(\S+)/m);
-        if (!mm) return { objText: objText, mtlText: null };
-        return fetch('models/' + mm[1]).then(function(r) { if (!r.ok) throw new Error('mtl ' + r.status); return r.text(); })
-          .then(function(mtlText) { return { objText: objText, mtlText: mtlText }; });
+    // Models were uploaded to the repo ROOT, not models/ — try root first, then models/.
+    // The MTL is resolved relative to whichever directory the OBJ was found in.
+    const dirs = ['', 'models/'];
+    function tryObj(di) {
+      if (di >= dirs.length) throw new Error('obj 404');
+      return fetch(dirs[di] + 'dreamlingP' + num + '.obj').then(function(r) {
+        if (!r.ok) return tryObj(di + 1);
+        return r.text().then(function(objText) { return { dir: dirs[di], objText: objText }; });
+      });
+    }
+    tryObj(0)
+      .then(function(found) {
+        const mm = found.objText.match(/^mtllib\s+(\S+)/m);
+        if (!mm) return { objText: found.objText, mtlText: null };
+        return fetch(found.dir + mm[1]).then(function(r) { if (!r.ok) throw new Error('mtl ' + r.status); return r.text(); })
+          .then(function(mtlText) { return { objText: found.objText, mtlText: mtlText }; });
       })
       .then(function(parts) {
         const g = buildCompanionModel(parts.objText, parts.mtlText);
@@ -1473,6 +1482,14 @@ const VoxelEngine = (function() {
     const redMat = new THREE.MeshLambertMaterial({ color: 0xcc2222 });
     const body = new THREE.Mesh(new THREE.BoxGeometry(3.1, 3.4, 0.9), blackMat);
     body.castShadow = true; g.add(body);
+    // Multi-layered body: plinth base + gold side trims, so the cabinet reads as
+    // stacked layers instead of one flat box.
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.18, 1.0), darkMat);
+    plinth.position.y = -1.79; plinth.castShadow = true; g.add(plinth);
+    [-1.57, 1.57].forEach(function(sx) {
+      const side = new THREE.Mesh(new THREE.BoxGeometry(0.08, 3.4, 0.94), goldMat);
+      side.position.set(sx, 0, 0); g.add(side);
+    });
     const trimT = new THREE.Mesh(new THREE.BoxGeometry(3.14, 0.08, 0.94), goldMat);
     trimT.position.y = 1.72; g.add(trimT);
     const trimB = new THREE.Mesh(new THREE.BoxGeometry(3.14, 0.08, 0.94), goldMat);
@@ -1499,17 +1516,26 @@ const VoxelEngine = (function() {
     }
     g.userData.reels = [];
     const n = nums.length;
-    const spacing = 1.0; // drums are 0.92 across: 1.0 spacing keeps them from merging
+    const spacing = 1.0;
     for (let i = 0; i < n; i++) {
       const x = (i - (n - 1) / 2) * spacing;
-      // Dark drum behind: pure 3D depth, no wrapped texture (that wrap is what showed
-      // several off-center faces at once). The readable face is a flat plane in front.
-      const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.56, 24), darkMat);
-      drum.rotation.z = Math.PI / 2;
-      drum.rotation.y = Math.PI / 2;
-      drum.position.set(x, 0.35, 0.56);
-      g.add(drum);
-      // Face plane: exactly one centered dreamling, unlit so it stays bright
+      // Multi-layered reel bay: gold plate -> dark recess -> clean drum cylinder ->
+      // gold rim ring -> round icon face flush on the drum's front cap. No more
+      // square plane floating in front of a bigger dark circle, and no wrapped
+      // texture showing several off-center faces at once.
+      const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.86), goldMat);
+      plate.position.set(x, 0.35, 0.54); g.add(plate);
+      const bay = new THREE.Mesh(new THREE.PlaneGeometry(0.80, 0.80), darkMat);
+      bay.position.set(x, 0.35, 0.56); g.add(bay);
+      const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.28, 28), darkMat);
+      drum.rotation.x = Math.PI / 2; // cylinder axis -> depth, caps facing the camera
+      drum.position.set(x, 0.35, 0.71);
+      drum.castShadow = true; g.add(drum);
+      const rim = new THREE.Mesh(new THREE.RingGeometry(0.345, 0.385, 28), goldMat);
+      rim.position.set(x, 0.35, 0.855); g.add(rim);
+      // Face: exactly one centered dreamling on a ROUND face, unlit so it stays
+      // bright. Same texture swap + strip scroll as before, so spin/stop logic
+      // (spinEncounterReels / stopEncounterReel) is untouched.
       const faceCanvas = makeReelFaceCanvas(nums[i]);
       const faceTex = new THREE.CanvasTexture(faceCanvas);
       faceCanvas.userData = { tex: faceTex };
@@ -1517,8 +1543,8 @@ const VoxelEngine = (function() {
       const stripTex = new THREE.CanvasTexture(stripCanvas);
       stripTex.wrapT = THREE.RepeatWrapping;
       stripCanvas.userData = { tex: stripTex };
-      const face = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 0.66), new THREE.MeshBasicMaterial({ map: faceTex }));
-      face.position.set(x, 0.35, 1.06);
+      const face = new THREE.Mesh(new THREE.CircleGeometry(0.345, 28), new THREE.MeshBasicMaterial({ map: faceTex }));
+      face.position.set(x, 0.35, 0.862);
       face.userData.scrolling = false;
       face.userData.singleTex = faceTex;
       face.userData.stripTex = stripTex;
@@ -1534,6 +1560,8 @@ const VoxelEngine = (function() {
     g.userData.leverArm = leverArm;
     const leverBall = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), glowPink);
     leverBall.position.set(1.80, 0.85, 0); g.add(leverBall);
+    const doorTrim = new THREE.Mesh(new THREE.BoxGeometry(2.04, 0.05, 0.07), goldMat);
+    doorTrim.position.set(0, -0.78, 0.47); g.add(doorTrim);
     const door = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.8, 0.06), darkMat);
     door.position.set(0, -1.2, 0.47); g.add(door);
     [-0.3, 0.3].forEach(function(dx) {
