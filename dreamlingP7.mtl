@@ -1,0 +1,24 @@
+newmtl c0
+Kd 0.000 0.000 0.000
+newmtl c1
+Kd 1.000 0.000 0.000
+newmtl c2
+Kd 0.000 0.188 1.000
+newmtl c3
+Kd 1.000 0.000 0.878
+newmtl c4
+Kd 1.000 0.722 0.000
+newmtl c5
+Kd 0.000 1.000 1.000
+newmtl c6
+Kd 0.000 1.000 0.753
+newmtl c7
+Kd 0.000 0.816 1.000
+newmtl c8
+Kd 1.000 0.973 0.000
+newmtl c9
+Kd 0.565 0.000 1.000
+newmtl c10
+Kd 0.000 1.000 0.157
+newmtl c11
+Kd 0.816 1.000 0.000

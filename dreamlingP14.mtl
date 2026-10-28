@@ -1,0 +1,1624 @@
+newmtl c0
+Kd 0.000 0.000 0.000
+newmtl c1
+Kd 0.000 0.094 0.000
+newmtl c2
+Kd 0.188 0.878 0.282
+newmtl c3
+Kd 0.031 1.000 0.188
+newmtl c4
+Kd 0.000 1.000 0.220
+newmtl c5
+Kd 0.000 1.000 0.188
+newmtl c6
+Kd 0.000 1.000 0.157
+newmtl c7
+Kd 0.565 1.000 0.596
+newmtl c8
+Kd 0.659 1.000 0.659
+newmtl c9
+Kd 0.659 0.973 0.722
+newmtl c10
+Kd 0.659 1.000 0.753
+newmtl c11
+Kd 0.031 0.502 0.157
+newmtl c12
+Kd 0.000 0.565 0.157
+newmtl c13
+Kd 0.000 0.565 0.125
+newmtl c14
+Kd 0.000 0.565 0.094
+newmtl c15
+Kd 0.000 0.596 0.063
+newmtl c16
+Kd 0.000 0.565 0.063
+newmtl c17
+Kd 0.031 0.565 0.125
+newmtl c18
+Kd 0.000 0.596 0.094
+newmtl c19
+Kd 0.000 0.533 0.094
+newmtl c20
+Kd 0.031 0.533 0.094
+newmtl c21
+Kd 0.565 1.000 0.659
+newmtl c22
+Kd 0.596 1.000 0.659
+newmtl c23
+Kd 0.659 1.000 0.690
+newmtl c24
+Kd 0.690 0.973 0.722
+newmtl c25
+Kd 0.094 0.941 0.282
+newmtl c26
+Kd 0.000 0.125 0.000
+newmtl c27
+Kd 0.314 0.847 0.282
+newmtl c28
+Kd 0.251 0.878 0.157
+newmtl c29
+Kd 0.282 0.847 0.157
+newmtl c30
+Kd 0.251 0.878 0.125
+newmtl c31
+Kd 0.502 1.000 0.533
+newmtl c32
+Kd 0.533 1.000 0.627
+newmtl c33
+Kd 0.125 0.533 0.063
+newmtl c34
+Kd 0.157 0.471 0.000
+newmtl c35
+Kd 0.220 0.502 0.000
+newmtl c36
+Kd 0.251 0.471 0.031
+newmtl c37
+Kd 0.220 0.471 0.063
+newmtl c38
+Kd 0.188 0.502 0.000
+newmtl c39
+Kd 0.188 0.471 0.031
+newmtl c40
+Kd 0.596 0.973 0.627
+newmtl c41
+Kd 0.627 1.000 0.753
+newmtl c42
+Kd 0.596 1.000 0.722
+newmtl c43
+Kd 0.220 0.533 0.063
+newmtl c44
+Kd 0.188 0.502 0.031
+newmtl c45
+Kd 0.220 0.471 0.031
+newmtl c46
+Kd 0.220 0.471 0.000
+newmtl c47
+Kd 0.125 0.471 0.000
+newmtl c48
+Kd 0.533 1.000 0.596
+newmtl c49
+Kd 0.251 0.878 0.220
+newmtl c50
+Kd 0.251 0.878 0.188
+newmtl c51
+Kd 0.282 0.878 0.157
+newmtl c52
+Kd 0.282 0.878 0.125
+newmtl c53
+Kd 0.000 0.157 0.000
+newmtl c54
+Kd 0.125 0.910 0.345
+newmtl c55
+Kd 0.753 0.659 0.063
+newmtl c56
+Kd 0.973 0.565 0.000
+newmtl c57
+Kd 1.000 0.533 0.000
+newmtl c58
+Kd 0.973 0.533 0.000
+newmtl c59
+Kd 1.000 0.533 0.031
+newmtl c60
+Kd 1.000 0.502 0.000
+newmtl c61
+Kd 0.031 1.000 0.220
+newmtl c62
+Kd 0.784 0.659 0.063
+newmtl c63
+Kd 0.973 0.565 0.031
+newmtl c64
+Kd 0.784 0.941 0.596
+newmtl c65
+Kd 0.659 1.000 0.784
+newmtl c66
+Kd 0.627 0.973 0.722
+newmtl c67
+Kd 0.847 0.596 0.094
+newmtl c68
+Kd 0.973 0.533 0.031
+newmtl c69
+Kd 0.941 0.565 0.063
+newmtl c70
+Kd 0.784 0.627 0.094
+newmtl c71
+Kd 0.251 0.910 0.125
+newmtl c72
+Kd 0.000 0.973 0.188
+newmtl c73
+Kd 0.251 0.847 0.220
+newmtl c74
+Kd 0.220 0.910 0.125
+newmtl c75
+Kd 0.816 0.627 0.094
+newmtl c76
+Kd 1.000 0.471 0.094
+newmtl c77
+Kd 1.000 0.502 0.094
+newmtl c78
+Kd 1.000 0.502 0.125
+newmtl c79
+Kd 0.220 0.878 0.188
+newmtl c80
+Kd 0.722 0.627 0.031
+newmtl c81
+Kd 1.000 0.502 0.063
+newmtl c82
+Kd 1.000 0.471 0.063
+newmtl c83
+Kd 0.878 0.910 0.502
+newmtl c84
+Kd 0.816 0.941 0.627
+newmtl c85
+Kd 0.878 0.596 0.094
+newmtl c86
+Kd 1.000 0.471 0.125
+newmtl c87
+Kd 0.408 0.784 0.094
+newmtl c88
+Kd 0.220 0.910 0.157
+newmtl c89
+Kd 0.188 0.878 0.220
+newmtl c90
+Kd 0.031 1.000 0.157
+newmtl c91
+Kd 0.784 0.627 0.063
+newmtl c92
+Kd 1.000 0.502 0.031
+newmtl c93
+Kd 1.000 0.565 0.000
+newmtl c94
+Kd 0.910 0.063 0.000
+newmtl c95
+Kd 1.000 0.000 0.031
+newmtl c96
+Kd 0.722 0.000 0.000
+newmtl c97
+Kd 0.627 0.063 0.000
+newmtl c98
+Kd 0.690 0.063 0.000
+newmtl c99
+Kd 0.690 0.000 0.000
+newmtl c100
+Kd 0.910 0.000 0.000
+newmtl c101
+Kd 1.000 0.031 0.031
+newmtl c102
+Kd 0.878 0.031 0.000
+newmtl c103
+Kd 0.784 0.000 0.031
+newmtl c104
+Kd 0.659 0.000 0.031
+newmtl c105
+Kd 0.753 0.659 0.000
+newmtl c106
+Kd 0.596 0.063 0.000
+newmtl c107
+Kd 0.659 0.000 0.000
+newmtl c108
+Kd 0.941 0.031 0.063
+newmtl c109
+Kd 1.000 0.000 0.000
+newmtl c110
+Kd 0.031 1.000 0.125
+newmtl c111
+Kd 0.314 0.847 0.220
+newmtl c112
+Kd 0.816 0.627 0.063
+newmtl c113
+Kd 1.000 0.533 0.063
+newmtl c114
+Kd 0.910 0.094 0.000
+newmtl c115
+Kd 0.910 0.031 0.031
+newmtl c116
+Kd 0.596 0.031 0.031
+newmtl c117
+Kd 0.439 0.094 0.000
+newmtl c118
+Kd 0.847 0.533 0.220
+newmtl c119
+Kd 0.847 0.565 0.125
+newmtl c120
+Kd 0.282 0.847 0.220
+newmtl c121
+Kd 0.094 0.941 0.251
+newmtl c122
+Kd 0.690 0.659 0.157
+newmtl c123
+Kd 0.847 0.596 0.125
+newmtl c124
+Kd 0.471 0.125 0.000
+newmtl c125
+Kd 0.502 0.094 0.000
+newmtl c126
+Kd 0.847 0.063 0.031
+newmtl c127
+Kd 1.000 0.439 0.125
+newmtl c128
+Kd 1.000 0.565 0.031
+newmtl c129
+Kd 0.878 0.063 0.000
+newmtl c130
+Kd 0.941 0.031 0.031
+newmtl c131
+Kd 0.502 0.094 0.031
+newmtl c132
+Kd 0.847 0.565 0.188
+newmtl c133
+Kd 0.878 0.565 0.125
+newmtl c134
+Kd 0.659 0.659 0.157
+newmtl c135
+Kd 0.878 0.565 0.157
+newmtl c136
+Kd 0.471 0.157 0.000
+newmtl c137
+Kd 0.847 0.063 0.063
+newmtl c138
+Kd 0.408 0.816 0.094
+newmtl c139
+Kd 0.125 0.910 0.408
+newmtl c140
+Kd 0.000 0.973 0.251
+newmtl c141
+Kd 0.722 0.659 0.063
+newmtl c142
+Kd 0.941 0.063 0.000
+newmtl c143
+Kd 0.816 0.941 0.659
+newmtl c144
+Kd 0.596 1.000 0.690
+newmtl c145
+Kd 0.596 0.973 0.659
+newmtl c146
+Kd 0.627 1.000 0.690
+newmtl c147
+Kd 0.627 1.000 0.722
+newmtl c148
+Kd 0.659 1.000 0.722
+newmtl c149
+Kd 0.627 1.000 0.627
+newmtl c150
+Kd 0.471 0.094 0.000
+newmtl c151
+Kd 0.973 0.000 0.000
+newmtl c152
+Kd 0.910 0.031 0.000
+newmtl c153
+Kd 0.659 0.031 0.031
+newmtl c154
+Kd 0.816 0.941 0.690
+newmtl c155
+Kd 0.627 1.000 0.659
+newmtl c156
+Kd 0.251 0.910 0.188
+newmtl c157
+Kd 0.000 0.973 0.314
+newmtl c158
+Kd 0.125 0.878 0.314
+newmtl c159
+Kd 0.753 0.659 0.031
+newmtl c160
+Kd 1.000 0.471 0.031
+newmtl c161
+Kd 0.910 0.031 0.094
+newmtl c162
+Kd 0.627 0.031 0.000
+newmtl c163
+Kd 0.722 0.941 0.722
+newmtl c164
+Kd 0.690 0.941 0.941
+newmtl c165
+Kd 0.596 0.941 0.941
+newmtl c166
+Kd 0.502 1.000 0.565
+newmtl c167
+Kd 0.659 0.973 0.753
+newmtl c168
+Kd 0.345 0.125 0.031
+newmtl c169
+Kd 0.502 0.063 0.000
+newmtl c170
+Kd 0.847 0.063 0.000
+newmtl c171
+Kd 0.596 0.031 0.000
+newmtl c172
+Kd 0.784 0.973 0.722
+newmtl c173
+Kd 0.502 1.000 0.596
+newmtl c174
+Kd 0.533 1.000 0.565
+newmtl c175
+Kd 0.596 1.000 0.878
+newmtl c176
+Kd 0.659 0.910 0.973
+newmtl c177
+Kd 0.627 0.973 0.784
+newmtl c178
+Kd 0.345 0.157 0.063
+newmtl c179
+Kd 0.533 0.063 0.000
+newmtl c180
+Kd 0.910 0.031 0.063
+newmtl c181
+Kd 1.000 0.439 0.094
+newmtl c182
+Kd 0.251 0.878 0.094
+newmtl c183
+Kd 0.157 0.910 0.314
+newmtl c184
+Kd 0.816 0.910 0.690
+newmtl c185
+Kd 0.063 0.220 0.816
+newmtl c186
+Kd 0.000 0.220 1.000
+newmtl c187
+Kd 0.094 0.878 0.471
+newmtl c188
+Kd 0.627 0.973 0.690
+newmtl c189
+Kd 0.502 0.063 0.031
+newmtl c190
+Kd 0.816 0.910 0.722
+newmtl c191
+Kd 0.063 0.533 0.157
+newmtl c192
+Kd 0.063 0.973 0.220
+newmtl c193
+Kd 0.000 0.973 0.157
+newmtl c194
+Kd 0.000 0.314 0.690
+newmtl c195
+Kd 0.031 0.188 1.000
+newmtl c196
+Kd 0.627 0.941 0.941
+newmtl c197
+Kd 0.471 0.063 0.000
+newmtl c198
+Kd 0.125 0.910 0.314
+newmtl c199
+Kd 0.784 0.627 0.031
+newmtl c200
+Kd 0.533 0.063 0.031
+newmtl c201
+Kd 0.722 0.878 0.659
+newmtl c202
+Kd 0.627 0.973 0.878
+newmtl c203
+Kd 0.596 0.973 0.910
+newmtl c204
+Kd 0.000 0.282 0.596
+newmtl c205
+Kd 0.125 0.816 0.627
+newmtl c206
+Kd 0.125 0.910 0.502
+newmtl c207
+Kd 0.000 0.659 0.157
+newmtl c208
+Kd 0.784 0.941 0.627
+newmtl c209
+Kd 0.565 0.973 0.627
+newmtl c210
+Kd 0.565 1.000 0.690
+newmtl c211
+Kd 0.000 0.596 0.125
+newmtl c212
+Kd 0.000 0.596 0.031
+newmtl c213
+Kd 0.063 0.847 0.408
+newmtl c214
+Kd 0.125 0.878 0.502
+newmtl c215
+Kd 0.000 0.376 0.533
+newmtl c216
+Kd 0.000 0.314 0.753
+newmtl c217
+Kd 0.627 1.000 1.000
+newmtl c218
+Kd 0.627 0.973 0.941
+newmtl c219
+Kd 0.627 0.973 0.753
+newmtl c220
+Kd 0.408 0.188 0.031
+newmtl c221
+Kd 0.816 0.063 0.031
+newmtl c222
+Kd 0.722 0.659 0.031
+newmtl c223
+Kd 0.784 0.941 0.690
+newmtl c224
+Kd 0.031 0.251 0.816
+newmtl c225
+Kd 0.000 0.188 1.000
+newmtl c226
+Kd 0.000 0.282 0.722
+newmtl c227
+Kd 0.063 0.596 0.094
+newmtl c228
+Kd 0.847 0.596 0.157
+newmtl c229
+Kd 0.973 0.502 0.000
+newmtl c230
+Kd 0.784 0.941 0.565
+newmtl c231
+Kd 0.596 0.973 0.690
+newmtl c232
+Kd 0.000 0.533 0.063
+newmtl c233
+Kd 0.063 0.565 0.125
+newmtl c234
+Kd 0.094 0.941 0.220
+newmtl c235
+Kd 0.000 0.282 0.690
+newmtl c236
+Kd 0.063 0.910 0.439
+newmtl c237
+Kd 0.659 0.910 0.941
+newmtl c238
+Kd 0.157 0.910 0.282
+newmtl c239
+Kd 0.031 0.973 0.157
+newmtl c240
+Kd 0.753 0.941 0.659
+newmtl c241
+Kd 0.627 0.973 0.910
+newmtl c242
+Kd 0.659 0.941 0.941
+newmtl c243
+Kd 0.000 0.314 0.596
+newmtl c244
+Kd 0.125 0.878 0.627
+newmtl c245
+Kd 0.000 0.345 0.565
+newmtl c246
+Kd 0.000 0.314 0.722
+newmtl c247
+Kd 0.094 0.878 0.439
+newmtl c248
+Kd 0.031 0.973 0.251
+newmtl c249
+Kd 0.031 0.565 0.094
+newmtl c250
+Kd 0.753 0.596 0.157
+newmtl c251
+Kd 0.910 0.565 0.125
+newmtl c252
+Kd 0.941 0.565 0.188
+newmtl c253
+Kd 0.878 0.533 0.125
+newmtl c254
+Kd 0.910 0.565 0.157
+newmtl c255
+Kd 0.910 0.533 0.157
+newmtl c256
+Kd 0.878 0.533 0.094
+newmtl c257
+Kd 0.910 0.596 0.125
+newmtl c258
+Kd 0.753 0.941 0.565
+newmtl c259
+Kd 0.063 0.533 0.094
+newmtl c260
+Kd 0.031 0.533 0.125
+newmtl c261
+Kd 0.031 0.973 0.220
+newmtl c262
+Kd 0.000 0.376 0.502
+newmtl c263
+Kd 0.094 0.910 0.471
+newmtl c264
+Kd 0.000 0.345 0.533
+newmtl c265
+Kd 0.627 0.941 1.000
+newmtl c266
+Kd 0.596 0.973 0.973
+newmtl c267
+Kd 0.439 0.125 0.000
+newmtl c268
+Kd 0.659 0.031 0.000
+newmtl c269
+Kd 1.000 0.533 0.094
+newmtl c270
+Kd 0.157 0.941 0.345
+newmtl c271
+Kd 0.000 0.251 0.784
+newmtl c272
+Kd 0.000 0.220 0.973
+newmtl c273
+Kd 0.063 0.878 0.439
+newmtl c274
+Kd 0.000 0.345 0.753
+newmtl c275
+Kd 0.000 0.188 0.973
+newmtl c276
+Kd 0.000 0.596 0.000
+newmtl c277
+Kd 0.565 1.000 0.722
+newmtl c278
+Kd 0.000 0.031 0.000
+newmtl c279
+Kd 0.031 0.000 0.031
+newmtl c280
+Kd 0.000 0.031 0.031
+newmtl c281
+Kd 0.000 0.000 0.063
+newmtl c282
+Kd 0.000 0.000 0.031
+newmtl c283
+Kd 0.031 0.000 0.000
+newmtl c284
+Kd 0.596 1.000 0.753
+newmtl c285
+Kd 0.031 0.533 0.188
+newmtl c286
+Kd 0.094 0.973 0.251
+newmtl c287
+Kd 0.000 0.345 0.722
+newmtl c288
+Kd 0.094 0.847 0.502
+newmtl c289
+Kd 0.000 0.282 0.659
+newmtl c290
+Kd 0.627 0.941 0.910
+newmtl c291
+Kd 0.220 0.910 0.188
+newmtl c292
+Kd 0.000 1.000 0.251
+newmtl c293
+Kd 0.565 0.973 0.659
+newmtl c294
+Kd 0.251 0.816 0.376
+newmtl c295
+Kd 0.220 0.878 0.345
+newmtl c296
+Kd 0.157 0.910 0.376
+newmtl c297
+Kd 0.596 0.722 0.157
+newmtl c298
+Kd 0.753 0.941 0.627
+newmtl c299
+Kd 0.125 0.847 0.659
+newmtl c300
+Kd 0.094 0.878 0.502
+newmtl c301
+Kd 0.000 0.376 0.596
+newmtl c302
+Kd 0.157 0.816 0.627
+newmtl c303
+Kd 0.157 0.910 0.502
+newmtl c304
+Kd 0.000 0.659 0.125
+newmtl c305
+Kd 0.533 1.000 0.690
+newmtl c306
+Kd 0.627 0.973 0.659
+newmtl c307
+Kd 0.000 0.565 0.031
+newmtl c308
+Kd 0.094 0.847 0.408
+newmtl c309
+Kd 0.000 0.376 0.565
+newmtl c310
+Kd 0.125 0.816 0.659
+newmtl c311
+Kd 0.565 0.941 0.847
+newmtl c312
+Kd 0.659 0.690 0.125
+newmtl c313
+Kd 0.753 0.659 0.094
+newmtl c314
+Kd 0.282 0.816 0.282
+newmtl c315
+Kd 0.157 0.878 0.282
+newmtl c316
+Kd 0.188 0.910 0.345
+newmtl c317
+Kd 0.314 0.847 0.408
+newmtl c318
+Kd 0.188 0.847 0.282
+newmtl c319
+Kd 0.188 0.910 0.282
+newmtl c320
+Kd 0.502 1.000 0.627
+newmtl c321
+Kd 0.125 0.973 0.282
+newmtl c322
+Kd 0.125 0.878 0.533
+newmtl c323
+Kd 0.000 0.063 0.000
+newmtl c324
+Kd 0.596 0.973 0.722
+newmtl c325
+Kd 0.031 0.502 0.063
+newmtl c326
+Kd 0.031 0.596 0.094
+newmtl c327
+Kd 0.063 0.973 0.251
+newmtl c328
+Kd 0.000 1.000 0.125
+newmtl c329
+Kd 0.000 0.314 0.659
+newmtl c330
+Kd 0.125 0.910 0.471
+newmtl c331
+Kd 0.063 0.910 0.471
+newmtl c332
+Kd 0.314 0.816 0.376
+newmtl c333
+Kd 0.094 0.502 0.157
+newmtl c334
+Kd 0.188 0.878 0.314
+newmtl c335
+Kd 0.157 0.000 0.000
+newmtl c336
+Kd 0.816 0.094 0.094
+newmtl c337
+Kd 0.157 0.910 0.251
+newmtl c338
+Kd 0.753 0.094 0.125
+newmtl c339
+Kd 0.157 0.878 0.314
+newmtl c340
+Kd 0.094 0.973 0.282
+newmtl c341
+Kd 0.000 0.345 0.502
+newmtl c342
+Kd 0.157 0.878 0.502
+newmtl c343
+Kd 0.125 0.878 0.408
+newmtl c344
+Kd 0.063 0.565 0.063
+newmtl c345
+Kd 0.157 0.502 0.063
+newmtl c346
+Kd 0.690 0.973 0.659
+newmtl c347
+Kd 0.753 0.973 0.627
+newmtl c348
+Kd 0.063 0.000 0.000
+newmtl c349
+Kd 0.784 0.910 0.659
+newmtl c350
+Kd 0.722 0.973 0.659
+newmtl c351
+Kd 0.157 0.502 0.094
+newmtl c352
+Kd 0.125 0.502 0.063
+newmtl c353
+Kd 0.094 0.941 0.188
+newmtl c354
+Kd 0.000 0.282 0.753
+newmtl c355
+Kd 0.063 0.941 0.251
+newmtl c356
+Kd 0.000 0.376 0.471
+newmtl c357
+Kd 0.125 0.847 0.314
+newmtl c358
+Kd 0.125 0.502 0.188
+newmtl c359
+Kd 0.722 0.941 0.753
+newmtl c360
+Kd 0.000 0.533 0.125
+newmtl c361
+Kd 0.063 0.941 0.220
+newmtl c362
+Kd 0.000 0.627 0.094
+newmtl c363
+Kd 0.031 0.941 0.220
+newmtl c364
+Kd 0.000 0.627 0.063
+newmtl c365
+Kd 0.878 0.816 0.471
+newmtl c366
+Kd 1.000 0.722 0.471
+newmtl c367
+Kd 1.000 0.784 0.471
+newmtl c368
+Kd 0.973 0.784 0.439
+newmtl c369
+Kd 1.000 0.753 0.471
+newmtl c370
+Kd 0.973 0.753 0.471
+newmtl c371
+Kd 1.000 0.753 0.439
+newmtl c372
+Kd 1.000 0.753 0.502
+newmtl c373
+Kd 0.973 0.753 0.439
+newmtl c374
+Kd 1.000 0.722 0.439
+newmtl c375
+Kd 0.157 0.533 0.125
+newmtl c376
+Kd 0.031 0.941 0.251
+newmtl c377
+Kd 0.031 1.000 0.251
+newmtl c378
+Kd 0.690 0.941 0.753
+newmtl c379
+Kd 0.690 1.000 0.753
+newmtl c380
+Kd 0.031 0.533 0.157
+newmtl c381
+Kd 0.125 0.941 0.314
+newmtl c382
+Kd 0.063 0.596 0.157
+newmtl c383
+Kd 0.125 0.910 0.282
+newmtl c384
+Kd 0.094 0.565 0.063
+newmtl c385
+Kd 0.910 0.816 0.471
+newmtl c386
+Kd 1.000 0.690 0.471
+newmtl c387
+Kd 1.000 0.690 0.502
+newmtl c388
+Kd 1.000 0.722 0.502
+newmtl c389
+Kd 1.000 0.690 0.533
+newmtl c390
+Kd 1.000 0.753 0.533
+newmtl c391
+Kd 0.251 0.471 0.063
+newmtl c392
+Kd 0.125 0.471 0.031
+newmtl c393
+Kd 0.125 0.878 0.251
+newmtl c394
+Kd 0.157 0.941 0.314
+newmtl c395
+Kd 0.690 0.973 0.784
+newmtl c396
+Kd 0.659 0.973 0.659
+newmtl c397
+Kd 0.031 0.596 0.125
+newmtl c398
+Kd 0.031 0.533 0.063
+newmtl c399
+Kd 0.031 0.565 0.063
+newmtl c400
+Kd 0.878 0.816 0.502
+newmtl c401
+Kd 0.973 0.722 0.471
+newmtl c402
+Kd 0.973 0.784 0.471
+newmtl c403
+Kd 0.973 0.722 0.502
+newmtl c404
+Kd 0.565 0.031 0.000
+newmtl c405
+Kd 0.690 0.031 0.000
+newmtl c406
+Kd 1.000 0.722 0.533
+newmtl c407
+Kd 0.941 0.753 0.471
+newmtl c408
+Kd 0.157 0.471 0.031
+newmtl c409
+Kd 0.063 0.565 0.157
+newmtl c410
+Kd 0.722 0.941 0.816
+newmtl c411
+Kd 0.847 0.533 0.502
+newmtl c412
+Kd 0.659 0.941 0.753
+newmtl c413
+Kd 0.690 0.973 0.753
+newmtl c414
+Kd 0.847 0.816 0.439
+newmtl c415
+Kd 0.941 0.753 0.439
+newmtl c416
+Kd 0.596 0.094 0.000
+newmtl c417
+Kd 0.847 0.094 0.094
+newmtl c418
+Kd 0.722 0.125 0.157
+newmtl c419
+Kd 0.910 0.533 0.533
+newmtl c420
+Kd 0.690 0.910 0.722
+newmtl c421
+Kd 0.941 0.847 0.565
+newmtl c422
+Kd 1.000 0.533 0.157
+newmtl c423
+Kd 0.941 0.094 0.000
+newmtl c424
+Kd 1.000 0.439 0.063
+newmtl c425
+Kd 0.973 0.533 0.063
+newmtl c426
+Kd 0.596 0.000 0.000
+newmtl c427
+Kd 0.722 0.941 0.627
+newmtl c428
+Kd 0.690 1.000 0.784
+newmtl c429
+Kd 0.784 0.941 0.816
+newmtl c430
+Kd 0.941 0.502 0.565
+newmtl c431
+Kd 0.753 0.973 0.816
+newmtl c432
+Kd 0.941 0.502 0.533
+newmtl c433
+Kd 0.941 0.533 0.533
+newmtl c434
+Kd 0.816 0.533 0.565
+newmtl c435
+Kd 0.910 0.502 0.565
+newmtl c436
+Kd 0.816 0.565 0.596
+newmtl c437
+Kd 0.910 0.565 0.596
+newmtl c438
+Kd 0.722 1.000 0.784
+newmtl c439
+Kd 0.094 0.000 0.000
+newmtl c440
+Kd 0.878 0.784 0.502
+newmtl c441
+Kd 1.000 0.471 0.157
+newmtl c442
+Kd 1.000 0.533 0.125
+newmtl c443
+Kd 0.878 0.094 0.000
+newmtl c444
+Kd 0.847 0.094 0.000
+newmtl c445
+Kd 0.973 0.722 0.439
+newmtl c446
+Kd 0.973 0.533 0.596
+newmtl c447
+Kd 0.910 0.502 0.533
+newmtl c448
+Kd 0.910 0.533 0.565
+newmtl c449
+Kd 0.973 0.502 0.502
+newmtl c450
+Kd 0.910 0.784 0.565
+newmtl c451
+Kd 0.973 0.502 0.031
+newmtl c452
+Kd 0.690 0.000 0.031
+newmtl c453
+Kd 0.941 0.031 0.000
+newmtl c454
+Kd 0.973 0.784 0.565
+newmtl c455
+Kd 0.816 0.094 0.031
+newmtl c456
+Kd 0.659 0.063 0.000
+newmtl c457
+Kd 1.000 0.502 0.188
+newmtl c458
+Kd 0.910 0.063 0.063
+newmtl c459
+Kd 1.000 0.439 0.000
+newmtl c460
+Kd 0.941 0.502 0.000
+newmtl c461
+Kd 0.973 0.000 0.031
+newmtl c462
+Kd 1.000 0.471 0.000
+newmtl c463
+Kd 0.627 0.000 0.000
+newmtl c464
+Kd 0.910 0.784 0.533
+newmtl c465
+Kd 1.000 0.471 0.188
+newmtl c466
+Kd 0.188 0.000 0.000
+newmtl c467
+Kd 0.941 0.753 0.533
+newmtl c468
+Kd 0.941 0.000 0.000
+newmtl c469
+Kd 0.690 0.000 0.063
+newmtl c470
+Kd 1.000 0.690 0.439
+newmtl c471
+Kd 1.000 0.439 0.471
+newmtl c472
+Kd 1.000 0.471 0.471
+newmtl c473
+Kd 1.000 0.471 0.439
+newmtl c474
+Kd 0.753 0.125 0.125
+newmtl c475
+Kd 1.000 0.502 0.157
+newmtl c476
+Kd 1.000 0.502 0.471
+newmtl c477
+Kd 0.627 0.000 0.063
+newmtl c478
+Kd 1.000 0.031 0.000
+newmtl c479
+Kd 1.000 0.471 0.408
+newmtl c480
+Kd 0.973 0.471 0.439
+newmtl c481
+Kd 0.973 0.471 0.502
+newmtl c482
+Kd 1.000 0.471 0.533
+newmtl c483
+Kd 0.973 0.784 0.596
+newmtl c484
+Kd 1.000 0.439 0.031
+newmtl c485
+Kd 0.973 0.439 0.471
+newmtl c486
+Kd 0.941 0.063 0.063
+newmtl c487
+Kd 0.784 0.000 0.000
+newmtl c488
+Kd 0.941 0.063 0.031
+newmtl c489
+Kd 1.000 0.439 0.408
+newmtl c490
+Kd 0.125 0.000 0.000
+newmtl c491
+Kd 0.941 0.722 0.533
+newmtl c492
+Kd 1.000 0.439 0.157
+newmtl c493
+Kd 0.973 0.502 0.125
+newmtl c494
+Kd 0.659 0.094 0.000
+newmtl c495
+Kd 0.941 0.502 0.502
+newmtl c496
+Kd 0.878 0.031 0.031
+newmtl c497
+Kd 0.941 0.031 0.094
+newmtl c498
+Kd 1.000 0.000 0.063
+newmtl c499
+Kd 0.973 0.502 0.533
+newmtl c500
+Kd 1.000 0.722 0.408
+newmtl c501
+Kd 0.973 0.502 0.471
+newmtl c502
+Kd 1.000 0.439 0.533
+newmtl c503
+Kd 0.973 0.471 0.471
+newmtl c504
+Kd 0.878 0.031 0.063
+newmtl c505
+Kd 0.659 0.031 0.063
+newmtl c506
+Kd 1.000 0.502 0.502
+newmtl c507
+Kd 0.941 0.471 0.565
+newmtl c508
+Kd 0.753 0.000 0.000
+newmtl c509
+Kd 1.000 0.439 0.439
+newmtl c510
+Kd 0.941 0.533 0.188
+newmtl c511
+Kd 0.973 0.471 0.125
+newmtl c512
+Kd 1.000 0.502 0.220
+newmtl c513
+Kd 0.910 0.502 0.439
+newmtl c514
+Kd 1.000 0.471 0.502
+newmtl c515
+Kd 0.973 0.439 0.439
+newmtl c516
+Kd 0.878 0.565 0.565
+newmtl c517
+Kd 0.878 0.094 0.125
+newmtl c518
+Kd 0.973 0.502 0.439
+newmtl c519
+Kd 0.816 0.125 0.063
+newmtl c520
+Kd 0.816 0.063 0.000
+newmtl c521
+Kd 0.565 0.063 0.000
+newmtl c522
+Kd 0.878 0.063 0.031
+newmtl c523
+Kd 1.000 0.408 0.471
+newmtl c524
+Kd 1.000 0.502 0.533
+newmtl c525
+Kd 0.941 0.533 0.565
+newmtl c526
+Kd 0.659 0.000 0.063
+newmtl c527
+Kd 0.973 0.753 0.502
+newmtl c528
+Kd 0.973 0.533 0.439
+newmtl c529
+Kd 0.878 0.000 0.063
+newmtl c530
+Kd 0.816 0.533 0.596
+newmtl c531
+Kd 0.878 0.063 0.063
+newmtl c532
+Kd 0.941 0.784 0.471
+newmtl c533
+Kd 0.878 0.784 0.471
+newmtl c534
+Kd 0.878 0.816 0.533
+newmtl c535
+Kd 0.847 0.816 0.502
+newmtl c536
+Kd 1.000 0.502 0.439
+newmtl c537
+Kd 0.910 0.565 0.565
+newmtl c538
+Kd 0.941 0.502 0.439
+newmtl c539
+Kd 0.910 0.063 0.031
+newmtl c540
+Kd 0.659 0.973 0.690
+newmtl c541
+Kd 0.000 0.502 0.125
+newmtl c542
+Kd 0.063 0.565 0.094
+newmtl c543
+Kd 0.847 0.847 0.471
+newmtl c544
+Kd 0.533 0.031 0.000
+newmtl c545
+Kd 0.784 0.533 0.565
+newmtl c546
+Kd 0.847 0.031 0.063
+newmtl c547
+Kd 0.753 0.094 0.000
+newmtl c548
+Kd 0.722 0.125 0.031
+newmtl c549
+Kd 0.816 0.847 0.502
+newmtl c550
+Kd 0.659 0.973 0.627
+newmtl c551
+Kd 0.784 0.973 0.659
+newmtl c552
+Kd 0.125 0.502 0.125
+newmtl c553
+Kd 0.125 0.502 0.094
+newmtl c554
+Kd 0.188 0.471 0.094
+newmtl c555
+Kd 0.878 0.533 0.502
+newmtl c556
+Kd 0.314 0.439 0.094
+newmtl c557
+Kd 0.063 0.533 0.125
+newmtl c558
+Kd 0.816 0.816 0.502
+newmtl c559
+Kd 1.000 0.784 0.502
+newmtl c560
+Kd 0.094 0.471 0.063
+newmtl c561
+Kd 0.847 0.847 0.502
+newmtl c562
+Kd 0.847 0.533 0.533
+newmtl c563
+Kd 0.251 0.471 0.094
+newmtl c564
+Kd 0.157 0.502 0.031
+newmtl c565
+Kd 0.188 0.471 0.000
+newmtl c566
+Kd 0.753 0.910 0.439
+newmtl c567
+Kd 0.784 0.878 0.408
+newmtl c568
+Kd 0.784 0.847 0.439
+newmtl c569
+Kd 0.816 0.878 0.439
+newmtl c570
+Kd 0.157 0.533 0.094
+newmtl c571
+Kd 0.784 0.125 0.000
+newmtl c572
+Kd 0.753 0.627 0.471
+newmtl c573
+Kd 0.784 0.878 0.439
+newmtl c574
+Kd 0.125 0.471 0.094
+newmtl c575
+Kd 0.878 0.847 0.471
+newmtl c576
+Kd 1.000 0.784 0.408
+newmtl c577
+Kd 0.220 0.847 0.251
+newmtl c578
+Kd 0.031 0.973 0.188
+newmtl c579
+Kd 0.816 0.910 0.596
+newmtl c580
+Kd 0.345 0.847 0.282
+newmtl c581
+Kd 0.220 0.878 0.220
+newmtl c582
+Kd 0.094 0.533 0.000
+newmtl c583
+Kd 0.251 0.847 0.188
+newmtl c584
+Kd 0.188 0.878 0.188
+newmtl c585
+Kd 0.722 1.000 0.533
+newmtl c586
+Kd 0.345 0.847 0.251
+newmtl c587
+Kd 0.816 0.596 0.314
+newmtl c588
+Kd 1.000 0.502 0.345
+newmtl c589
+Kd 0.910 0.784 0.502
+newmtl c590
+Kd 0.094 0.502 0.094
+newmtl c591
+Kd 0.031 0.565 0.157
+newmtl c592
+Kd 0.784 0.847 0.408
+newmtl c593
+Kd 0.188 0.502 0.094
+newmtl c594
+Kd 0.000 0.502 0.157
+newmtl c595
+Kd 0.784 0.847 0.565
+newmtl c596
+Kd 0.941 0.502 0.376
+newmtl c597
+Kd 0.973 0.471 0.345
+newmtl c598
+Kd 0.408 0.784 0.220
+newmtl c599
+Kd 0.659 0.973 0.502
+newmtl c600
+Kd 0.157 0.565 0.000
+newmtl c601
+Kd 0.690 0.941 0.533
+newmtl c602
+Kd 0.847 0.910 0.565
+newmtl c603
+Kd 0.816 0.596 0.063
+newmtl c604
+Kd 1.000 0.753 0.408
+newmtl c605
+Kd 1.000 0.753 0.376
+newmtl c606
+Kd 0.941 0.533 0.063
+newmtl c607
+Kd 0.941 0.565 0.031
+newmtl c608
+Kd 0.722 0.973 0.627
+newmtl c609
+Kd 0.816 0.596 0.094
+newmtl c610
+Kd 0.753 0.878 0.471
+newmtl c611
+Kd 0.722 1.000 0.659
+newmtl c612
+Kd 0.941 0.533 0.125
+newmtl c613
+Kd 0.910 0.533 0.063
+newmtl c614
+Kd 0.941 0.502 0.063
+newmtl c615
+Kd 0.000 0.627 0.031
+newmtl c616
+Kd 0.816 0.627 0.125
+newmtl c617
+Kd 1.000 0.722 0.314
+newmtl c618
+Kd 0.941 0.533 0.094
+newmtl c619
+Kd 0.973 0.533 0.094
+newmtl c620
+Kd 1.000 0.722 0.376
+newmtl c621
+Kd 0.941 0.565 0.125
+newmtl c622
+Kd 1.000 0.690 0.345
+newmtl c623
+Kd 0.659 0.690 0.094
+newmtl c624
+Kd 0.376 0.816 0.125
+newmtl c625
+Kd 0.722 0.910 0.439
+newmtl c626
+Kd 0.816 0.847 0.471
+newmtl c627
+Kd 0.565 1.000 0.533
+newmtl c628
+Kd 0.941 0.784 0.533
+newmtl c629
+Kd 0.973 0.753 0.408
+newmtl c630
+Kd 0.910 0.533 0.094
+newmtl c631
+Kd 0.973 0.565 0.125
+newmtl c632
+Kd 1.000 0.722 0.345
+newmtl c633
+Kd 0.125 0.533 0.000
+newmtl c634
+Kd 0.094 0.533 0.188
+newmtl c635
+Kd 0.816 0.878 0.471
+newmtl c636
+Kd 0.941 0.565 0.094
+newmtl c637
+Kd 0.910 0.565 0.094
+newmtl c638
+Kd 0.910 0.753 0.502
+newmtl c639
+Kd 0.188 0.878 0.251
+newmtl c640
+Kd 0.157 0.878 0.220
+newmtl c641
+Kd 0.000 0.627 0.125
+newmtl c642
+Kd 0.816 0.847 0.408
+newmtl c643
+Kd 0.941 0.596 0.125
+newmtl c644
+Kd 1.000 0.753 0.345
+newmtl c645
+Kd 0.722 0.973 0.596
+newmtl c646
+Kd 0.910 0.816 0.502
+newmtl c647
+Kd 0.188 0.910 0.220
+newmtl c648
+Kd 0.125 0.471 0.063
+newmtl c649
+Kd 0.188 0.502 0.063
+newmtl c650
+Kd 0.973 0.565 0.094
+newmtl c651
+Kd 0.251 0.878 0.251
+newmtl c652
+Kd 0.000 0.596 0.188
+newmtl c653
+Kd 0.722 0.973 0.690
+newmtl c654
+Kd 0.690 0.659 0.188
+newmtl c655
+Kd 0.878 0.847 0.408
+newmtl c656
+Kd 0.722 0.659 0.125
+newmtl c657
+Kd 0.878 0.847 0.376
+newmtl c658
+Kd 0.784 0.596 0.157
+newmtl c659
+Kd 1.000 0.784 0.439
+newmtl c660
+Kd 0.847 0.816 0.471
+newmtl c661
+Kd 0.345 0.816 0.220
+newmtl c662
+Kd 0.188 0.910 0.188
+newmtl c663
+Kd 0.188 0.910 0.251
+newmtl c664
+Kd 0.627 0.722 0.094
+newmtl c665
+Kd 0.345 0.847 0.063
+newmtl c666
+Kd 0.784 0.878 0.471
+newmtl c667
+Kd 0.816 0.596 0.188
+newmtl c668
+Kd 0.878 0.816 0.376
+newmtl c669
+Kd 0.753 0.627 0.157
+newmtl c670
+Kd 0.847 0.847 0.376
+newmtl c671
+Kd 0.816 0.878 0.408
+newmtl c672
+Kd 0.784 0.627 0.125
+newmtl c673
+Kd 0.816 0.596 0.125
+newmtl c674
+Kd 0.722 0.973 0.722
+newmtl c675
+Kd 0.502 1.000 0.659
+newmtl c676
+Kd 0.157 0.471 0.125
+newmtl c677
+Kd 0.847 0.816 0.533
+newmtl c678
+Kd 0.816 0.847 0.439
+newmtl c679
+Kd 0.188 0.471 0.063
+newmtl c680
+Kd 0.816 0.941 0.565
+newmtl c681
+Kd 0.973 0.816 0.502
+newmtl c682
+Kd 0.722 0.847 0.471
+newmtl c683
+Kd 0.910 0.847 0.502
+newmtl c684
+Kd 0.878 0.847 0.533
+newmtl c685
+Kd 0.157 0.502 0.125
+newmtl c686
+Kd 0.847 0.847 0.533
+newmtl c687
+Kd 0.314 0.847 0.251
+newmtl c688
+Kd 0.157 0.533 0.031
+newmtl c689
+Kd 0.000 0.502 0.094
+newmtl c690
+Kd 0.973 0.565 0.063
+newmtl c691
+Kd 0.031 0.596 0.157
+newmtl c692
+Kd 0.596 1.000 0.627
+newmtl c693
+Kd 0.784 0.847 0.471
+newmtl c694
+Kd 0.753 1.000 0.659
+newmtl c695
+Kd 0.627 0.973 0.627
+newmtl c696
+Kd 0.973 0.533 0.157
+newmtl c697
+Kd 0.251 0.439 0.063
+newmtl c698
+Kd 0.125 0.533 0.094
+newmtl c699
+Kd 0.188 0.878 0.345
+newmtl c700
+Kd 0.878 0.784 0.565
+newmtl c701
+Kd 1.000 0.753 0.314
+newmtl c702
+Kd 0.910 0.533 0.125
+newmtl c703
+Kd 0.063 0.533 0.188
+newmtl c704
+Kd 0.094 0.910 0.251
+newmtl c705
+Kd 0.722 0.941 0.659
+newmtl c706
+Kd 0.847 0.784 0.471
+newmtl c707
+Kd 0.878 0.784 0.533
+newmtl c708
+Kd 0.220 0.847 0.220
+newmtl c709
+Kd 0.063 1.000 0.251
+newmtl c710
+Kd 0.125 0.502 0.157
+newmtl c711
+Kd 0.847 0.847 0.345
+newmtl c712
+Kd 0.941 0.533 0.031
+newmtl c713
+Kd 1.000 0.784 0.376
+newmtl c714
+Kd 0.282 0.878 0.251
+newmtl c715
+Kd 0.031 0.973 0.282
+newmtl c716
+Kd 0.031 0.565 0.188
+newmtl c717
+Kd 0.847 0.627 0.094
+newmtl c718
+Kd 1.000 0.471 0.345
+newmtl c719
+Kd 0.878 0.816 0.565
+newmtl c720
+Kd 0.847 0.596 0.063
+newmtl c721
+Kd 0.753 0.659 0.157
+newmtl c722
+Kd 0.784 0.596 0.063
+newmtl c723
+Kd 0.941 0.565 0.157
+newmtl c724
+Kd 1.000 0.627 0.502
+newmtl c725
+Kd 0.690 0.690 0.094
+newmtl c726
+Kd 0.941 0.784 0.502
+newmtl c727
+Kd 0.973 0.502 0.157
+newmtl c728
+Kd 0.941 0.784 0.408
+newmtl c729
+Kd 0.847 0.847 0.439
+newmtl c730
+Kd 0.157 0.973 0.251
+newmtl c731
+Kd 0.753 0.596 0.408
+newmtl c732
+Kd 0.188 0.502 0.125
+newmtl c733
+Kd 0.063 0.973 0.282
+newmtl c734
+Kd 0.063 1.000 0.220
+newmtl c735
+Kd 0.063 0.973 0.188
+newmtl c736
+Kd 0.471 1.000 0.596
+newmtl c737
+Kd 0.753 0.941 0.753
+newmtl c738
+Kd 0.690 0.973 0.690
+newmtl c739
+Kd 0.314 0.816 0.282
+newmtl c740
+Kd 0.251 0.847 0.251
+newmtl c741
+Kd 0.816 0.596 0.439
+newmtl c742
+Kd 0.753 0.847 0.502
+newmtl c743
+Kd 0.878 0.878 0.533
+newmtl c744
+Kd 0.941 0.816 0.533
+newmtl c745
+Kd 0.157 0.471 0.157
+newmtl c746
+Kd 0.094 0.502 0.063
+newmtl c747
+Kd 0.753 0.094 0.031
+newmtl c748
+Kd 0.376 0.753 0.314
+newmtl c749
+Kd 0.188 0.847 0.220
+newmtl c750
+Kd 0.690 0.941 0.722
+newmtl c751
+Kd 0.251 0.847 0.345
+newmtl c752
+Kd 0.094 0.565 0.220
+newmtl c753
+Kd 0.220 0.471 0.094
+newmtl c754
+Kd 0.000 0.596 0.157
+newmtl c755
+Kd 0.973 0.031 0.000
+newmtl c756
+Kd 0.973 0.502 0.565
+newmtl c757
+Kd 1.000 0.439 0.502
+newmtl c758
+Kd 0.753 0.973 0.690
+newmtl c759
+Kd 0.753 0.973 0.659
+newmtl c760
+Kd 0.973 0.471 0.533
+newmtl c761
+Kd 0.878 0.502 0.533
+newmtl c762
+Kd 0.973 0.533 0.502
+newmtl c763
+Kd 0.973 0.031 0.031
+newmtl c764
+Kd 1.000 0.659 0.502
+newmtl c765
+Kd 1.000 0.753 0.565
+newmtl c766
+Kd 1.000 0.722 0.565
+newmtl c767
+Kd 0.596 0.063 0.031
+newmtl c768
+Kd 0.627 0.031 0.031
+newmtl c769
+Kd 1.000 0.408 0.408
+newmtl c770
+Kd 0.910 0.000 0.031
+newmtl c771
+Kd 0.973 0.031 0.063
+newmtl c772
+Kd 0.973 0.533 0.471
+newmtl c773
+Kd 0.941 0.502 0.471
+newmtl c774
+Kd 1.000 0.471 0.376
+newmtl c775
+Kd 0.910 0.533 0.439
+newmtl c776
+Kd 0.910 0.502 0.502
+newmtl c777
+Kd 0.627 0.031 0.063
+newmtl c778
+Kd 0.973 0.533 0.125
+newmtl c779
+Kd 1.000 0.533 0.439
+newmtl c780
+Kd 0.659 0.063 0.063
+newmtl c781
+Kd 0.878 0.063 0.094
+newmtl c782
+Kd 0.910 0.063 0.094
+newmtl c783
+Kd 1.000 0.533 0.502
+newmtl c784
+Kd 0.973 0.471 0.157
+newmtl c785
+Kd 0.847 0.502 0.471
+newmtl c786
+Kd 0.816 0.063 0.094
+newmtl c787
+Kd 0.941 0.753 0.565
+newmtl c788
+Kd 1.000 0.471 0.220
+newmtl c789
+Kd 0.722 0.000 0.031
+newmtl c790
+Kd 0.690 0.031 0.063
+newmtl c791
+Kd 0.973 0.502 0.094
+newmtl c792
+Kd 0.690 0.000 0.094
+newmtl c793
+Kd 1.000 0.659 0.471
+newmtl c794
+Kd 0.816 0.094 0.000
+newmtl c795
+Kd 0.973 0.063 0.031
+newmtl c796
+Kd 0.722 0.031 0.000
+newmtl c797
+Kd 0.722 0.000 0.063
+newmtl c798
+Kd 0.973 0.753 0.533
+newmtl c799
+Kd 0.627 0.094 0.000
+newmtl c800
+Kd 0.753 0.000 0.063
+newmtl c801
+Kd 0.973 0.063 0.000
+newmtl c802
+Kd 0.973 0.063 0.063
+newmtl c803
+Kd 0.627 0.000 0.031
+newmtl c804
+Kd 0.941 0.784 0.596
+newmtl c805
+Kd 0.878 0.722 0.565
+newmtl c806
+Kd 1.000 0.784 0.533
+newmtl c807
+Kd 0.565 0.125 0.000
+newmtl c808
+Kd 0.910 0.784 0.627
+newmtl c809
+Kd 0.910 0.753 0.533
+newmtl c810
+Kd 0.941 0.753 0.502
+newmtl c811
+Kd 0.941 0.784 0.565

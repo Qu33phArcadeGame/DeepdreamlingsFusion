@@ -1,0 +1,36 @@
+newmtl c0
+Kd 0.000 0.000 0.000
+newmtl c1
+Kd 1.000 0.910 0.000
+newmtl c2
+Kd 0.125 0.157 0.282
+newmtl c3
+Kd 0.157 1.000 0.000
+newmtl c4
+Kd 1.000 0.000 0.502
+newmtl c5
+Kd 0.000 1.000 0.659
+newmtl c6
+Kd 0.125 0.000 1.000
+newmtl c7
+Kd 0.000 1.000 0.910
+newmtl c8
+Kd 1.000 0.000 0.000
+newmtl c9
+Kd 0.000 0.847 1.000
+newmtl c10
+Kd 0.439 0.000 1.000
+newmtl c11
+Kd 0.000 1.000 0.690
+newmtl c12
+Kd 0.722 0.000 1.000
+newmtl c13
+Kd 0.282 0.251 0.125
+newmtl c14
+Kd 0.282 0.125 0.251
+newmtl c15
+Kd 0.282 0.125 0.125
+newmtl c16
+Kd 0.125 0.282 0.282
+newmtl c17
+Kd 0.188 0.282 0.125
