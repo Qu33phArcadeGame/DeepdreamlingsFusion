@@ -16,6 +16,7 @@ const VoxelEngine = (function() {
   let waterSlotBodyMat = null;
   // Encounter cabinet machine (3D, camera-facing) + dreamling image cache
   let encMachine = null;
+  const _camDir = new THREE.Vector3();
   let woodsSlotTiles = []; // [{c,r}] green machine tiles in Waking Woods (encounter triggers)
   const dreamImgCache = {};
   function dreamImg(n, cb) {
@@ -812,9 +813,108 @@ const VoxelEngine = (function() {
     const gy = groundYAt(x, z);
     npcSprite.position.set(x, gy + 0.7 + bob, z);
   }
+  // Companion 3D models: OBJ+MTL files in models/ (uploaded extracted).
+  // The slab below stays as the instant fallback; the OBJ swaps in once loaded.
+  // Slots are untouched: they keep using the 2D dreamling sprites.
+  let companionObj = null;
+  const companionModelCache = {};
+  const companionModelLoading = {};
+  const companionModelFailed = {};
+  function parseMTL(text) {
+    const mats = {};
+    let cur = null;
+    text.split(/\r?\n/).forEach(function(line) {
+      const p = line.trim().split(/\s+/);
+      if (p[0] === 'newmtl') { cur = p[1]; mats[cur] = [1, 1, 1]; }
+      else if (p[0] === 'Kd' && cur) mats[cur] = [parseFloat(p[1]) || 0, parseFloat(p[2]) || 0, parseFloat(p[3]) || 0];
+    });
+    return mats;
+  }
+  function buildCompanionModel(objText, mtlText) {
+    const mats = mtlText ? parseMTL(mtlText) : {};
+    const verts = [];
+    const pos = [], col = [];
+    let cur = null;
+    objText.split(/\r?\n/).forEach(function(line) {
+      const p = line.trim().split(/\s+/);
+      if (!p[0]) return;
+      if (p[0] === 'v') verts.push([parseFloat(p[1]), parseFloat(p[2]), parseFloat(p[3])]);
+      else if (p[0] === 'usemtl') cur = p[1];
+      else if (p[0] === 'f') {
+        const idx = p.slice(1).map(function(t) { return parseInt(t.split('/')[0], 10) - 1; });
+        const c = (cur && mats[cur]) ? mats[cur] : [1, 1, 1];
+        const tris = [[idx[0], idx[1], idx[2]]];
+        if (idx.length >= 4) tris.push([idx[0], idx[2], idx[3]]);
+        tris.forEach(function(t) {
+          t.forEach(function(vi) {
+            const v = verts[vi];
+            if (!v) return;
+            pos.push(v[0], v[1], v[2]);
+            col.push(c[0], c[1], c[2]);
+          });
+        });
+      }
+    });
+    if (!pos.length) return null;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.computeVertexNormals();
+    geo.center();
+    geo.computeBoundingBox();
+    const h = geo.boundingBox.max.y - geo.boundingBox.min.y || 1;
+    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+    mesh.scale.setScalar(1.3 / h);
+    mesh.castShadow = true;
+    const g = new THREE.Group();
+    g.add(mesh);
+    return g;
+  }
+  function loadCompanionModel(num) {
+    if (companionModelCache[num] || companionModelLoading[num] || companionModelFailed[num]) return;
+    companionModelLoading[num] = true;
+    const base = 'models/dreamlingP' + num;
+    fetch(base + '.obj').then(function(r) { if (!r.ok) throw new Error('obj ' + r.status); return r.text(); })
+      .then(function(objText) {
+        const mm = objText.match(/^mtllib\s+(\S+)/m);
+        if (!mm) return { objText: objText, mtlText: null };
+        return fetch('models/' + mm[1]).then(function(r) { if (!r.ok) throw new Error('mtl ' + r.status); return r.text(); })
+          .then(function(mtlText) { return { objText: objText, mtlText: mtlText }; });
+      })
+      .then(function(parts) {
+        const g = buildCompanionModel(parts.objText, parts.mtlText);
+        if (!g) throw new Error('parse');
+        companionModelCache[num] = g;
+        delete companionModelLoading[num];
+      })
+      .catch(function() { delete companionModelLoading[num]; companionModelFailed[num] = true; });
+  }
   function setCompanion(textureUrl, x, z, time) {
     if (!textureUrl) {
       if (companionSprite) { scene.remove(companionSprite); companionSprite = null; }
+      if (companionObj) { scene.remove(companionObj); companionObj = null; }
+      return;
+    }
+    const numMatch = ("" + textureUrl).match(/dreamlingP(\d+)\.png/);
+    const num = numMatch ? parseInt(numMatch[1], 10) : -1;
+    // Bobbing animation + ORBIT around the character (circles you, dreamling-style)
+    const bob = Math.sin(time / 450) * 0.18;
+    const orbitR = 1.4;
+    const orbitA = time / 1400;  // one lap every ~9 seconds
+    const ox = Math.cos(orbitA) * orbitR;
+    const oz = Math.sin(orbitA) * orbitR;
+    const pulse = 1 + Math.sin(time / 600) * 0.06;
+    // 3D OBJ model when it has loaded; slab otherwise (and while loading)
+    if (num > 0 && companionModelCache[num]) {
+      if (companionObj !== companionModelCache[num]) {
+        if (companionSprite) { scene.remove(companionSprite); companionSprite = null; }
+        if (companionObj) scene.remove(companionObj);
+        companionObj = companionModelCache[num];
+        scene.add(companionObj);
+      }
+      companionObj.position.set(x + ox, 1.1 + bob, z + oz);
+      companionObj.rotation.y = orbitA + Math.PI / 2;  // face tangent to orbit
+      companionObj.scale.set(pulse, pulse, pulse);
       return;
     }
     const rurl = resolveUrl(textureUrl);
@@ -839,17 +939,11 @@ const VoxelEngine = (function() {
       companionSprite.userData.mat.map = companionTexCache[rurl];
       companionSprite.userData.mat.needsUpdate = true;
     }
-    // Bobbing animation + ORBIT around the character (circles you, dreamling-style)
-    const bob = Math.sin(time / 450) * 0.18;
-    const orbitR = 1.4;
-    const orbitA = time / 1400;  // one lap every ~9 seconds
-    const ox = Math.cos(orbitA) * orbitR;
-    const oz = Math.sin(orbitA) * orbitR;
     companionSprite.position.set(x + ox, 1.1 + bob, z + oz);
     companionSprite.rotation.y = orbitA + Math.PI / 2;  // face tangent to orbit
-    // Gentle pulsing scale (breathing)
-    const pulse = 1 + Math.sin(time / 600) * 0.06;
     companionSprite.scale.set(pulse, pulse, 1);
+    // Kick off the OBJ load in the background (slab stays until it arrives)
+    if (num > 0) loadCompanionModel(num);
   }
 
   // Render one frame
@@ -1279,23 +1373,12 @@ const VoxelEngine = (function() {
     }
     // Encounter cabinet machine: float in front of the camera, facing it
     if (encMachine && encMachine.visible && camera) {
-      const dir = new THREE.Vector3();
-      camera.getWorldDirection(dir);
-      encMachine.position.copy(camera.position).addScaledVector(dir, 4.6);
+      camera.getWorldDirection(_camDir);
+      encMachine.position.copy(camera.position).addScaledVector(_camDir, 4.6);
       encMachine.lookAt(camera.position);
+      // Reel faces scroll their strip texture while spinning; static otherwise
       if (encMachine.userData.reels) encMachine.userData.reels.forEach(function(reel) {
-        if (reel.userData.spinning) {
-          reel.userData.spinAngle += 0.22;
-          reel.rotation.x = reel.userData.spinAngle;
-        } else if (Math.abs(reel.userData.spinAngle - reel.userData.targetAngle) > 0.01) {
-          const diff = reel.userData.targetAngle - reel.userData.spinAngle;
-          reel.userData.spinAngle += diff * 0.15;
-          reel.rotation.x = reel.userData.spinAngle;
-        } else {
-          reel.userData.spinAngle += 0.008;
-          reel.userData.targetAngle = reel.userData.spinAngle;
-          reel.rotation.x = reel.userData.spinAngle;
-        }
+        if (reel.userData.scrolling && reel.userData.stripTex) reel.userData.stripTex.offset.y -= 0.22;
       });
       if (encMachine.userData.leverArm) encMachine.userData.leverArm.rotation.z = -0.35 + Math.sin(time / 900) * 0.15;
     }
@@ -1332,48 +1415,52 @@ const VoxelEngine = (function() {
     }
   }
 
-  // ---- Encounter cabinet machine: gold-trimmed arcade cabinet, dreamlings on 3D cylinders ----
-  function makeDreamReelCanvas(rolledNum, first, last) {
+  // ---- Encounter cabinet machine: gold-trimmed arcade cabinet, one centered dreamling per reel ----
+  // Flat face textures (unlit = bright and readable): a single dreamling, and a vertical
+  // strip of dreamlings that scrolls while the reel spins. Dark bg so the dreamlings'
+  // black backgrounds blend instead of blowing out white like the old wrapped drums.
+  function makeReelFaceCanvas(rolledNum) {
     const c = document.createElement('canvas');
-    c.width = 512; c.height = 128;
+    c.width = 128; c.height = 128;
     const ctx = c.getContext('2d');
-    const diamondCols = ['#ff4444', '#44ff44', '#4444ff', '#ff44ff'];
-    function drawSeg(s, num) {
-      const x0 = s * 128;
-      ctx.fillStyle = '#ffffff'; ctx.fillRect(x0, 0, 128, 128);
-      const im = dreamImgCache[num];
-      if (im && im.complete && im.naturalWidth) {
-        ctx.drawImage(im, x0, 0, 128, 128);
-      } else {
-        ctx.fillStyle = diamondCols[s % 4];
+    function draw() {
+      ctx.fillStyle = '#0d0d14'; ctx.fillRect(0, 0, 128, 128);
+      const im = dreamImgCache[rolledNum];
+      if (im && im.complete && im.naturalWidth) ctx.drawImage(im, 0, 0, 128, 128);
+      else {
+        ctx.fillStyle = '#44ff44';
         ctx.beginPath();
-        ctx.moveTo(x0 + 64, 28); ctx.lineTo(x0 + 104, 64); ctx.lineTo(x0 + 64, 100); ctx.lineTo(x0 + 24, 64);
+        ctx.moveTo(64, 28); ctx.lineTo(104, 64); ctx.lineTo(64, 100); ctx.lineTo(24, 64);
         ctx.closePath(); ctx.fill();
       }
-      ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x0 + 1, 1, 126, 126);
     }
-    const nums = [rolledNum];
-    for (let s = 1; s < 4; s++) nums.push(first + Math.floor(Math.random() * (last - first + 1)));
-    for (let s = 0; s < 4; s++) drawSeg(s, nums[s]);
-    nums.forEach(function(num, s) {
-      dreamImg(num, function() { drawSeg(s, num); if (c.userData && c.userData.tex) c.userData.tex.needsUpdate = true; });
-    });
+    draw();
+    dreamImg(rolledNum, function() { draw(); if (c.userData && c.userData.tex) c.userData.tex.needsUpdate = true; });
     return c;
   }
-  function makeAllRolledCanvas(rolledNum) {
+  function makeReelStripCanvas(first, last) {
     const c = document.createElement('canvas');
-    c.width = 512; c.height = 128;
+    c.width = 128; c.height = 1024;
     const ctx = c.getContext('2d');
-    function drawAll() {
-      const im = dreamImgCache[rolledNum];
-      for (let s = 0; s < 4; s++) {
-        if (im && im.complete && im.naturalWidth) ctx.drawImage(im, s * 128, 0, 128, 128);
-        else { ctx.fillStyle = '#ffffff'; ctx.fillRect(s * 128, 0, 128, 128); }
-        ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(s * 128 + 1, 1, 126, 126);
+    const diamondCols = ['#ff4444', '#44ff44', '#4444ff', '#ff44ff', '#ffaa00', '#44ffff', '#ff44ff', '#44ffff'];
+    const nums = [];
+    for (let s = 0; s < 8; s++) nums.push(first + Math.floor(Math.random() * (last - first + 1)));
+    function drawSeg(s) {
+      const y0 = s * 128;
+      ctx.fillStyle = '#0d0d14'; ctx.fillRect(0, y0, 128, 128);
+      const im = dreamImgCache[nums[s]];
+      if (im && im.complete && im.naturalWidth) ctx.drawImage(im, 0, y0, 128, 128);
+      else {
+        ctx.fillStyle = diamondCols[s % 8];
+        ctx.beginPath();
+        ctx.moveTo(64, y0 + 28); ctx.lineTo(104, y0 + 64); ctx.lineTo(64, y0 + 100); ctx.lineTo(24, y0 + 64);
+        ctx.closePath(); ctx.fill();
       }
     }
-    drawAll();
-    dreamImg(rolledNum, function() { drawAll(); if (c.userData && c.userData.tex) c.userData.tex.needsUpdate = true; });
+    for (let s = 0; s < 8; s++) drawSeg(s);
+    nums.forEach(function(num, s) {
+      dreamImg(num, function() { drawSeg(s); if (c.userData && c.userData.tex) c.userData.tex.needsUpdate = true; });
+    });
     return c;
   }
   function buildEncounterMachine(nums, first, last, bodyColor) {
@@ -1384,13 +1471,13 @@ const VoxelEngine = (function() {
     const glowPink = new THREE.MeshBasicMaterial({ color: 0xff4ad8 });
     const glowCyan = new THREE.MeshBasicMaterial({ color: 0x4ad8ff });
     const redMat = new THREE.MeshLambertMaterial({ color: 0xcc2222 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2.3, 3.4, 0.9), blackMat);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(3.1, 3.4, 0.9), blackMat);
     body.castShadow = true; g.add(body);
-    const trimT = new THREE.Mesh(new THREE.BoxGeometry(2.34, 0.08, 0.94), goldMat);
+    const trimT = new THREE.Mesh(new THREE.BoxGeometry(3.14, 0.08, 0.94), goldMat);
     trimT.position.y = 1.72; g.add(trimT);
-    const trimB = new THREE.Mesh(new THREE.BoxGeometry(2.34, 0.08, 0.94), goldMat);
+    const trimB = new THREE.Mesh(new THREE.BoxGeometry(3.14, 0.08, 0.94), goldMat);
     trimB.position.y = -1.72; g.add(trimB);
-    const marq = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.55, 0.95), darkMat);
+    const marq = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.55, 0.95), darkMat);
     marq.position.y = 1.95; marq.castShadow = true; g.add(marq);
     const mc = document.createElement('canvas'); mc.width = 512; mc.height = 128;
     const mctx = mc.getContext('2d');
@@ -1400,55 +1487,71 @@ const VoxelEngine = (function() {
     mctx.fillText('Deepdreamlings', 256, 52);
     mctx.fillText('Fusion', 256, 102);
     const mtex = new THREE.CanvasTexture(mc);
-    const marqFace = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 0.5), new THREE.MeshBasicMaterial({ map: mtex }));
+    const marqFace = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 0.5), new THREE.MeshBasicMaterial({ map: mtex }));
     marqFace.position.set(0, 1.95, 0.48); g.add(marqFace);
-    const scrFrame = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.4, 0.06), goldMat);
+    const scrFrame = new THREE.Mesh(new THREE.BoxGeometry(2.95, 1.4, 0.06), goldMat);
     scrFrame.position.set(0, 0.35, 0.47); g.add(scrFrame);
-    const scrBg = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.3, 0.06), darkMat);
+    const scrBg = new THREE.Mesh(new THREE.BoxGeometry(2.85, 1.3, 0.06), darkMat);
     scrBg.position.set(0, 0.35, 0.50); g.add(scrBg);
     for (let li = 0; li < 5; li++) {
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), li % 2 ? glowPink : glowCyan);
-      bulb.position.set(-0.72 + li * 0.36, 1.12, 0.52); g.add(bulb);
+      bulb.position.set(-1.2 + li * 0.6, 1.12, 0.52); g.add(bulb);
     }
     g.userData.reels = [];
     const n = nums.length;
-    const spacing = n >= 3 ? 0.68 : 0.72;
+    const spacing = 1.0; // drums are 0.92 across: 1.0 spacing keeps them from merging
     for (let i = 0; i < n; i++) {
-      const canvas = makeDreamReelCanvas(nums[i], first, last);
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.wrapS = THREE.RepeatWrapping;
-      canvas.userData = { tex: tex };
-      const reelMat = new THREE.MeshLambertMaterial({ map: tex });
-      const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.56, 24), reelMat);
-      reel.rotation.z = Math.PI / 2;
-      reel.rotation.y = Math.PI / 2;
-      reel.position.set((i - (n - 1) / 2) * spacing, 0.35, 0.56);
-      reel.userData.spinAngle = 0;
-      reel.userData.targetAngle = 0;
-      reel.userData.spinning = false;
-      reel.userData.rolled = nums[i];
-      g.add(reel);
-      g.userData.reels.push(reel);
+      const x = (i - (n - 1) / 2) * spacing;
+      // Dark drum behind: pure 3D depth, no wrapped texture (that wrap is what showed
+      // several off-center faces at once). The readable face is a flat plane in front.
+      const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.56, 24), darkMat);
+      drum.rotation.z = Math.PI / 2;
+      drum.rotation.y = Math.PI / 2;
+      drum.position.set(x, 0.35, 0.56);
+      g.add(drum);
+      // Face plane: exactly one centered dreamling, unlit so it stays bright
+      const faceCanvas = makeReelFaceCanvas(nums[i]);
+      const faceTex = new THREE.CanvasTexture(faceCanvas);
+      faceCanvas.userData = { tex: faceTex };
+      const stripCanvas = makeReelStripCanvas(first, last);
+      const stripTex = new THREE.CanvasTexture(stripCanvas);
+      stripTex.wrapT = THREE.RepeatWrapping;
+      stripCanvas.userData = { tex: stripTex };
+      const face = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 0.66), new THREE.MeshBasicMaterial({ map: faceTex }));
+      face.position.set(x, 0.35, 1.06);
+      face.userData.scrolling = false;
+      face.userData.singleTex = faceTex;
+      face.userData.stripTex = stripTex;
+      face.userData.rolled = nums[i];
+      g.add(face);
+      g.userData.reels.push(face);
     }
     const leverBase = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.08, 10), darkMat);
-    leverBase.position.set(1.2, 0.35, 0); leverBase.rotation.z = Math.PI / 2; g.add(leverBase);
+    leverBase.position.set(1.62, 0.35, 0); leverBase.rotation.z = Math.PI / 2; g.add(leverBase);
     const leverMat = new THREE.MeshLambertMaterial({ color: 0xe0e0e0 });
     const leverArm = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.55, 8), leverMat);
-    leverArm.position.set(1.28, 0.6, 0); leverArm.rotation.z = -0.35; g.add(leverArm);
+    leverArm.position.set(1.70, 0.6, 0); leverArm.rotation.z = -0.35; g.add(leverArm);
     g.userData.leverArm = leverArm;
     const leverBall = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), glowPink);
-    leverBall.position.set(1.38, 0.85, 0); g.add(leverBall);
-    const door = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.8, 0.06), darkMat);
+    leverBall.position.set(1.80, 0.85, 0); g.add(leverBall);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.8, 0.06), darkMat);
     door.position.set(0, -1.2, 0.47); g.add(door);
-    [-0.25, 0.25].forEach(function(dx) {
+    [-0.3, 0.3].forEach(function(dx) {
       const slot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.3, 0.03), redMat);
       slot.position.set(dx, -1.2, 0.51); g.add(slot);
     });
-    g.scale.set(0.9, 0.9, 0.9);
+    g.scale.set(0.78, 0.78, 0.78); // was 0.9: top of marquee was cropped off-screen
     return g;
   }
   function showEncounterMachine(nums, first, last, bodyColor) {
-    if (encMachine) { scene.remove(encMachine); disposeGroup(encMachine); encMachine = null; }
+    if (encMachine) {
+      // Dispose the spare reel textures too (disposeGroup only sees the assigned map)
+      if (encMachine.userData.reels) encMachine.userData.reels.forEach(function(r) {
+        if (r.userData.singleTex) r.userData.singleTex.dispose();
+        if (r.userData.stripTex) r.userData.stripTex.dispose();
+      });
+      scene.remove(encMachine); disposeGroup(encMachine); encMachine = null;
+    }
     encMachine = buildEncounterMachine(nums, first, last, bodyColor);
     encMachine.visible = true;
     scene.add(encMachine);
@@ -1458,22 +1561,20 @@ const VoxelEngine = (function() {
   }
   function spinEncounterReels() {
     if (!encMachine) return;
-    encMachine.userData.reels.forEach(function(reel) { reel.userData.spinning = true; });
+    encMachine.userData.reels.forEach(function(reel) {
+      reel.userData.scrolling = true;
+      reel.material.map = reel.userData.stripTex;
+      reel.material.needsUpdate = true;
+    });
   }
   function stopEncounterReel(i) {
     if (!encMachine || !encMachine.userData.reels[i]) return;
     const reel = encMachine.userData.reels[i];
-    reel.userData.spinning = false;
-    // Swap to an all-rolled texture: whatever segment faces front shows the rolled dreamling
-    const canvas = makeAllRolledCanvas(reel.userData.rolled);
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping;
-    canvas.userData = { tex: tex };
-    if (reel.material.map) reel.material.map.dispose();
-    reel.material.map = tex;
+    reel.userData.scrolling = false;
+    // Back to the single rolled dreamling: perfectly centered by construction,
+    // no rotation-alignment guesswork like the old wrapped drums
+    reel.material.map = reel.userData.singleTex;
     reel.material.needsUpdate = true;
-    const step = (Math.PI * 2) / 4;
-    reel.userData.targetAngle = Math.ceil(reel.userData.spinAngle / step) * step + step * 2;
   }
 
   return {
