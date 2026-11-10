@@ -449,7 +449,7 @@ function patchBatchNorm(m){
   for(const l of m.layers){
     if(l.getClassName()!=="BatchNormalization" || l.scale || l.gamma) continue;
     const c=l.movingMean.shape[l.movingMean.shape.length-1];
-    l.gamma=l.addWeight("gamma",[c],"float32",tf.initializers.ones(),null,false); l.scale=true;
+    const g=l.addWeight("gamma",[c],"float32",tf.initializers.ones(),null,false); g.read().assign(tf.ones([c])); l.gamma=g; l.scale=true;
   }
 }
 async function activate(name){
