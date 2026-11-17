@@ -1,0 +1,44 @@
+# Secrets and private files — never commit these.
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.pem
+*.key
+*.kspass
+*.env
+.env.*
+*credentials*
+*secret*
+password.txt
+token.txt
+google-services.json
+*-service-account*.json
+id_rsa*
+id_ed25519*
+keystore-base64.txt
+local.properties
+
+# Android build outputs
+*.apk
+*.aab
+build/
+.gradle/
+local.properties
+
+# Compiled / build outputs
+*.o
+*.elf
+*.map
+*.a
+*.so
+*.dll
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+node_modules/
